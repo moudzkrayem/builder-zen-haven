@@ -92,7 +92,12 @@ export default function Swipe() {
 
   const currentEvent = mockEvents[currentIndex];
 
-  const handleSwipe = (direction: "left" | "right") => {
+  const handleSwipe = (direction: "left" | "right", fromButton = false) => {
+    if (fromButton) {
+      setAnimatingButton(direction === "left" ? "nope" : "like");
+      setTimeout(() => setAnimatingButton(null), 300);
+    }
+
     if (currentIndex < mockEvents.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setIsExpanded(false);
