@@ -151,9 +151,9 @@ const settingsGroups = [
 ];
 
 export default function Settings() {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme, isDark } = useTheme();
   const [notifications, setNotifications] = useState({
-    newMatches: true,
+    newTrybes: true,
     messages: true,
     eventReminders: true,
     profileViews: false,
@@ -161,9 +161,7 @@ export default function Settings() {
 
   const handleToggle = (settingKey: string, value: boolean) => {
     if (settingKey === "darkMode") {
-      setDarkMode(value);
-      // Here you would implement actual dark mode toggle
-      document.documentElement.classList.toggle("dark", value);
+      setTheme(value ? "dark" : "light");
     }
   };
 
