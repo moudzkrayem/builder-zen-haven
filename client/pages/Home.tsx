@@ -89,6 +89,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showSimilar, setShowSimilar] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   return (
     <div className="h-full bg-background overflow-y-auto">
