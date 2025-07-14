@@ -261,16 +261,28 @@ export default function Swipe() {
               </>
             )}
 
+            {/* Host circle */}
+            <div className="absolute top-6 left-6 flex items-center space-x-3 z-10">
+              <img
+                src={currentEvent.hostImage}
+                alt={currentEvent.hostName}
+                className="w-12 h-12 rounded-full border-2 border-white object-cover"
+              />
+              <div className="text-white">
+                <div className="text-sm font-semibold">
+                  {currentEvent.hostName}, {currentEvent.hostAge}
+                </div>
+                <div className="text-xs text-white/80">Host</div>
+              </div>
+            </div>
+
             {/* Event info overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h2 className="text-2xl font-bold">
-                    {currentEvent.name}, {currentEvent.age}
+                  <h2 className="text-3xl font-bold mb-1">
+                    {currentEvent.eventName}
                   </h2>
-                  <h3 className="text-lg font-semibold text-white/90">
-                    {currentEvent.title}
-                  </h3>
                 </div>
                 <button
                   onClick={(e) => {
