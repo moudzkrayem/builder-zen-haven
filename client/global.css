@@ -64,33 +64,33 @@
     --card: 240 6% 12%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3.9%;
+    --popover: 240 6% 12%;
     --popover-foreground: 0 0% 98%;
 
     /* Dozer Orange Primary (slightly muted for dark mode) */
     --primary: 24 85% 58%;
-    --primary-foreground: 240 10% 3.9%;
+    --primary-foreground: 240 6% 10%;
 
-    --secondary: 240 3.7% 15.9%;
+    --secondary: 240 4% 16%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 3.7% 15.9%;
+    --muted: 240 4% 16%;
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 240 3.7% 15.9%;
+    --accent: 240 4% 16%;
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
     --ring: 24 85% 58%;
 
     /* Chat & messaging colors (dark mode) */
     --message-sent: 24 85% 58%;
-    --message-sent-foreground: 240 10% 3.9%;
-    --message-received: 240 3.7% 15.9%;
+    --message-sent-foreground: 240 6% 10%;
+    --message-received: 240 4% 16%;
     --message-received-foreground: 0 0% 98%;
 
     /* Like/Nope colors (dark mode) */
