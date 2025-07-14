@@ -301,13 +301,19 @@ export default function Home() {
                         alt={trybe.name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute top-2 right-2">
+                      <div className="absolute top-2 right-2 flex items-center space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
                         >
                           <Heart className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1 h-6 text-xs rounded-full"
+                        >
+                          Join
                         </Button>
                       </div>
                     </div>
