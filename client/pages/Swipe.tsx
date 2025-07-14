@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock data for events/profiles with updated structure
+// Mock data for events with updated structure focused on events
 const mockEvents = [
   {
     id: 1,
-    name: "Sarah Chen",
-    age: 24,
-    title: "Coffee & Code Meetup",
+    eventName: "Coffee & Code Meetup",
+    hostName: "Sarah Chen",
+    hostAge: 24,
     description:
       "Looking for fellow developers to grab coffee and work on side projects together. Let's build something amazing! ☕️💻",
     location: "Downtown SF",
@@ -28,13 +28,13 @@ const mockEvents = [
     attendees: 12,
     maxCapacity: 15,
     fee: "Free",
-    image:
-      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop",
-    interests: ["Tech", "Coffee", "Networking"],
-    photos: [
-      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop",
+    hostImage:
+      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop",
+    eventImages: [
       "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop",
     ],
+    interests: ["Tech", "Coffee", "Networking"],
   },
   {
     id: 2,
