@@ -91,8 +91,10 @@ export default function Home() {
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
 
-  return (
-    <div className="h-full bg-background overflow-y-auto">
+    return (
+    <>
+      {showMap && <Map onClose={() => setShowMap(false)} />}
+      <div className="h-full bg-background overflow-y-auto">
       {/* Header with T logo */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -217,7 +219,7 @@ export default function Home() {
                     )}
                   </div>
 
-                  <div className="flex-1 p-4">
+                                    <div className="flex-1 p-4">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-semibold text-foreground line-clamp-1">
                         {trybe.name}
@@ -303,7 +305,7 @@ export default function Home() {
                         alt={trybe.name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute top-2 right-2 flex items-center space-x-1">
+                                            <div className="absolute top-2 right-2 flex items-center space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -348,7 +350,11 @@ export default function Home() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Nearby Trybes</h2>
-            <Button variant="ghost" size="sm" onClick={() => setShowMap(true)}>
+                        <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMap(true)}
+            >
               <MapPin className="w-4 h-4 mr-2" />
               View Map
             </Button>
@@ -366,7 +372,7 @@ export default function Home() {
                     alt={trybe.name}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
+                                    <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -408,7 +414,7 @@ export default function Home() {
         {/* Quick actions */}
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Button
+                        <Button
               variant="outline"
               className="h-12 rounded-xl"
               onClick={() => setShowMap(true)}
