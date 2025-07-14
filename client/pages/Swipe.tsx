@@ -38,9 +38,9 @@ const mockEvents = [
   },
   {
     id: 2,
-    name: "Alex Rivera",
-    age: 28,
-    title: "Sunset Hiking Adventure",
+    eventName: "Sunset Hiking Adventure",
+    hostName: "Alex Rivera",
+    hostAge: 28,
     description:
       "Join me for a breathtaking sunset hike at Twin Peaks! Perfect for meeting new people and getting some exercise. All fitness levels welcome! 🌅⛰️",
     location: "Twin Peaks",
@@ -48,13 +48,13 @@ const mockEvents = [
     attendees: 8,
     maxCapacity: 12,
     fee: "$10",
-    image:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop",
-    interests: ["Hiking", "Photography", "Fitness"],
-    photos: [
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop",
+    hostImage:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+    eventImages: [
       "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop",
     ],
+    interests: ["Hiking", "Photography", "Fitness"],
   },
   {
     id: 3,
