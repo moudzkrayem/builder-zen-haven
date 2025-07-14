@@ -214,8 +214,8 @@ export default function Swipe() {
           <div className="relative h-full">
             <div className="absolute inset-0">
               <img
-                src={currentEvent.photos[currentPhotoIndex]}
-                alt={currentEvent.name}
+                src={currentEvent.eventImages[currentPhotoIndex]}
+                alt={currentEvent.eventName}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
