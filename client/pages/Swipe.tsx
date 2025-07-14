@@ -374,11 +374,11 @@ export default function Swipe() {
       {isDragging && Math.abs(dragOffset.x) > 50 && (
         <div
           className={cn(
-            "absolute top-1/2 transform -translate-y-1/2 text-6xl font-bold animate-pulse",
+            "absolute top-1/2 transform -translate-y-1/2 text-4xl font-bold animate-pulse",
             dragOffset.x > 0 ? "right-8 text-primary" : "left-8 text-primary",
           )}
         >
-          {dragOffset.x > 0 ? "LIKE" : "NOPE"}
+          {dragOffset.x > 0 ? "JOIN TRYBE" : "NOPE"}
         </div>
       )}
     </div>
