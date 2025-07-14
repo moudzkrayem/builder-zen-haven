@@ -188,11 +188,11 @@ export default function Chats() {
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
             <Heart className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-4">Start Matching!</h2>
+          <h2 className="text-2xl font-bold mb-4">Start Finding Trybes!</h2>
           <p className="text-muted-foreground mb-6 max-w-sm">
             Like events and people to start conversations and build your Trybe.
           </p>
-          <Button className="rounded-full px-8">Discover Events</Button>
+          <Button className="rounded-full px-8">Discover Trybes</Button>
         </div>
       )}
     </div>
