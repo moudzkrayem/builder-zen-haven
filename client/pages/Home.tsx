@@ -163,7 +163,10 @@ export default function Home() {
           {/* Create Trybe Action */}
           <div className="mb-6 mt-4">
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-col">
-              <Button className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1 sm:flex-row sm:justify-center sm:ml-auto">
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1 sm:flex-row sm:justify-center sm:ml-auto"
+              >
                 <Plus className="w-6 h-6" />
                 <span className="text-sm font-semibold">Create Trybe</span>
               </Button>
