@@ -222,9 +222,9 @@ export default function Swipe() {
             </div>
 
             {/* Photo indicators */}
-            {currentEvent.photos.length > 1 && (
+            {currentEvent.eventImages.length > 1 && (
               <div className="absolute top-4 left-4 right-4 flex space-x-1">
-                {currentEvent.photos.map((_, index) => (
+                {currentEvent.eventImages.map((_, index) => (
                   <div
                     key={index}
                     className={cn(
