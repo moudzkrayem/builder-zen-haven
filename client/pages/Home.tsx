@@ -348,7 +348,7 @@ export default function Home() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Nearby Trybes</h2>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => setShowMap(true)}>
               <MapPin className="w-4 h-4 mr-2" />
               View Map
             </Button>
