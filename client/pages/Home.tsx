@@ -408,7 +408,11 @@ export default function Home() {
         {/* Quick actions */}
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="h-12 rounded-xl">
+            <Button
+              variant="outline"
+              className="h-12 rounded-xl"
+              onClick={() => setShowMap(true)}
+            >
               <MapPin className="w-5 h-5 mr-2" />
               Browse Map
             </Button>
