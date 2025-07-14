@@ -7,12 +7,19 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1rem",
       screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
         "2xl": "1400px",
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,43 +54,86 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        // Trybe-specific colors
+        like: {
+          DEFAULT: "hsl(var(--like))",
+          foreground: "hsl(var(--like-foreground))",
+        },
+        nope: {
+          DEFAULT: "hsl(var(--nope))",
+          foreground: "hsl(var(--nope-foreground))",
+        },
+        superlike: {
+          DEFAULT: "hsl(var(--superlike))",
+          foreground: "hsl(var(--superlike-foreground))",
+        },
+        "message-sent": {
+          DEFAULT: "hsl(var(--message-sent))",
+          foreground: "hsl(var(--message-sent-foreground))",
+        },
+        "message-received": {
+          DEFAULT: "hsl(var(--message-received))",
+          foreground: "hsl(var(--message-received-foreground))",
         },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "1.5rem",
+        "2xl": "2rem",
+        "3xl": "2.5rem",
+      },
+      spacing: {
+        "18": "4.5rem",
+        "88": "22rem",
+        "120": "30rem",
+      },
+      height: {
+        "screen-safe": "100dvh",
+        "screen-safe-no-nav": "calc(100dvh - 5rem)",
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "swipe-right": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": {
+            transform: "translateX(100vw) rotate(30deg)",
+            opacity: "0",
           },
-          to: {
-            height: "0",
+        },
+        "swipe-left": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": {
+            transform: "translateX(-100vw) rotate(-30deg)",
+            opacity: "0",
           },
+        },
+        "like-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.8" },
+          "50%": { transform: "scale(1.05)", opacity: "1" },
+        },
+        "bounce-in": {
+          "0%": { transform: "scale(0.3)", opacity: "0" },
+          "50%": { transform: "scale(1.05)" },
+          "70%": { transform: "scale(0.9)" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "swipe-right": "swipe-right 0.3s ease-out forwards",
+        "swipe-left": "swipe-left 0.3s ease-out forwards",
+        "like-pulse": "like-pulse 0.6s ease-in-out",
+        "bounce-in": "bounce-in 0.4s ease-out",
       },
     },
   },
