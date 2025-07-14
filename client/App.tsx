@@ -10,9 +10,9 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
 import Home from "./pages/Home";
+import Swipe from "./pages/Swipe";
 import Chats from "./pages/Chats";
 import Profile from "./pages/Profile";
-import Explore from "./pages/Explore";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
