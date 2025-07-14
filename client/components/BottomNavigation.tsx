@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/home", icon: Home, label: "Home" },
-  { path: "/swipe", icon: Heart, label: "Swipe" },
+  { path: "/swipe", icon: ArrowLeftRight, label: "Swipe" },
   { path: "/chats", icon: MessageCircle, label: "Chats" },
   { path: "/profile", icon: User, label: "Profile" },
   { path: "/settings", icon: Settings, label: "Settings" },
