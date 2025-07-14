@@ -265,7 +265,7 @@ export default function Settings() {
                           <Switch
                             checked={
                               item.label === "Dark Mode"
-                                ? darkMode
+                                ? isDark
                                 : item.value || false
                             }
                             onCheckedChange={(checked) =>
