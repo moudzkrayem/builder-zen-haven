@@ -21,7 +21,7 @@ const mockChats = [
   {
     id: 2,
     name: "Alex Rivera",
-    lastMessage: "The sunset hike was amazing! Thanks for joining ���",
+    lastMessage: "The sunset hike was amazing! Thanks for joining 🌅",
     time: "1h",
     avatar:
       "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
@@ -83,10 +83,10 @@ export default function Chats() {
         </div>
       </div>
 
-      {/* Active matches carousel */}
+      {/* Active trybes carousel */}
       <div className="px-4 py-6">
         <h2 className="text-lg font-semibold mb-4 text-foreground">
-          New Matches
+          New Trybes
         </h2>
         <div className="flex space-x-4 overflow-x-auto hide-scrollbar pb-2">
           {mockChats.slice(0, 3).map((chat) => (
