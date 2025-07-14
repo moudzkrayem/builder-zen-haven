@@ -85,6 +85,9 @@ export default function Swipe() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [animatingButton, setAnimatingButton] = useState<
+    "like" | "nope" | null
+  >(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const currentEvent = mockEvents[currentIndex];
