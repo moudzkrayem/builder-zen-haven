@@ -6,6 +6,7 @@ import {
   Search,
   Settings,
   Heart,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
