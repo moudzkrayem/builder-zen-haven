@@ -1,379 +1,422 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  X,
-  Heart,
-  RotateCcw,
-  Star,
+  Search,
+  Filter,
   MapPin,
   Clock,
   Users,
-  Camera,
-  Settings,
+  Heart,
+  Calendar,
+  Plus,
+  TrendingUp,
+  DollarSign,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock data for events/profiles
-const mockEvents = [
+// Mock data for featured trybes with updated structure
+const featuredTrybes = [
   {
     id: 1,
-    name: "Sarah Chen",
-    age: 24,
-    title: "Coffee & Code Meetup",
-    description:
-      "Looking for fellow developers to grab coffee and work on side projects together. Let's build something amazing! ☕️💻",
-    location: "Downtown SF",
-    time: "Today, 3:00 PM",
-    attendees: 12,
-    maxAttendees: 15,
+    name: "Weekend Farmers Market",
+    location: "Union Square",
+    date: "Sat 9:00 AM",
+    attendees: 45,
+    maxCapacity: 60,
+    fee: "Free",
     image:
-      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop",
-    interests: ["Tech", "Coffee", "Networking"],
-    photos: [
-      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop",
-    ],
+      "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=300&h=200&fit=crop",
+    category: "Food & Drink",
+    isPopular: true,
+    host: "Market Collective",
+    rating: 4.8,
   },
   {
     id: 2,
-    name: "Alex Rivera",
-    age: 28,
-    title: "Sunset Hiking Adventure",
-    description:
-      "Join me for a breathtaking sunset hike at Twin Peaks! Perfect for meeting new people and getting some exercise. All fitness levels welcome! 🌅⛰️",
-    location: "Twin Peaks",
-    time: "Tomorrow, 6:00 PM",
-    attendees: 8,
-    maxAttendees: 12,
+    name: "Rooftop Yoga Session",
+    location: "SoMa District",
+    date: "Sun 7:00 AM",
+    attendees: 20,
+    maxCapacity: 25,
+    fee: "$15",
     image:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop",
-    interests: ["Hiking", "Photography", "Fitness"],
-    photos: [
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=600&fit=crop",
-    ],
+      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=300&h=200&fit=crop",
+    category: "Fitness",
+    isPopular: false,
+    host: "ZenFlow Studio",
+    rating: 4.9,
   },
   {
     id: 3,
-    name: "Maya Patel",
-    age: 26,
-    title: "Art Gallery Opening",
-    description:
-      "Exclusive preview of the new contemporary art exhibition. Wine, cheese, and great conversations about creativity and inspiration! 🎨🍷",
-    location: "SOMA Gallery",
-    time: "Friday, 7:00 PM",
-    attendees: 25,
-    maxAttendees: 30,
+    name: "Tech Networking Mixer",
+    location: "SOMA",
+    date: "Thu 6:00 PM",
+    attendees: 87,
+    maxCapacity: 100,
+    fee: "$25",
     image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop",
-    interests: ["Art", "Culture", "Wine"],
-    photos: [
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=600&fit=crop",
-    ],
+      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=300&h=200&fit=crop",
+    category: "Professional",
+    isPopular: true,
+    host: "TechConnect SF",
+    rating: 4.7,
   },
 ];
 
+const categories = [
+  { name: "All", color: "bg-primary" },
+  { name: "Food & Drink", color: "bg-orange-500" },
+  { name: "Fitness", color: "bg-green-500" },
+  { name: "Professional", color: "bg-blue-500" },
+  { name: "Arts & Culture", color: "bg-purple-500" },
+  { name: "Outdoors", color: "bg-emerald-500" },
+];
+
+const trendingSearches = [
+  "Coffee meetups",
+  "Hiking groups",
+  "Art galleries",
+  "Tech events",
+  "Food festivals",
+  "Yoga classes",
+];
+
 export default function Home() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  const currentEvent = mockEvents[currentIndex];
-
-  const handleSwipe = (direction: "left" | "right") => {
-    if (currentIndex < mockEvents.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsExpanded(false);
-      setCurrentPhotoIndex(0);
-    }
-  };
-
-  const handleUndo = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setIsExpanded(false);
-      setCurrentPhotoIndex(0);
-    }
-  };
-
-  const handleSuperLike = () => {
-    // Animate super like
-    handleSwipe("right");
-  };
-
-  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-
-    setDragStart({ x: clientX, y: clientY });
-    setIsDragging(true);
-  };
-
-  const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDragging) return;
-
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-
-    const deltaX = clientX - dragStart.x;
-    const deltaY = clientY - dragStart.y;
-
-    setDragOffset({ x: deltaX, y: deltaY });
-  };
-
-  const handleDragEnd = () => {
-    if (!isDragging) return;
-
-    const threshold = 100;
-
-    if (Math.abs(dragOffset.x) > threshold) {
-      handleSwipe(dragOffset.x > 0 ? "right" : "left");
-    }
-
-    setDragOffset({ x: 0, y: 0 });
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => handleDragMove(e);
-    const handleMouseUp = () => handleDragEnd();
-    const handleTouchMove = (e: TouchEvent) => handleDragMove(e);
-    const handleTouchEnd = () => handleDragEnd();
-
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.addEventListener("touchmove", handleTouchMove);
-      document.addEventListener("touchend", handleTouchEnd);
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [isDragging, dragStart, dragOffset]);
-
-  if (!currentEvent) {
-    return (
-      <div className="h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/10">
-        <div className="text-center">
-          <Heart className="w-16 h-16 text-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            No more events!
-          </h2>
-          <p className="text-muted-foreground">
-            Check back later for new experiences.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [showSimilar, setShowSimilar] = useState(false);
 
   return (
-    <div className="relative h-full bg-gradient-to-br from-background via-accent/5 to-primary/5">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-10 h-10 rounded-full bg-black/20 text-white backdrop-blur-sm"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
-        <div className="text-white font-bold text-lg">Trybe</div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-10 h-10 rounded-full bg-black/20 text-white backdrop-blur-sm"
-        >
-          <Camera className="w-5 h-5" />
-        </Button>
-      </div>
-
-      {/* Main Card */}
-      <div className="relative h-full pt-16 pb-24 px-4">
-        <div
-          ref={cardRef}
-          className={cn(
-            "relative w-full h-full bg-card rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 cursor-grab active:cursor-grabbing",
-            isDragging && "scale-105",
-          )}
-          style={{
-            transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.1}deg)`,
-          }}
-          onMouseDown={handleDragStart}
-          onTouchStart={handleDragStart}
-        >
-          {/* Photo carousel */}
-          <div className="relative h-full">
-            <div className="absolute inset-0">
-              <img
-                src={currentEvent.photos[currentPhotoIndex]}
-                alt={currentEvent.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+    <div className="h-full bg-background overflow-y-auto">
+      {/* Header with T logo */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            {/* T Logo */}
+            <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center">
+              <span className="text-xl font-bold text-primary-foreground">
+                T
+              </span>
             </div>
-
-            {/* Photo indicators */}
-            {currentEvent.photos.length > 1 && (
-              <div className="absolute top-4 left-4 right-4 flex space-x-1">
-                {currentEvent.photos.map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "flex-1 h-1 rounded-full transition-all duration-300",
-                      index === currentPhotoIndex ? "bg-white" : "bg-white/30",
-                    )}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Touch areas for photo navigation */}
-            {currentEvent.photos.length > 1 && (
-              <>
-                <button
-                  className="absolute left-0 top-20 bottom-32 w-1/2 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
-                  }}
-                />
-                <button
-                  className="absolute right-0 top-20 bottom-32 w-1/2 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentPhotoIndex(
-                      Math.min(
-                        currentEvent.photos.length - 1,
-                        currentPhotoIndex + 1,
-                      ),
-                    );
-                  }}
-                />
-              </>
-            )}
-
-            {/* Event info overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {currentEvent.name}, {currentEvent.age}
-                  </h2>
-                  <h3 className="text-lg font-semibold text-white/90">
-                    {currentEvent.title}
-                  </h3>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsExpanded(!isExpanded);
-                  }}
-                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm"
-                >
-                  <span className="text-sm font-bold">
-                    {isExpanded ? "−" : "+"}
-                  </span>
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-4 mb-3 text-sm">
-                <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{currentEvent.location}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{currentEvent.time}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Users className="w-4 h-4" />
-                  <span>
-                    {currentEvent.attendees}/{currentEvent.maxAttendees}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-3">
-                {currentEvent.interests.map((interest, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="bg-white/20 text-white border-white/30"
-                  >
-                    {interest}
-                  </Badge>
-                ))}
-              </div>
-
-              {isExpanded && (
-                <p className="text-white/90 text-sm leading-relaxed animate-bounce-in">
-                  {currentEvent.description}
-                </p>
-              )}
+            <div>
+              <h1 className="text-xl font-bold leading-tight">Find your</h1>
+              <h1 className="text-xl font-bold text-primary leading-tight">
+                Trybe
+              </h1>
             </div>
           </div>
+          <Button variant="ghost" size="icon">
+            <Filter className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search trybes, events, experiences..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
+          />
+        </div>
+
+        {/* Categories */}
+        <div className="flex space-x-2 overflow-x-auto hide-scrollbar">
+          {categories.map((category) => {
+            const isSelected = selectedCategory === category.name;
+
+            return (
+              <Button
+                key={category.name}
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "flex-shrink-0 rounded-full h-9 px-4",
+                  isSelected && "bg-primary text-primary-foreground",
+                )}
+                onClick={() => setSelectedCategory(category.name)}
+              >
+                {category.name}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center space-x-6 px-8">
-        <Button
-          onClick={handleUndo}
-          disabled={currentIndex === 0}
-          size="icon"
-          variant="outline"
-          className="w-12 h-12 rounded-full bg-card shadow-lg border-2 hover:scale-110 transition-all duration-200 disabled:opacity-50"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </Button>
+      <div className="px-4 pb-6">
+        {/* Create and Join Trybe Actions */}
+        <div className="mb-6 mt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Button className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1">
+              <Plus className="w-6 h-6" />
+              <span className="text-sm font-semibold">Create Trybe</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 flex flex-col items-center justify-center space-y-1"
+            >
+              <Users className="w-6 h-6" />
+              <span className="text-sm font-semibold">Join Trybe</span>
+            </Button>
+          </div>
+        </div>
 
-        <Button
-          onClick={() => handleSwipe("left")}
-          size="icon"
-          className="w-16 h-16 rounded-full bg-nope hover:bg-nope/90 text-nope-foreground shadow-lg hover:scale-110 transition-all duration-200"
-        >
-          <X className="w-7 h-7" />
-        </Button>
+        {/* Trending searches */}
+        {searchQuery === "" && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-3">Trending</h2>
+            <div className="flex flex-wrap gap-2">
+              {trendingSearches.map((search, index) => (
+                <Badge
+                  key={index}
+                  variant="secondary"
+                  className="px-3 py-1 rounded-full cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                  onClick={() => setSearchQuery(search)}
+                >
+                  {search}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <Button
-          onClick={handleSuperLike}
-          size="icon"
-          className="w-12 h-12 rounded-full bg-superlike hover:bg-superlike/90 text-superlike-foreground shadow-lg hover:scale-110 transition-all duration-200"
-        >
-          <Star className="w-5 h-5" />
-        </Button>
+        {/* Featured trybes */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Featured Trybes</h2>
+            <Button variant="ghost" size="sm">
+              See All
+            </Button>
+          </div>
 
-        <Button
-          onClick={() => handleSwipe("right")}
-          size="icon"
-          className="w-16 h-16 rounded-full bg-like hover:bg-like/90 text-like-foreground shadow-lg hover:scale-110 transition-all duration-200"
-        >
-          <Heart className="w-7 h-7" />
-        </Button>
-      </div>
+          <div className="space-y-4">
+            {featuredTrybes.map((trybe) => (
+              <div
+                key={trybe.id}
+                className="relative bg-card rounded-2xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
+              >
+                <div className="flex">
+                  <div className="relative w-24 h-24">
+                    <img
+                      src={trybe.image}
+                      alt={trybe.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {trybe.isPopular && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-primary text-primary-foreground text-xs h-5">
+                          Popular
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
 
-      {/* Swipe indicators */}
-      {isDragging && Math.abs(dragOffset.x) > 50 && (
-        <div
-          className={cn(
-            "absolute top-1/2 transform -translate-y-1/2 text-6xl font-bold animate-pulse",
-            dragOffset.x > 0 ? "right-8 text-like" : "left-8 text-nope",
+                  <div className="flex-1 p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-foreground line-clamp-1">
+                        {trybe.name}
+                      </h3>
+                      <Button variant="ghost" size="icon" className="w-8 h-8">
+                        <Heart className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center space-x-3 text-sm text-muted-foreground mb-2">
+                      <div className="flex items-center space-x-1">
+                        <MapPin className="w-3 h-3" />
+                        <span>{trybe.location}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{trybe.date}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                        <div className="flex items-center space-x-1">
+                          <Users className="w-3 h-3" />
+                          <span>
+                            {trybe.attendees}/{trybe.maxCapacity}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <DollarSign className="w-3 h-3" />
+                          <span>{trybe.fee}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3 fill-current text-yellow-500" />
+                          <span>{trybe.rating}</span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {trybe.category}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Show Me More Button */}
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-xl"
+              onClick={() => setShowSimilar(!showSimilar)}
+            >
+              <TrendingUp className="w-5 h-5 mr-2" />
+              Show Me More Similar Events
+            </Button>
+          </div>
+
+          {/* Similar events section */}
+          {showSimilar && (
+            <div className="mt-4 space-y-3 animate-bounce-in">
+              <h3 className="text-md font-semibold text-muted-foreground">
+                Based on your interests
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {featuredTrybes.slice(0, 4).map((trybe) => (
+                  <div
+                    key={`similar-${trybe.id}`}
+                    className="bg-card rounded-xl overflow-hidden shadow-sm border border-border"
+                  >
+                    <div className="relative aspect-[4/3]">
+                      <img
+                        src={trybe.image}
+                        alt={trybe.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-2 right-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
+                        >
+                          <Heart className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <h3 className="font-semibold text-sm mb-1 line-clamp-1">
+                        {trybe.name}
+                      </h3>
+                      <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2">
+                        <MapPin className="w-3 h-3" />
+                        <span>{trybe.location}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {trybe.date}
+                        </span>
+                        <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                          <DollarSign className="w-3 h-3" />
+                          <span>{trybe.fee}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-        >
-          {dragOffset.x > 0 ? "LIKE" : "NOPE"}
         </div>
-      )}
+
+        {/* Nearby trybes */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Nearby Trybes</h2>
+            <Button variant="ghost" size="sm">
+              <MapPin className="w-4 h-4 mr-2" />
+              View Map
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {featuredTrybes.slice(0, 4).map((trybe) => (
+              <div
+                key={`nearby-${trybe.id}`}
+                className="bg-card rounded-xl overflow-hidden shadow-sm border border-border"
+              >
+                <div className="relative aspect-[4/3]">
+                  <img
+                    src={trybe.image}
+                    alt={trybe.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
+                    >
+                      <Heart className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-3">
+                  <h3 className="font-semibold text-sm mb-1 line-clamp-1">
+                    {trybe.name}
+                  </h3>
+                  <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2">
+                    <MapPin className="w-3 h-3" />
+                    <span>{trybe.location}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {trybe.date}
+                    </span>
+                    <div className="flex items-center space-x-1 text-xs text-primary">
+                      <Star className="w-3 h-3 fill-current" />
+                      <span>{trybe.rating}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-12 rounded-xl">
+              <MapPin className="w-5 h-5 mr-2" />
+              Browse Map
+            </Button>
+            <Button variant="outline" className="h-12 rounded-xl">
+              <Calendar className="w-5 h-5 mr-2" />
+              My Schedule
+            </Button>
+          </div>
+        </div>
+
+        {/* Empty state */}
+        {searchQuery && featuredTrybes.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No trybes found</h3>
+            <p className="text-muted-foreground mb-4">
+              Try a different search term or browse categories
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setSearchQuery("")}
+              className="rounded-full"
+            >
+              Clear Search
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
