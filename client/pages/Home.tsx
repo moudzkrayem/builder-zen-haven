@@ -91,6 +91,13 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleCreateTrybe = (trybeData: any) => {
+    console.log("New Trybe created:", trybeData);
+    // Here you would normally save to database or state management
+    // For now, just log the data
+  };
 
   return (
     <>
