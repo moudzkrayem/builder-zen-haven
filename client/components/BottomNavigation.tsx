@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/home", icon: Home, label: "Home" },
+  { path: "/swipe", icon: Heart, label: "Swipe" },
   { path: "/chats", icon: MessageCircle, label: "Chats" },
   { path: "/profile", icon: User, label: "Profile" },
-  { path: "/explore", icon: Search, label: "Explore" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
