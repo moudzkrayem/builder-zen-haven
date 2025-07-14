@@ -29,9 +29,9 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Welcome />} />
               <Route path="/home" element={<Home />} />
+              <Route path="/swipe" element={<Swipe />} />
               <Route path="/chats" element={<Chats />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/explore" element={<Explore />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
