@@ -58,9 +58,9 @@ const mockEvents = [
   },
   {
     id: 3,
-    name: "Maya Patel",
-    age: 26,
-    title: "Art Gallery Opening",
+    eventName: "Art Gallery Opening",
+    hostName: "Maya Patel",
+    hostAge: 26,
     description:
       "Exclusive preview of the new contemporary art exhibition. Wine, cheese, and great conversations about creativity and inspiration! 🎨🍷",
     location: "SOMA Gallery",
@@ -68,13 +68,13 @@ const mockEvents = [
     attendees: 25,
     maxCapacity: 30,
     fee: "$25",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop",
-    interests: ["Art", "Culture", "Wine"],
-    photos: [
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop",
+    hostImage:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
+    eventImages: [
       "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=600&fit=crop",
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop",
     ],
+    interests: ["Art", "Culture", "Wine"],
   },
 ];
 
