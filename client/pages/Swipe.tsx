@@ -361,18 +361,26 @@ export default function Swipe() {
         </Button>
 
         <Button
-          onClick={() => handleSwipe("left")}
+          onClick={() => handleSwipe("left", true)}
           size="icon"
           variant="outline"
-          className="w-16 h-16 rounded-full bg-transparent border-2 border-primary text-primary shadow-lg hover:scale-110 transition-all duration-200 hover:bg-primary/10"
+          className={cn(
+            "w-16 h-16 rounded-full bg-transparent border-2 border-primary text-primary shadow-lg hover:scale-110 transition-all duration-200 hover:bg-primary/10",
+            animatingButton === "nope" &&
+              "animate-pulse scale-125 bg-primary/20",
+          )}
         >
           <X className="w-7 h-7" />
         </Button>
 
         <Button
-          onClick={() => handleSwipe("right")}
+          onClick={() => handleSwipe("right", true)}
           size="icon"
-          className="w-16 h-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:scale-110 transition-all duration-200"
+          className={cn(
+            "w-16 h-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:scale-110 transition-all duration-200",
+            animatingButton === "like" &&
+              "animate-pulse scale-125 bg-primary/80",
+          )}
         >
           <Heart className="w-7 h-7 fill-current" />
         </Button>
