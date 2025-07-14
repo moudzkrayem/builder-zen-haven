@@ -237,7 +237,7 @@ export default function Swipe() {
             )}
 
             {/* Touch areas for photo navigation */}
-            {currentEvent.photos.length > 1 && (
+            {currentEvent.eventImages.length > 1 && (
               <>
                 <button
                   className="absolute left-0 top-20 bottom-32 w-1/2 z-10"
@@ -252,7 +252,7 @@ export default function Swipe() {
                     e.stopPropagation();
                     setCurrentPhotoIndex(
                       Math.min(
-                        currentEvent.photos.length - 1,
+                        currentEvent.eventImages.length - 1,
                         currentPhotoIndex + 1,
                       ),
                     );
