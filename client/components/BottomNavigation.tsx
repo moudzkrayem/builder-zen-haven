@@ -1,5 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, MessageCircle, User, Search, Settings } from "lucide-react";
+import {
+  Home,
+  MessageCircle,
+  User,
+  Search,
+  Settings,
+  Heart,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
