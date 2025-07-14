@@ -152,19 +152,12 @@ export default function Home() {
         </div>
 
         <div className="px-4 pb-6">
-          {/* Create and Join Trybe Actions */}
+          {/* Create Trybe Action */}
           <div className="mb-6 mt-4">
-            <div className="grid grid-cols-2 gap-3">
-              <Button className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-col">
+              <Button className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1 sm:flex-row sm:justify-center sm:ml-auto">
                 <Plus className="w-6 h-6" />
                 <span className="text-sm font-semibold">Create Trybe</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-14 rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 flex flex-col items-center justify-center space-y-1"
-              >
-                <Users className="w-6 h-6" />
-                <span className="text-sm font-semibold">Join Trybe</span>
               </Button>
             </div>
           </div>
