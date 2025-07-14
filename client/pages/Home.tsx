@@ -220,9 +220,17 @@ export default function Home() {
                       <h3 className="font-semibold text-foreground line-clamp-1">
                         {trybe.name}
                       </h3>
-                      <Button variant="ghost" size="icon" className="w-8 h-8">
-                        <Heart className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button variant="ghost" size="icon" className="w-8 h-8">
+                          <Heart className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 h-8 text-xs rounded-full"
+                        >
+                          Join
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="flex items-center space-x-3 text-sm text-muted-foreground mb-2">
