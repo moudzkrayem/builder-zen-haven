@@ -45,7 +45,7 @@ const featuredTrybes = [
     maxCapacity: 25,
     fee: "$15",
     image:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=300&h=200&fit=crop",
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F5e158f125714409bbacba8ef1838840f",
     category: "Fitness",
     isPopular: false,
     host: "ZenFlow Studio",
