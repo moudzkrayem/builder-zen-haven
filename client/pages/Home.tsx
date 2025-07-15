@@ -60,7 +60,7 @@ const featuredTrybes = [
     maxCapacity: 100,
     fee: "$25",
     image:
-      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=300&h=200&fit=crop",
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F3d29be6add9348eab169879d1e722aae",
     category: "Professional",
     isPopular: true,
     host: "TechConnect SF",
