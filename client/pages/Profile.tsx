@@ -25,7 +25,7 @@ const mockUser = {
   bio: "Adventure seeker and coffee enthusiast ☕️ Love exploring new places and meeting creative minds. Always up for a good conversation about design, travel, or life! ✨",
   photos: [
     "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop",
-    "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop",
+    "https://cdn.builder.io/api/v1/file/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7163ace5f39a47219e785f3fe9201f21",
     "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop",
   ],
   interests: [
