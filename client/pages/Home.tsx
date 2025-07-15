@@ -30,7 +30,7 @@ const featuredTrybes = [
     maxCapacity: 60,
     fee: "Free",
     image:
-      "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=300&h=200&fit=crop",
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4",
     category: "Food & Drink",
     isPopular: true,
     host: "Market Collective",
