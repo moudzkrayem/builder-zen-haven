@@ -71,7 +71,7 @@ const mockEvents = [
     hostImage:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
     eventImages: [
-      "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=600&fit=crop",
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0cf977f977fc479f816db466b2300fb8",
       "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop",
     ],
     interests: ["Art", "Culture", "Wine"],
