@@ -13,7 +13,7 @@ const mockChats = [
     lastMessage: "Looking forward to the coffee meetup! ☕️",
     time: "2m",
     avatar:
-      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop",
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7d00bdc2aff74dd280661214aad6bcf8",
     isOnline: true,
     unreadCount: 2,
     matchType: "like",
