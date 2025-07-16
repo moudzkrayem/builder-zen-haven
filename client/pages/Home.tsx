@@ -92,11 +92,20 @@ export default function Home() {
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
 
   const handleCreateTrybe = (trybeData: any) => {
     console.log("New Trybe created:", trybeData);
     // Here you would normally save to database or state management
     // For now, just log the data
+  };
+
+  const handleJoinEvent = (eventId: number) => {
+    if (!joinedEvents.includes(eventId)) {
+      setJoinedEvents([...joinedEvents, eventId]);
+      // Here you could show a confirmation or feedback
+      console.log("Joined event:", eventId);
+    }
   };
 
   return (
