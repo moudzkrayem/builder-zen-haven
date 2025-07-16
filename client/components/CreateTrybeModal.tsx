@@ -2,7 +2,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Calendar, MapPin, Users, DollarSign } from "lucide-react";
+import {
+  X,
+  Calendar,
+  MapPin,
+  Users,
+  DollarSign,
+  Camera,
+  Upload,
+} from "lucide-react";
 
 interface CreateTrybeModalProps {
   isOpen: boolean;
@@ -16,6 +24,7 @@ interface TrybeData {
   time: string;
   maxCapacity: number;
   fee: string;
+  photos: string[];
 }
 
 export default function CreateTrybeModal({
