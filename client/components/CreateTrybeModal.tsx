@@ -18,30 +18,6 @@ interface TrybeData {
   fee: string;
 }
 
-const categories = [
-  "Tech",
-  "Food & Drink",
-  "Fitness",
-  "Arts & Culture",
-  "Outdoors",
-  "Professional",
-  "Social",
-  "Learning",
-];
-
-const suggestedInterests = [
-  "Coffee",
-  "Networking",
-  "Hiking",
-  "Art",
-  "Music",
-  "Photography",
-  "Yoga",
-  "Coding",
-  "Cooking",
-  "Gaming",
-];
-
 export default function CreateTrybeModal({
   isOpen,
   onClose,
@@ -54,8 +30,6 @@ export default function CreateTrybeModal({
     maxCapacity: 10,
     fee: "Free",
   });
-
-  const [customInterest, setCustomInterest] = useState("");
 
   if (!isOpen) return null;
 
