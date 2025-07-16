@@ -320,7 +320,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   return (
     <EventsContext.Provider
-      value={{ events, addEvent, joinEvent, joinedEvents }}
+      value={{
+        events,
+        addEvent,
+        joinEvent,
+        leaveEvent,
+        joinedEvents,
+        chats,
+        addMessage,
+        createChatForEvent,
+      }}
     >
       {children}
     </EventsContext.Provider>
