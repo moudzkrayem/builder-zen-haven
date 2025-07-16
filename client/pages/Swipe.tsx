@@ -120,7 +120,7 @@ export default function Swipe() {
       setTimeout(() => setAnimatingButton(null), 300);
     }
 
-    if (currentIndex < mockEvents.length - 1) {
+    if (currentIndex < swipeEvents.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setIsExpanded(false);
       setCurrentPhotoIndex(0);
