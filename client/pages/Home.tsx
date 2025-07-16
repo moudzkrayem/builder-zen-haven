@@ -62,7 +62,6 @@ export default function Home() {
   };
 
   const handleOpenChat = (eventId: number, hostName: string) => {
-    const { chats } = useEvents();
     const chat = chats.find((c) => c.eventId === eventId);
     if (chat) {
       setActiveChatId(chat.id);
