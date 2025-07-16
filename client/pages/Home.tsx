@@ -456,7 +456,11 @@ export default function Home() {
                 <MapPin className="w-5 h-5 mr-2" />
                 Browse Map
               </Button>
-              <Button variant="outline" className="h-12 rounded-xl">
+              <Button
+                variant="outline"
+                className="h-12 rounded-xl"
+                onClick={() => setShowScheduleModal(true)}
+              >
                 <Calendar className="w-5 h-5 mr-2" />
                 View All Schedule
               </Button>
