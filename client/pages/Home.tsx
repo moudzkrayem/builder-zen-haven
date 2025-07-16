@@ -61,6 +61,13 @@ export default function Home() {
     console.log("Joined event:", eventId);
   };
 
+  const handleOpenChat = (eventId: number, hostName: string) => {
+    const chatId = Date.now(); // This should match the chat ID from context
+    setActiveChatId(chatId);
+    setShowChatModal(true);
+    setShowScheduleModal(false);
+  };
+
   // Use events from context instead of local data
   const featuredTrybes = events;
 
