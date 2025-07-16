@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import ChatModal from "@/components/ChatModal";
+import { useEvents } from "@/contexts/EventsContext";
 import { Search, MoreHorizontal, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
