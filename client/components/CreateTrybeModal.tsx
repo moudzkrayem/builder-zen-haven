@@ -122,7 +122,7 @@ export default function CreateTrybeModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Event Name */}
           <div className="space-y-2">
-            <Label htmlFor="eventName">Event Name *</Label>
+            <Label htmlFor="eventName">Name *</Label>
             <Input
               id="eventName"
               value={formData.eventName}
@@ -132,21 +132,6 @@ export default function CreateTrybeModal({
               placeholder="What's your trybe about?"
               required
               className="rounded-xl"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder="Describe your event and what people can expect..."
-              required
-              className="rounded-xl min-h-[100px]"
             />
           </div>
 
@@ -168,17 +153,17 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
-          {/* Date */}
+          {/* Time */}
           <div className="space-y-2">
-            <Label htmlFor="date">Date & Time *</Label>
+            <Label htmlFor="time">Time *</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                id="date"
+                id="time"
                 type="datetime-local"
-                value={formData.date}
+                value={formData.time}
                 onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
+                  setFormData({ ...formData, time: e.target.value })
                 }
                 required
                 className="pl-10 rounded-xl"
