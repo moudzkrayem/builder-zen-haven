@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Swipe() {
-  const { events } = useEvents();
+  const { events, joinEvent } = useEvents();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
