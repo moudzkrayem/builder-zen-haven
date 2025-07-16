@@ -88,26 +88,25 @@ const trendingSearches = [
 ];
 
 export default function Home() {
+  const { events, addEvent, joinEvent, joinedEvents } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
 
   const handleCreateTrybe = (trybeData: any) => {
+    addEvent(trybeData);
     console.log("New Trybe created:", trybeData);
-    // Here you would normally save to database or state management
-    // For now, just log the data
   };
 
   const handleJoinEvent = (eventId: number) => {
-    if (!joinedEvents.includes(eventId)) {
-      setJoinedEvents([...joinedEvents, eventId]);
-      // Here you could show a confirmation or feedback
-      console.log("Joined event:", eventId);
-    }
+    joinEvent(eventId);
+    console.log("Joined event:", eventId);
   };
+
+  // Use events from context instead of local data
+  const featuredTrybes = events;
 
   return (
     <>
