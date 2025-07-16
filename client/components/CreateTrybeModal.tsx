@@ -171,9 +171,9 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
-          {/* Max Capacity */}
+          {/* Capacity */}
           <div className="space-y-2">
-            <Label htmlFor="maxCapacity">Max Capacity</Label>
+            <Label htmlFor="maxCapacity">Capacity *</Label>
             <div className="relative">
               <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -185,9 +185,10 @@ export default function CreateTrybeModal({
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    maxCapacity: parseInt(e.target.value),
+                    maxCapacity: parseInt(e.target.value) || 1,
                   })
                 }
+                required
                 className="pl-10 rounded-xl"
               />
             </div>
@@ -195,7 +196,7 @@ export default function CreateTrybeModal({
 
           {/* Fee */}
           <div className="space-y-2">
-            <Label htmlFor="fee">Fee</Label>
+            <Label htmlFor="fee">Fee *</Label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -205,92 +206,9 @@ export default function CreateTrybeModal({
                   setFormData({ ...formData, fee: e.target.value })
                 }
                 placeholder="Free, $10, $25, etc."
+                required
                 className="pl-10 rounded-xl"
               />
-            </div>
-          </div>
-
-          {/* Category */}
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  type="button"
-                  variant={
-                    formData.category === category ? "default" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, category })}
-                  className="rounded-full"
-                >
-                  {category}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Interests */}
-          <div className="space-y-2">
-            <Label>Interests/Tags</Label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {formData.interests.map((interest) => (
-                <Badge
-                  key={interest}
-                  variant="secondary"
-                  className="px-3 py-1 rounded-full cursor-pointer"
-                  onClick={() => removeInterest(interest)}
-                >
-                  {interest}
-                  <X className="w-3 h-3 ml-1" />
-                </Badge>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {suggestedInterests
-                .filter((interest) => !formData.interests.includes(interest))
-                .map((interest) => (
-                  <Button
-                    key={interest}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addInterest(interest)}
-                    className="rounded-full text-xs h-8"
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    {interest}
-                  </Button>
-                ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={customInterest}
-                onChange={(e) => setCustomInterest(e.target.value)}
-                placeholder="Add custom interest..."
-                className="rounded-xl"
-                onKeyPress={(e) => e.key === "Enter" && addCustomInterest()}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addCustomInterest}
-                className="rounded-xl"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Photo Upload Placeholder */}
-          <div className="space-y-2">
-            <Label>Event Photos</Label>
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center">
-              <Camera className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground text-sm">
-                Tap to add photos (coming soon)
-              </p>
             </div>
           </div>
 
