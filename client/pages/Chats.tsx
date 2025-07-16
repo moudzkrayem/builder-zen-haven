@@ -96,36 +96,37 @@ export default function Chats() {
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-2">
-              No conversations found
+              {chats.length === 0 ? "No chats yet" : "No conversations found"}
             </h3>
             <p className="text-muted-foreground">
-              Try adjusting your search terms.
+              {chats.length === 0
+                ? "Join some events to start chatting with hosts!"
+                : "Try adjusting your search terms."}
             </p>
           </div>
         ) : (
           <div className="space-y-1">
             {filteredChats.map((chat) => (
-              <div
+              <button
                 key={chat.id}
-                className="flex items-center space-x-3 px-4 py-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => handleOpenChat(chat.id)}
+                className="w-full flex items-center space-x-3 px-4 py-4 hover:bg-accent/50 transition-colors text-left"
               >
                 {/* Avatar */}
                 <div className="relative">
                   <img
-                    src={chat.avatar}
-                    alt={chat.name}
+                    src={chat.hostImage}
+                    alt={chat.hostName}
                     className="w-14 h-14 rounded-full object-cover"
                   />
-                  {chat.isOnline && (
-                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-like border-2 border-background rounded-full" />
-                  )}
+                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
                 </div>
 
                 {/* Chat info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-foreground truncate">
-                      {chat.name}
+                      {chat.hostName}
                     </h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-muted-foreground">
@@ -149,7 +150,7 @@ export default function Chats() {
                     {chat.lastMessage}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
