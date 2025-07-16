@@ -60,13 +60,10 @@ export default function CreateTrybeModal({
 }: CreateTrybeModalProps) {
   const [formData, setFormData] = useState<TrybeData>({
     eventName: "",
-    description: "",
     location: "",
-    date: "",
+    time: "",
     maxCapacity: 10,
     fee: "Free",
-    category: "Social",
-    interests: [],
   });
 
   const [customInterest, setCustomInterest] = useState("");
