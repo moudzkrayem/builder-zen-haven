@@ -56,6 +56,11 @@ export default function Swipe() {
       setTimeout(() => setAnimatingButton(null), 300);
     }
 
+    // If swiping right (like), join the event
+    if (direction === "right" && currentEvent) {
+      joinEvent(currentEvent.id);
+    }
+
     if (currentIndex < swipeEvents.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setIsExpanded(false);
