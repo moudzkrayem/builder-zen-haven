@@ -495,6 +495,23 @@ export default function Home() {
         onClose={() => setShowCreateModal(false)}
         onCreateTrybe={handleCreateTrybe}
       />
+
+      {/* Schedule Modal */}
+      <ScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onOpenChat={handleOpenChat}
+      />
+
+      {/* Chat Modal */}
+      <ChatModal
+        isOpen={showChatModal}
+        onClose={() => {
+          setShowChatModal(false);
+          setActiveChatId(null);
+        }}
+        chatId={activeChatId}
+      />
     </>
   );
 }
