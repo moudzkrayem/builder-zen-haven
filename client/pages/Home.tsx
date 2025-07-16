@@ -458,6 +458,13 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Create Trybe Modal */}
+      <CreateTrybeModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreateTrybe={handleCreateTrybe}
+      />
     </>
   );
 }
