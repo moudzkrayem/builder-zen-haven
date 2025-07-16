@@ -23,11 +23,35 @@ interface Event {
   description?: string;
 }
 
+interface Chat {
+  id: number;
+  eventId: number;
+  hostName: string;
+  hostImage: string;
+  lastMessage: string;
+  time: string;
+  unreadCount: number;
+  messages: Message[];
+}
+
+interface Message {
+  id: number;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  isCurrentUser: boolean;
+}
+
 interface EventsContextType {
   events: Event[];
   addEvent: (eventData: any) => void;
   joinEvent: (eventId: number) => void;
+  leaveEvent: (eventId: number) => void;
   joinedEvents: number[];
+  chats: Chat[];
+  addMessage: (chatId: number, content: string) => void;
+  createChatForEvent: (eventId: number) => void;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
