@@ -47,6 +47,9 @@ export default function Home() {
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
