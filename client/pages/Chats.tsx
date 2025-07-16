@@ -53,22 +53,31 @@ export default function Chats() {
           New Trybes
         </h2>
         <div className="flex space-x-4 overflow-x-auto hide-scrollbar pb-2">
-          {mockChats.slice(0, 3).map((chat) => (
-            <div key={`trybe-${chat.id}`} className="flex-shrink-0">
+          {chats.slice(0, 6).map((chat) => (
+            <button
+              key={`trybe-${chat.id}`}
+              onClick={() => handleOpenChat(chat.id)}
+              className="flex-shrink-0 hover:opacity-80 transition-opacity"
+            >
               <div className="relative">
                 <img
-                  src={chat.avatar}
-                  alt={chat.name}
+                  src={chat.hostImage}
+                  alt={chat.hostName}
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary"
                 />
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                   <Heart className="w-3 h-3 text-primary-foreground" />
                 </div>
+                {chat.unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    {chat.unreadCount}
+                  </div>
+                )}
               </div>
               <p className="text-xs text-center mt-2 max-w-[64px] truncate">
-                {chat.name.split(" ")[0]}
+                {chat.hostName.split(" ")[0]}
               </p>
-            </div>
+            </button>
           ))}
         </div>
       </div>
