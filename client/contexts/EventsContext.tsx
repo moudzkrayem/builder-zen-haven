@@ -200,7 +200,122 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             : event,
         ),
       );
+
+      // Create chat with event host
+      createChatForEvent(eventId);
     }
+  };
+
+  const leaveEvent = (eventId: number) => {
+    setJoinedEvents((prev) => prev.filter((id) => id !== eventId));
+
+    // Update attendee count
+    setEvents((prevEvents) =>
+      prevEvents.map((event) =>
+        event.id === eventId
+          ? { ...event, attendees: Math.max(1, event.attendees - 1) }
+          : event,
+      ),
+    );
+
+    // Remove associated chat
+    setChats((prevChats) =>
+      prevChats.filter((chat) => chat.eventId !== eventId),
+    );
+  };
+
+  const createChatForEvent = (eventId: number) => {
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+
+    // Check if chat already exists
+    const existingChat = chats.find((chat) => chat.eventId === eventId);
+    if (existingChat) return;
+
+    const newChat: Chat = {
+      id: Date.now(),
+      eventId: eventId,
+      hostName: event.hostName || event.host || "Host",
+      hostImage:
+        event.hostImage ||
+        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+      lastMessage: `You joined "${event.eventName || event.name}"! Say hello to get the conversation started.`,
+      time: "now",
+      unreadCount: 0,
+      messages: [
+        {
+          id: 1,
+          senderId: "system",
+          senderName: "System",
+          content: `Welcome to ${event.eventName || event.name}! You can now chat with the host.`,
+          timestamp: new Date().toISOString(),
+          isCurrentUser: false,
+        },
+      ],
+    };
+
+    setChats((prev) => [newChat, ...prev]);
+  };
+
+  const addMessage = (chatId: number, content: string) => {
+    const newMessage: Message = {
+      id: Date.now(),
+      senderId: "current-user",
+      senderName: "You",
+      content: content,
+      timestamp: new Date().toISOString(),
+      isCurrentUser: true,
+    };
+
+    setChats((prevChats) =>
+      prevChats.map((chat) =>
+        chat.id === chatId
+          ? {
+              ...chat,
+              messages: [...chat.messages, newMessage],
+              lastMessage: content,
+              time: "now",
+            }
+          : chat,
+      ),
+    );
+
+    // Simulate host response after a short delay
+    setTimeout(() => {
+      const responses = [
+        "Thanks for joining! Looking forward to meeting you.",
+        "Great to have you on board! Any questions about the event?",
+        "Welcome! This is going to be an amazing experience.",
+        "Awesome! Feel free to ask if you need any details about the location.",
+        "So excited you're joining us! It's going to be great.",
+      ];
+
+      const randomResponse =
+        responses[Math.floor(Math.random() * responses.length)];
+
+      const hostMessage: Message = {
+        id: Date.now() + 1,
+        senderId: "host",
+        senderName: chats.find((c) => c.id === chatId)?.hostName || "Host",
+        content: randomResponse,
+        timestamp: new Date().toISOString(),
+        isCurrentUser: false,
+      };
+
+      setChats((prevChats) =>
+        prevChats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: [...chat.messages, hostMessage],
+                lastMessage: randomResponse,
+                time: "now",
+                unreadCount: chat.unreadCount + 1,
+              }
+            : chat,
+        ),
+      );
+    }, 2000);
   };
 
   return (
