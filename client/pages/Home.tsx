@@ -20,55 +20,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock data for featured trybes with updated structure
-const featuredTrybes = [
-  {
-    id: 1,
-    name: "Weekend Farmers Market",
-    location: "Union Square",
-    date: "Sat 9:00 AM",
-    attendees: 45,
-    maxCapacity: 60,
-    fee: "Free",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4",
-    category: "Food & Drink",
-    isPopular: true,
-    host: "Market Collective",
-    rating: 4.8,
-  },
-  {
-    id: 2,
-    name: "Rooftop Yoga Session",
-    location: "SoMa District",
-    date: "Sun 7:00 AM",
-    attendees: 20,
-    maxCapacity: 25,
-    fee: "$15",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F5e158f125714409bbacba8ef1838840f",
-    category: "Fitness",
-    isPopular: false,
-    host: "ZenFlow Studio",
-    rating: 4.9,
-  },
-  {
-    id: 3,
-    name: "Tech Networking Mixer",
-    location: "SOMA",
-    date: "Thu 6:00 PM",
-    attendees: 87,
-    maxCapacity: 100,
-    fee: "$25",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F3d29be6add9348eab169879d1e722aae",
-    category: "Professional",
-    isPopular: true,
-    host: "TechConnect SF",
-    rating: 4.7,
-  },
-];
-
 const categories = [
   { name: "All", color: "bg-primary" },
   { name: "Food & Drink", color: "bg-orange-500" },
