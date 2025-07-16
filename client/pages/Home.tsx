@@ -62,10 +62,13 @@ export default function Home() {
   };
 
   const handleOpenChat = (eventId: number, hostName: string) => {
-    const chatId = Date.now(); // This should match the chat ID from context
-    setActiveChatId(chatId);
-    setShowChatModal(true);
-    setShowScheduleModal(false);
+    const { chats } = useEvents();
+    const chat = chats.find((c) => c.eventId === eventId);
+    if (chat) {
+      setActiveChatId(chat.id);
+      setShowChatModal(true);
+      setShowScheduleModal(false);
+    }
   };
 
   // Use events from context instead of local data
