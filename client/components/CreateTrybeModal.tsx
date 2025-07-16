@@ -77,13 +77,10 @@ export default function CreateTrybeModal({
     // Reset form
     setFormData({
       eventName: "",
-      description: "",
       location: "",
-      date: "",
+      time: "",
       maxCapacity: 10,
       fee: "Free",
-      category: "Social",
-      interests: [],
     });
   };
 
