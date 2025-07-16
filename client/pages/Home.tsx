@@ -247,9 +247,17 @@ export default function Home() {
                           </Button>
                           <Button
                             size="sm"
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 h-8 text-xs rounded-full"
+                            onClick={() => handleJoinEvent(trybe.id)}
+                            className={cn(
+                              "px-3 py-1 h-8 text-xs rounded-full",
+                              joinedEvents.includes(trybe.id)
+                                ? "bg-green-500 hover:bg-green-600 text-white"
+                                : "bg-primary hover:bg-primary/90 text-primary-foreground",
+                            )}
                           >
-                            Join
+                            {joinedEvents.includes(trybe.id)
+                              ? "Joined"
+                              : "Join"}
                           </Button>
                         </div>
                       </div>
