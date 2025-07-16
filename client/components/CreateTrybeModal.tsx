@@ -47,29 +47,6 @@ export default function CreateTrybeModal({
     });
   };
 
-  const addInterest = (interest: string) => {
-    if (!formData.interests.includes(interest)) {
-      setFormData({
-        ...formData,
-        interests: [...formData.interests, interest],
-      });
-    }
-  };
-
-  const removeInterest = (interest: string) => {
-    setFormData({
-      ...formData,
-      interests: formData.interests.filter((i) => i !== interest),
-    });
-  };
-
-  const addCustomInterest = () => {
-    if (customInterest.trim() && !formData.interests.includes(customInterest)) {
-      addInterest(customInterest.trim());
-      setCustomInterest("");
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
