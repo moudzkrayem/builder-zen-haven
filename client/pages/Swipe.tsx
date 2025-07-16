@@ -80,6 +80,7 @@ const mockEvents = [
 ];
 
 export default function Swipe() {
+  const { events } = useEvents();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -91,7 +92,27 @@ export default function Swipe() {
   >(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const currentEvent = mockEvents[currentIndex];
+  // Use events from context and format them for swipe interface
+  const swipeEvents = events.map((event) => ({
+    id: event.id,
+    eventName: event.eventName || event.name,
+    hostName: event.hostName || event.host || "Unknown Host",
+    hostAge: event.hostAge || 25,
+    description:
+      event.description || `Join us for ${event.eventName || event.name}!`,
+    location: event.location,
+    date: event.date,
+    attendees: event.attendees,
+    maxCapacity: event.maxCapacity,
+    fee: event.fee,
+    hostImage:
+      event.hostImage ||
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+    eventImages: event.eventImages || [event.image],
+    interests: event.interests || ["Event"],
+  }));
+
+  const currentEvent = swipeEvents[currentIndex];
 
   const handleSwipe = (direction: "left" | "right", fromButton = false) => {
     if (fromButton) {
