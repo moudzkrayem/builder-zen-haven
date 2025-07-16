@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Map from "@/components/Map";
 import CreateTrybeModal from "@/components/CreateTrybeModal";
+import ScheduleModal from "@/components/ScheduleModal";
+import ChatModal from "@/components/ChatModal";
 import { useEvents } from "@/contexts/EventsContext";
 import {
   Search,
