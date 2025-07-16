@@ -56,11 +56,19 @@ const mockChats = [
 ];
 
 export default function Chats() {
+  const { chats } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
-  const filteredChats = mockChats.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredChats = chats.filter((chat) =>
+    chat.hostName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const handleOpenChat = (chatId: number) => {
+    setActiveChatId(chatId);
+    setShowChatModal(true);
+  };
 
   return (
     <div className="h-full bg-background">
