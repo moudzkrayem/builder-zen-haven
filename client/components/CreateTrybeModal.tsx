@@ -23,13 +23,10 @@ interface CreateTrybeModalProps {
 
 interface TrybeData {
   eventName: string;
-  description: string;
   location: string;
-  date: string;
+  time: string;
   maxCapacity: number;
   fee: string;
-  category: string;
-  interests: string[];
 }
 
 const categories = [
