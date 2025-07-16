@@ -2,18 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import {
-  X,
-  Calendar,
-  MapPin,
-  Users,
-  DollarSign,
-  Camera,
-  Plus,
-  Tag,
-} from "lucide-react";
+import { X, Calendar, MapPin, Users, DollarSign } from "lucide-react";
 
 interface CreateTrybeModalProps {
   isOpen: boolean;
