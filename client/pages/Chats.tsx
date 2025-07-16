@@ -8,52 +8,6 @@ import { Search, MoreHorizontal, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Mock chat data
-const mockChats = [
-  {
-    id: 1,
-    name: "Sarah Chen",
-    lastMessage: "Looking forward to the coffee meetup! ☕️",
-    time: "2m",
-    avatar:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7d00bdc2aff74dd280661214aad6bcf8",
-    isOnline: true,
-    unreadCount: 2,
-    matchType: "like",
-  },
-  {
-    id: 2,
-    name: "Alex Rivera",
-    lastMessage: "The sunset hike was amazing! Thanks for joining 🌅",
-    time: "1h",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    isOnline: true,
-    unreadCount: 0,
-    matchType: "superlike",
-  },
-  {
-    id: 3,
-    name: "Maya Patel",
-    lastMessage: "Great meeting you at the gallery opening!",
-    time: "3h",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
-    isOnline: false,
-    unreadCount: 0,
-    matchType: "like",
-  },
-  {
-    id: 4,
-    name: "Jordan Kim",
-    lastMessage: "You: That sounds perfect! See you there 👍",
-    time: "1d",
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    isOnline: false,
-    unreadCount: 0,
-    matchType: "like",
-  },
-];
 
 export default function Chats() {
   const { chats } = useEvents();
