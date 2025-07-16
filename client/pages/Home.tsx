@@ -450,6 +450,38 @@ export default function Home() {
             </div>
           </div>
 
+          {/* My Schedule */}
+          {joinedEvents.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold mb-4">My Schedule</h2>
+              <div className="space-y-3">
+                {featuredTrybes
+                  .filter((trybe) => joinedEvents.includes(trybe.id))
+                  .map((trybe) => (
+                    <div
+                      key={`schedule-${trybe.id}`}
+                      className="bg-card rounded-xl p-4 border border-border flex items-center space-x-4"
+                    >
+                      <img
+                        src={trybe.image}
+                        alt={trybe.name}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm">{trybe.name}</h3>
+                        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                          <span>{trybe.date}</span>
+                          <span>•</span>
+                          <span>{trybe.location}</span>
+                        </div>
+                      </div>
+                      <Badge className="bg-green-500 text-white">Joined</Badge>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick actions */}
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
