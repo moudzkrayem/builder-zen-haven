@@ -495,7 +495,7 @@ export default function Home() {
               </Button>
               <Button variant="outline" className="h-12 rounded-xl">
                 <Calendar className="w-5 h-5 mr-2" />
-                My Schedule
+                View All Schedule
               </Button>
             </div>
           </div>
