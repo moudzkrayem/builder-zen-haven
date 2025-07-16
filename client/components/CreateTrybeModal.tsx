@@ -54,6 +54,7 @@ export default function CreateTrybeModal({
       time: "",
       maxCapacity: 10,
       fee: "Free",
+      photos: [],
     });
   };
 
