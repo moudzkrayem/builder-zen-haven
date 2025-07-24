@@ -26,6 +26,7 @@ export default function Swipe() {
   const [animatingButton, setAnimatingButton] = useState<
     "like" | "nope" | null
   >(null);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Use events from context and format them for swipe interface
