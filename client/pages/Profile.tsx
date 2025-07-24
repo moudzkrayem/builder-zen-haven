@@ -68,7 +68,7 @@ export default function Profile() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={() => setShowEditModal(true)}
             >
               <Edit3 className="w-5 h-5" />
             </Button>
