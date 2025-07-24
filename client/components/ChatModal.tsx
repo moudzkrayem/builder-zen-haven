@@ -73,14 +73,14 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <img
-            src={chat.hostImage}
-            alt={chat.hostName}
-            className="w-10 h-10 rounded-full object-cover"
+            src={chat.eventImage}
+            alt={chat.eventName}
+            className="w-10 h-10 rounded-xl object-cover"
           />
           <div>
-            <h3 className="font-semibold">{chat.hostName}</h3>
+            <h3 className="font-semibold">{chat.eventName}</h3>
             <p className="text-xs text-muted-foreground">
-              {isTyping ? "typing..." : "Event host"}
+              {isTyping ? "someone is typing..." : `${chat.participants} members`}
             </p>
           </div>
         </div>
