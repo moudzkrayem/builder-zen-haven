@@ -221,11 +221,20 @@ export default function Settings() {
                     <div
                       key={itemIndex}
                       className={cn(
-                        "flex items-center justify-between p-4 hover:bg-accent/50 transition-colors",
+                        "flex items-center justify-between p-4 hover:bg-accent/50 transition-colors cursor-pointer",
                         !isLast && "border-b border-border",
                         item.type === "action" &&
-                          "cursor-pointer active:bg-accent",
+                          "active:bg-accent",
                       )}
+                      onClick={() => {
+                        if (item.label === "Notifications") {
+                          setShowNotificationsModal(true);
+                        } else if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
+                          setShowDiscoveryModal(true);
+                        } else if (item.label === "Subscription") {
+                          setShowSubscriptionModal(true);
+                        }
+                      }}
                     >
                       <div className="flex items-center space-x-3 flex-1">
                         <div
