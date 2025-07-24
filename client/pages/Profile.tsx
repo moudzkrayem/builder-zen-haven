@@ -280,7 +280,6 @@ export default function Profile() {
                 {[
                   "Privacy Settings",
                   "Notification Preferences",
-                  "Discovery Settings",
                   "Subscription",
                   "Help & Support",
                 ].map((item, index) => (
@@ -292,6 +291,13 @@ export default function Profile() {
                     {item}
                   </Button>
                 ))}
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowVisibilityModal(true)}
+                  className="w-full justify-start h-12 rounded-xl text-foreground"
+                >
+                  Discovery Settings
+                </Button>
               </div>
             </div>
           </>
