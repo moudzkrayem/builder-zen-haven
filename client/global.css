@@ -38,12 +38,12 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 24 95% 53%;
+    --ring: 16 100% 60%;
 
     --radius: 1rem;
 
     /* Chat & messaging colors */
-    --message-sent: 24 95% 53%;
+    --message-sent: 16 100% 60%;
     --message-sent-foreground: 0 0% 100%;
     --message-received: 220 13% 95%;
     --message-received-foreground: 240 10% 3.9%;
