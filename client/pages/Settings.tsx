@@ -161,6 +161,9 @@ export default function Settings() {
     eventReminders: true,
     profileViews: false,
   });
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const handleToggle = (settingKey: string, value: boolean) => {
     if (settingKey === "darkMode") {
