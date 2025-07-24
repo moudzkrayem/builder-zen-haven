@@ -56,6 +56,7 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "events">("profile");
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   return (
     <div className="h-full bg-background overflow-y-auto">
