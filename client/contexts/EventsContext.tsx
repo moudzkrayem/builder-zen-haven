@@ -290,24 +290,38 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       ),
     );
 
-    // Simulate host response after a short delay
+    // Simulate group chat responses after a short delay
     setTimeout(() => {
-      const responses = [
-        "Thanks for joining! Looking forward to meeting you.",
-        "Great to have you on board! Any questions about the event?",
-        "Welcome! This is going to be an amazing experience.",
-        "Awesome! Feel free to ask if you need any details about the location.",
-        "So excited you're joining us! It's going to be great.",
+      const groupResponses = [
+        {
+          sender: "event_host",
+          name: "Event Host",
+          message: "Thanks for joining everyone! Looking forward to meeting all of you."
+        },
+        {
+          sender: "participant_1",
+          name: "Alex M.",
+          message: "Excited to be part of this! Can't wait to meet everyone."
+        },
+        {
+          sender: "participant_2",
+          name: "Sarah K.",
+          message: "This is going to be amazing! Anyone else coming from downtown?"
+        },
+        {
+          sender: "event_host",
+          name: "Event Host",
+          message: "Great to see the enthusiasm! Feel free to ask any questions about the event."
+        },
       ];
 
-      const randomResponse =
-        responses[Math.floor(Math.random() * responses.length)];
+      const randomResponse = groupResponses[Math.floor(Math.random() * groupResponses.length)];
 
-      const hostMessage: Message = {
+      const groupMessage: Message = {
         id: Date.now() + 1,
-        senderId: "host",
-        senderName: chats.find((c) => c.id === chatId)?.hostName || "Host",
-        content: randomResponse,
+        senderId: randomResponse.sender,
+        senderName: randomResponse.name,
+        content: randomResponse.message,
         timestamp: new Date().toISOString(),
         isCurrentUser: false,
       };
@@ -317,8 +331,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           chat.id === chatId
             ? {
                 ...chat,
-                messages: [...chat.messages, hostMessage],
-                lastMessage: randomResponse,
+                messages: [...chat.messages, groupMessage],
+                lastMessage: randomResponse.message,
                 time: "now",
                 unreadCount: chat.unreadCount + 1,
               }
