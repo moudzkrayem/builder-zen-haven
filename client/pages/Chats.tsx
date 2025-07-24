@@ -115,9 +115,9 @@ export default function Chats() {
                 {/* Avatar */}
                 <div className="relative">
                   <img
-                    src={chat.hostImage}
-                    alt={chat.hostName}
-                    className="w-14 h-14 rounded-full object-cover"
+                    src={chat.eventImage}
+                    alt={chat.eventName}
+                    className="w-14 h-14 rounded-xl object-cover"
                   />
                   <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
                 </div>
@@ -126,7 +126,7 @@ export default function Chats() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-foreground truncate">
-                      {chat.hostName}
+                      {chat.eventName}
                     </h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-muted-foreground">
