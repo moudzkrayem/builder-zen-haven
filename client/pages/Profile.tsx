@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useEvents } from "@/contexts/EventsContext";
 import {
   Settings,
   Camera,
@@ -13,7 +14,10 @@ import {
   Heart,
   Users,
   Calendar,
+  Clock,
+  DollarSign,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Mock user data
 const mockUser = {
