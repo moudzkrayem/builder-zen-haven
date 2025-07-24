@@ -202,7 +202,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         ),
       );
 
-      // Create chat with event host
+      // Create or update group chat for the event
       createChatForEvent(eventId);
     }
   };
