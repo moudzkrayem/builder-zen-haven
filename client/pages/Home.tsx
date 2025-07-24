@@ -80,19 +80,11 @@ export default function Home() {
         {/* Header with T logo */}
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              {/* Trybe Logo */}
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F74b1843d8014493784c8da74deb7913a?format=webp&width=800"
-                alt="Trybe Logo"
-                className="w-10 h-10 object-contain"
-              />
-              <div>
-                <h1 className="text-xl font-bold leading-tight">Find your</h1>
-                <h1 className="text-xl font-bold text-primary leading-tight">
-                  Trybe
-                </h1>
-              </div>
+            <div>
+              <h1 className="text-xl font-bold leading-tight">Find your</h1>
+              <h1 className="text-xl font-bold text-primary leading-tight">
+                Trybe
+              </h1>
             </div>
             <Button variant="ghost" size="icon">
               <Filter className="w-5 h-5" />
