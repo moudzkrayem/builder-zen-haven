@@ -356,6 +356,12 @@ export default function Swipe() {
           {dragOffset.x > 0 ? "JOIN TRYBE" : "NOPE"}
         </div>
       )}
+
+      {/* Filter Modal */}
+      <SwipeFiltersModal
+        isOpen={showFiltersModal}
+        onClose={() => setShowFiltersModal(false)}
+      />
     </div>
   );
 }
