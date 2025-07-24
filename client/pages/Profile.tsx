@@ -75,6 +75,34 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="sticky top-[73px] z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="flex px-4 py-2">
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={cn(
+              "flex-1 text-center py-3 px-4 rounded-lg font-medium transition-all duration-200",
+              activeTab === "profile"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            Profile
+          </button>
+          <button
+            onClick={() => setActiveTab("events")}
+            className={cn(
+              "flex-1 text-center py-3 px-4 rounded-lg font-medium transition-all duration-200",
+              activeTab === "events"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            Previous Events
+          </button>
+        </div>
+      </div>
+
       <div className="px-4 pb-6">
         {/* Profile photos */}
         <div className="mb-6">
