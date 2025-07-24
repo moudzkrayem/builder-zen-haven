@@ -374,6 +374,11 @@ export default function Profile() {
         isOpen={showVisibilityModal}
         onClose={() => setShowVisibilityModal(false)}
       />
+      <EditProfileModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        userData={mockUser}
+      />
     </div>
   );
 }
