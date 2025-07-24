@@ -16,7 +16,7 @@ export default function Chats() {
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
   const filteredChats = chats.filter((chat) =>
-    chat.hostName.toLowerCase().includes(searchQuery.toLowerCase()),
+    chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleOpenChat = (chatId: number) => {
