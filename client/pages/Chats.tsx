@@ -139,16 +139,21 @@ export default function Chats() {
                       )}
                     </div>
                   </div>
-                  <p
-                    className={cn(
-                      "text-sm truncate",
-                      chat.unreadCount > 0
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {chat.lastMessage}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p
+                      className={cn(
+                        "text-sm truncate flex-1",
+                        chat.unreadCount > 0
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {chat.lastMessage}
+                    </p>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {chat.participants} members
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}
