@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
+import SwipeFiltersModal from "@/components/SwipeFiltersModal";
 import {
   X,
   Heart,
@@ -9,7 +10,6 @@ import {
   MapPin,
   Clock,
   Users,
-  Camera,
   Settings,
   DollarSign,
 } from "lucide-react";
