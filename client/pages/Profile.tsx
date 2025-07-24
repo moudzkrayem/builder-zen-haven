@@ -366,6 +366,12 @@ export default function Profile() {
           </>
         )}
       </div>
+
+      {/* Modals */}
+      <ProfileVisibilityModal
+        isOpen={showVisibilityModal}
+        onClose={() => setShowVisibilityModal(false)}
+      />
     </div>
   );
 }
