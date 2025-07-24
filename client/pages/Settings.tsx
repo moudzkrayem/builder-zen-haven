@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/ThemeProvider";
+import NotificationsModal from "@/components/NotificationsModal";
+import DiscoverySettingsModal from "@/components/DiscoverySettingsModal";
+import SubscriptionModal from "@/components/SubscriptionModal";
 import {
   ArrowLeft,
   Bell,
