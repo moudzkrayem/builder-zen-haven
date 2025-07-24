@@ -151,20 +151,15 @@ export default function Swipe() {
     <div className="relative h-full bg-gradient-to-br from-background via-accent/5 to-primary/5">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-10 h-10 rounded-full bg-black/20 text-white backdrop-blur-sm"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
+        <div className="w-10 h-10" /> {/* Spacer */}
         <div className="text-white font-bold text-lg">Trybe</div>
         <Button
           variant="ghost"
           size="icon"
-          className="w-10 h-10 rounded-full bg-black/20 text-white backdrop-blur-sm"
+          onClick={() => setShowFiltersModal(true)}
+          className="w-10 h-10 rounded-full bg-black/20 text-white backdrop-blur-sm hover:bg-black/30 transition-colors"
         >
-          <Camera className="w-5 h-5" />
+          <Settings className="w-5 h-5" />
         </Button>
       </div>
 
