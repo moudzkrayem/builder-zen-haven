@@ -50,7 +50,9 @@ const mockUser = {
 };
 
 export default function Profile() {
+  const { events, joinedEvents } = useEvents();
   const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "events">("profile");
 
   return (
     <div className="h-full bg-background overflow-y-auto">
