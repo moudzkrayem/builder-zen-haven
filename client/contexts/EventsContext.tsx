@@ -26,8 +26,9 @@ interface Event {
 interface Chat {
   id: number;
   eventId: number;
-  hostName: string;
-  hostImage: string;
+  eventName: string;
+  eventImage: string;
+  participants: number;
   lastMessage: string;
   time: string;
   unreadCount: number;
