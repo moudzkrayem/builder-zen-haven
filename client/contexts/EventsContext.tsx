@@ -231,16 +231,25 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
     // Check if chat already exists
     const existingChat = chats.find((chat) => chat.eventId === eventId);
-    if (existingChat) return;
+    if (existingChat) {
+      // Update participant count if chat exists
+      setChats((prevChats) =>
+        prevChats.map((chat) =>
+          chat.eventId === eventId
+            ? { ...chat, participants: event.attendees }
+            : chat,
+        ),
+      );
+      return;
+    }
 
     const newChat: Chat = {
       id: Date.now(),
       eventId: eventId,
-      hostName: event.hostName || event.host || "Host",
-      hostImage:
-        event.hostImage ||
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-      lastMessage: `You joined "${event.eventName || event.name}"! Say hello to get the conversation started.`,
+      eventName: event.eventName || event.name,
+      eventImage: event.image,
+      participants: event.attendees,
+      lastMessage: `Welcome to the ${event.eventName || event.name} group chat! Say hello to everyone.`,
       time: "now",
       unreadCount: 0,
       messages: [
@@ -248,7 +257,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           id: 1,
           senderId: "system",
           senderName: "System",
-          content: `Welcome to ${event.eventName || event.name}! You can now chat with the host.`,
+          content: `Welcome to ${event.eventName || event.name} group chat! All event participants can chat here. Current participants: ${event.attendees}`,
           timestamp: new Date().toISOString(),
           isCurrentUser: false,
         },
