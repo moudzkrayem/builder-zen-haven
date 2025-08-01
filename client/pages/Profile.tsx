@@ -56,7 +56,7 @@ const mockUser = {
 };
 
 export default function Profile() {
-  const { events, joinedEvents, getUserRating, rateEvent } = useEvents();
+  const { events, joinedEvents, getUserRating, rateEvent, connections, addConnection, isConnected } = useEvents();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "events">("profile");
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
