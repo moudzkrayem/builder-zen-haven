@@ -21,7 +21,6 @@ import {
   DollarSign,
   Crown,
   Lock,
-  Star,
   UserPlus,
   Check,
 } from "lucide-react";
