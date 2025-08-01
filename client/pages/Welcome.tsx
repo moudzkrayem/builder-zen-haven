@@ -21,9 +21,9 @@ export default function Welcome() {
           <div className="mb-8 animate-bounce-in">
             <div className="relative">
               <img
-                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F6cd49202477948acb955f024dec888c9?format=webp&width=800"
+                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F2ddd6c77a8df4501aa9e8730dda91175?format=webp&width=800"
                 alt="Trybe Logo"
-                className="w-20 h-20 object-contain rounded-3xl shadow-lg shadow-primary/25"
+                className="w-32 h-16 object-contain"
               />
               <div className="absolute -top-2 -right-2">
                 <Sparkles className="w-6 h-6 text-primary animate-pulse" />
