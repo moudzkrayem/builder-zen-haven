@@ -289,8 +289,10 @@ export default function Map({ onClose }: MapProps) {
           <div className="text-sm font-medium text-foreground mb-2">Legend</div>
           <div className="space-y-2 text-xs">
             <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full" />
-              <span className="text-muted-foreground">Your location</span>
+              <div className={`w-3 h-3 rounded-full ${userLocation ? 'bg-blue-500' : 'bg-gray-400'}`} />
+              <span className="text-muted-foreground">
+                {userLocation ? 'Your location (live)' : 'Location unavailable'}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-primary rounded-full" />
