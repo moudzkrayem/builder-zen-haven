@@ -18,6 +18,8 @@ import {
   Calendar,
   Clock,
   DollarSign,
+  Crown,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
