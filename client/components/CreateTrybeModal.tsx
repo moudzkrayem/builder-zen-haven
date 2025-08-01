@@ -58,6 +58,7 @@ export default function CreateTrybeModal({
       maxCapacity: 10,
       fee: "Free",
       photos: [],
+      ageRange: [18, 65],
     });
   };
 
