@@ -26,6 +26,7 @@ interface TrybeData {
   maxCapacity: number;
   fee: string;
   photos: string[];
+  ageRange: [number, number];
 }
 
 export default function CreateTrybeModal({
