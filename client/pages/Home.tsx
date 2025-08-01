@@ -401,7 +401,8 @@ export default function Home() {
               {featuredTrybes.slice(0, 4).map((trybe) => (
                 <div
                   key={`nearby-${trybe.id}`}
-                  className="bg-card rounded-xl overflow-hidden shadow-sm border border-border"
+                  onClick={() => handleEventClick(trybe.id)}
+                  className="bg-card rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <div className="relative aspect-[4/3]">
                     <img
@@ -413,13 +414,28 @@ export default function Home() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(trybe.id);
+                        }}
+                        className={cn(
+                          "w-8 h-8 bg-white/80 hover:bg-white transition-colors",
+                          isFavorite(trybe.id)
+                            ? "text-red-500"
+                            : "text-gray-700"
+                        )}
                       >
-                        <Heart className="w-4 h-4" />
+                        <Heart className={cn(
+                          "w-4 h-4 transition-all",
+                          isFavorite(trybe.id) && "fill-current"
+                        )} />
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => handleJoinEvent(trybe.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleJoinEvent(trybe.id);
+                        }}
                         className={cn(
                           "px-2 py-1 h-6 text-xs rounded-full",
                           joinedEvents.includes(trybe.id)
