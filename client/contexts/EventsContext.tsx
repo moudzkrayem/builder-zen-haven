@@ -71,6 +71,8 @@ interface EventsContextType {
   userRatings: UserRating[];
   rateEvent: (eventId: number, rating: number) => void;
   getUserRating: (eventId: number) => number | null;
+  canRateEvent: (eventId: number) => boolean;
+  isEventFinished: (eventId: number) => boolean;
   connections: Connection[];
   addConnection: (eventId: number) => void;
   isConnected: (eventId: number) => boolean;
