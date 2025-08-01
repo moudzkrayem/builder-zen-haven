@@ -250,6 +250,21 @@ export default function Map({ onClose }: MapProps) {
           </div>
         )}
 
+        {/* Location error message */}
+        {locationError && (
+          <div className="absolute bottom-24 left-4 right-4 bg-destructive/10 border border-destructive/20 rounded-xl p-3">
+            <div className="text-sm text-destructive font-medium">{locationError}</div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={getCurrentLocation}
+              className="mt-2 text-xs h-7"
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
+
         {/* Distance filter */}
         <div className="absolute top-4 left-4 bg-card rounded-xl p-3 shadow-lg border border-border">
           <div className="text-sm font-medium text-foreground mb-2">
