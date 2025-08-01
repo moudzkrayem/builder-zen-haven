@@ -25,15 +25,17 @@ interface EventDetailModalProps {
 }
 
 export default function EventDetailModal({ isOpen, onClose, eventId }: EventDetailModalProps) {
-  const { 
-    events, 
-    joinEvent, 
-    leaveEvent, 
-    joinedEvents, 
-    addConnection, 
+  const {
+    events,
+    joinEvent,
+    leaveEvent,
+    joinedEvents,
+    addConnection,
     isConnected,
     getUserRating,
-    rateEvent 
+    rateEvent,
+    canRateEvent,
+    isEventFinished
   } = useEvents();
   
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
