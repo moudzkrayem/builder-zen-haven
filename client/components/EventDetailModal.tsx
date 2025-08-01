@@ -60,6 +60,23 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
     addConnection(eventId);
   };
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: event.eventName || event.name,
+        text: `Check out this event: ${event.eventName || event.name} at ${event.location}`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      navigator.clipboard.writeText(
+        `Check out this event: ${event.eventName || event.name} at ${event.location} - ${window.location.href}`
+      );
+      // You could add a toast notification here
+      alert('Event link copied to clipboard!');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
       <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden">
