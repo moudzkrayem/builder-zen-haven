@@ -5,6 +5,7 @@ import { useEvents } from "@/contexts/EventsContext";
 import ProfileVisibilityModal from "@/components/ProfileVisibilityModal";
 import EditProfileModal from "@/components/EditProfileModal";
 import SocialAccountsModal from "@/components/SocialAccountsModal";
+import StatsModal from "@/components/StatsModal";
 import {
   Settings,
   Camera,
