@@ -74,6 +74,9 @@ interface EventsContextType {
   connections: Connection[];
   addConnection: (eventId: number) => void;
   isConnected: (eventId: number) => boolean;
+  favoriteEvents: number[];
+  toggleFavorite: (eventId: number) => void;
+  isFavorite: (eventId: number) => boolean;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
