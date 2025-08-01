@@ -92,7 +92,7 @@ export default function Profile() {
           <button
             onClick={() => setActiveTab("profile")}
             className={cn(
-              "flex-1 text-center py-3 px-4 rounded-lg font-medium transition-all duration-200",
+              "flex-1 text-center py-3 px-2 rounded-lg font-medium transition-all duration-200 text-sm",
               activeTab === "profile"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
@@ -103,13 +103,24 @@ export default function Profile() {
           <button
             onClick={() => setActiveTab("events")}
             className={cn(
-              "flex-1 text-center py-3 px-4 rounded-lg font-medium transition-all duration-200",
+              "flex-1 text-center py-3 px-2 rounded-lg font-medium transition-all duration-200 text-sm",
               activeTab === "events"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             )}
           >
-            Previous Events
+            Events
+          </button>
+          <button
+            onClick={() => setActiveTab("connections")}
+            className={cn(
+              "flex-1 text-center py-3 px-2 rounded-lg font-medium transition-all duration-200 text-sm",
+              activeTab === "connections"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            Connections
           </button>
         </div>
       </div>
