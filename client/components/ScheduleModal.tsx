@@ -178,7 +178,10 @@ export default function ScheduleModal({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancelEvent(event.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelEvent(event.id);
+                        }}
                         disabled={cancellingEvent === event.id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
