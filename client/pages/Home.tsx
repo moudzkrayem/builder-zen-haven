@@ -89,11 +89,7 @@ export default function Home() {
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F02555a0fd2134b218ff619665a3b0d11?format=webp&width=800"
-                alt="Trybe Logo"
-                className="w-8 h-8 object-contain"
-              />
+              <div className="w-8 h-8"></div>
               <div>
                 <h1 className="text-xl font-bold leading-tight">Find your</h1>
                 <h1 className="text-xl font-bold text-primary leading-tight">
