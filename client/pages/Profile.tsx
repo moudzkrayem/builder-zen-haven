@@ -407,30 +407,46 @@ export default function Profile() {
                             <div className="mt-3 pt-3 border-t border-border">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm text-muted-foreground">Your rating:</span>
-                                <div className="flex items-center space-x-1">
-                                  {[1, 2, 3, 4, 5].map((starValue) => {
-                                    const currentRating = getUserRating(event.id) || 0;
-                                    return (
-                                      <button
+                                {canRateEvent(event.id) ? (
+                                  <div className="flex items-center space-x-1">
+                                    {[1, 2, 3, 4, 5].map((starValue) => {
+                                      const currentRating = getUserRating(event.id) || 0;
+                                      return (
+                                        <button
+                                          key={starValue}
+                                          onClick={() => rateEvent(event.id, starValue)}
+                                          className="transition-colors hover:scale-110"
+                                        >
+                                          <Star
+                                            className={cn(
+                                              "w-4 h-4",
+                                              starValue <= currentRating
+                                                ? "text-yellow-500 fill-current"
+                                                : "text-gray-300 hover:text-yellow-400"
+                                            )}
+                                          />
+                                        </button>
+                                      );
+                                    })}
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      {getUserRating(event.id) ? `${getUserRating(event.id)}/5` : "Rate"}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-1">
+                                    {[1, 2, 3, 4, 5].map((starValue) => (
+                                      <Star
                                         key={starValue}
-                                        onClick={() => rateEvent(event.id, starValue)}
-                                        className="transition-colors hover:scale-110"
-                                      >
-                                        <Star
-                                          className={cn(
-                                            "w-4 h-4",
-                                            starValue <= currentRating
-                                              ? "text-yellow-500 fill-current"
-                                              : "text-gray-300 hover:text-yellow-400"
-                                          )}
-                                        />
-                                      </button>
-                                    );
-                                  })}
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    {getUserRating(event.id) ? `${getUserRating(event.id)}/5` : "Rate"}
-                                  </span>
-                                </div>
+                                        className="w-4 h-4 text-gray-300"
+                                      />
+                                    ))}
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      {!isEventFinished(event.id)
+                                        ? "After event ends"
+                                        : "Attend to rate"}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
