@@ -385,6 +385,26 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return rating ? rating.rating : null;
   };
 
+  const addConnection = (eventId: number) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event || isConnected(eventId)) return;
+
+    const newConnection: Connection = {
+      id: Date.now(),
+      name: event.hostName || event.host || "Event Host",
+      image: event.hostImage || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+      eventId: eventId,
+      eventName: event.eventName || event.name,
+      connectedAt: new Date().toISOString(),
+    };
+
+    setConnections(prev => [...prev, newConnection]);
+  };
+
+  const isConnected = (eventId: number): boolean => {
+    return connections.some(c => c.eventId === eventId);
+  };
+
   return (
     <EventsContext.Provider
       value={{
