@@ -352,6 +352,26 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }, 2000);
   };
 
+  const rateEvent = (eventId: number, rating: number) => {
+    setUserRatings((prev) => {
+      const existingRating = prev.find(r => r.eventId === eventId);
+      if (existingRating) {
+        return prev.map(r =>
+          r.eventId === eventId
+            ? { ...r, rating }
+            : r
+        );
+      } else {
+        return [...prev, { eventId, rating, isPrivate: true }];
+      }
+    });
+  };
+
+  const getUserRating = (eventId: number): number | null => {
+    const rating = userRatings.find(r => r.eventId === eventId);
+    return rating ? rating.rating : null;
+  };
+
   return (
     <EventsContext.Provider
       value={{
