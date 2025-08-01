@@ -383,6 +383,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         chats,
         addMessage,
         createChatForEvent,
+        userRatings,
+        rateEvent,
+        getUserRating,
       }}
     >
       {children}
