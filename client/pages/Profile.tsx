@@ -211,11 +211,17 @@ export default function Profile() {
                 </div>
                 <div className="text-xs text-muted-foreground">Connections</div>
               </div>
-              <div className="text-center p-4 bg-accent/50 rounded-2xl">
-                <div className="text-2xl font-bold text-primary mb-1">
-                  {mockUser.stats.profileViews}
+              <div className="relative text-center p-4 bg-accent/50 rounded-2xl">
+                <div className="text-2xl font-bold text-muted-foreground mb-1">
+                  <Lock className="w-6 h-6 mx-auto" />
                 </div>
                 <div className="text-xs text-muted-foreground">Profile Views</div>
+                <div className="absolute top-2 right-2">
+                  <Crown className="w-4 h-4 text-yellow-500" />
+                </div>
+                <div className="text-xs text-yellow-600 mt-1 font-medium">
+                  Premium
+                </div>
               </div>
             </div>
 
