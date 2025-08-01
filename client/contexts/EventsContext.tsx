@@ -419,6 +419,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         userRatings,
         rateEvent,
         getUserRating,
+        connections,
+        addConnection,
+        isConnected,
       }}
     >
       {children}
