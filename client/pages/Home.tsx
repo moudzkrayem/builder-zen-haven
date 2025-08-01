@@ -81,6 +81,23 @@ export default function Home() {
     setShowEventDetailModal(true);
   };
 
+  const handleShareEvent = (event: any) => {
+    if (navigator.share) {
+      navigator.share({
+        title: event.eventName || event.name,
+        text: `Check out this event: ${event.eventName || event.name} at ${event.location}`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      navigator.clipboard.writeText(
+        `Check out this event: ${event.eventName || event.name} at ${event.location} - ${window.location.href}`
+      );
+      // You could add a toast notification here
+      alert('Event link copied to clipboard!');
+    }
+  };
+
   // Use events from context instead of local data
   const featuredTrybes = events;
 
