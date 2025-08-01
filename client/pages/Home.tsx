@@ -214,13 +214,28 @@ export default function Home() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="w-8 h-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(trybe.id);
+                            }}
+                            className={cn(
+                              "w-8 h-8 transition-colors",
+                              isFavorite(trybe.id)
+                                ? "text-red-500"
+                                : "text-gray-700"
+                            )}
                           >
-                            <Heart className="w-4 h-4" />
+                            <Heart className={cn(
+                              "w-4 h-4 transition-all",
+                              isFavorite(trybe.id) && "fill-current"
+                            )} />
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => handleJoinEvent(trybe.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJoinEvent(trybe.id);
+                            }}
                             className={cn(
                               "px-3 py-1 h-8 text-xs rounded-full",
                               joinedEvents.includes(trybe.id)
