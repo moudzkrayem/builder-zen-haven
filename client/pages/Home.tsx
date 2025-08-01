@@ -526,6 +526,7 @@ export default function Home() {
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         onOpenChat={handleOpenChat}
+        onEventClick={handleEventClick}
       />
 
       {/* Chat Modal */}
