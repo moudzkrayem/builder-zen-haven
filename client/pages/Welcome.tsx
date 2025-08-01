@@ -36,9 +36,8 @@ export default function Welcome() {
 
           {/* Tagline */}
           <p className="text-xl text-muted-foreground mb-12 max-w-sm leading-relaxed">
-            Connect with your vibe.{" "}
             <span className="text-primary font-medium">
-              Discover experiences.
+              Try new. Belong more.
             </span>
           </p>
 
