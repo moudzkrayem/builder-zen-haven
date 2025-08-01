@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, MapPin, Users, DollarSign, Clock } from "lucide-react";
+import { X, MapPin, Users, DollarSign, Clock, Navigation, RefreshCw } from "lucide-react";
 
 // Mock map data
 const mapEvents = [
