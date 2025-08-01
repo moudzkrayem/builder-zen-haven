@@ -71,6 +71,9 @@ interface EventsContextType {
   userRatings: UserRating[];
   rateEvent: (eventId: number, rating: number) => void;
   getUserRating: (eventId: number) => number | null;
+  connections: Connection[];
+  addConnection: (eventId: number) => void;
+  isConnected: (eventId: number) => boolean;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
