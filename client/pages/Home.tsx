@@ -529,6 +529,16 @@ export default function Home() {
         }}
         chatId={activeChatId}
       />
+
+      {/* Event Detail Modal */}
+      <EventDetailModal
+        isOpen={showEventDetailModal}
+        onClose={() => {
+          setShowEventDetailModal(false);
+          setActiveEventId(null);
+        }}
+        eventId={activeEventId}
+      />
     </>
   );
 }
