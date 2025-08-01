@@ -20,19 +20,16 @@ export default function Welcome() {
           {/* Logo */}
           <div className="mb-8 animate-bounce-in">
             <div className="relative">
-              <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-lg shadow-primary/25">
-                <Heart className="w-10 h-10 text-primary-foreground fill-current" />
-              </div>
+              <img
+                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F6cd49202477948acb955f024dec888c9?format=webp&width=800"
+                alt="Trybe Logo"
+                className="w-20 h-20 object-contain rounded-3xl shadow-lg shadow-primary/25"
+              />
               <div className="absolute -top-2 -right-2">
                 <Sparkles className="w-6 h-6 text-primary animate-pulse" />
               </div>
             </div>
           </div>
-
-          {/* Brand name */}
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent mb-4">
-            Trybe
-          </h1>
 
           {/* Tagline */}
           <p className="text-xl text-muted-foreground mb-12 max-w-sm leading-relaxed">
