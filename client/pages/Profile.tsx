@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
 import ProfileVisibilityModal from "@/components/ProfileVisibilityModal";
 import EditProfileModal from "@/components/EditProfileModal";
+import SocialAccountsModal from "@/components/SocialAccountsModal";
 import {
   Settings,
   Camera,
