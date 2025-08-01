@@ -438,6 +438,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         connections,
         addConnection,
         isConnected,
+        favoriteEvents,
+        toggleFavorite,
+        isFavorite,
       }}
     >
       {children}
