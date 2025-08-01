@@ -108,18 +108,7 @@ export default function Profile() {
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             )}
           >
-            Events
-          </button>
-          <button
-            onClick={() => setActiveTab("connections")}
-            className={cn(
-              "flex-1 text-center py-3 px-2 rounded-lg font-medium transition-all duration-200 text-sm",
-              activeTab === "connections"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            )}
-          >
-            Connections
+            Previous Events
           </button>
         </div>
       </div>
