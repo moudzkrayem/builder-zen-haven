@@ -105,10 +105,29 @@ export default function Map({ onClose }: MapProps) {
     <div className="fixed inset-0 z-50 bg-background">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <h1 className="text-xl font-bold">Nearby Trybes</h1>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center space-x-3">
+          <h1 className="text-xl font-bold">Nearby Trybes</h1>
+          {userLocation && (
+            <Badge variant="secondary" className="text-xs">
+              <Navigation className="w-3 h-3 mr-1" />
+              Live Location
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={getCurrentLocation}
+            disabled={isLoadingLocation}
+            title="Refresh location"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Map area */}
