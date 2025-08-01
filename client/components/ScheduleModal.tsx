@@ -90,11 +90,11 @@ export default function ScheduleModal({
           ) : (
             <div className="p-6 space-y-4">
               {joinedEventsList.map((event) => (
-                <button
+                <div
                   key={event.id}
                   onClick={() => onEventClick?.(event.id)}
                   className={cn(
-                    "bg-muted/30 rounded-2xl p-4 border border-border transition-all duration-300 hover:bg-muted/50 text-left w-full",
+                    "bg-muted/30 rounded-2xl p-4 border border-border transition-all duration-300 hover:bg-muted/50 cursor-pointer",
                     cancellingEvent === event.id &&
                       "opacity-50 scale-95 bg-destructive/10",
                   )}
@@ -199,7 +199,7 @@ export default function ScheduleModal({
                       </Button>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
