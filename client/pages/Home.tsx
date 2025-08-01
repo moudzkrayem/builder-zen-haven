@@ -309,11 +309,19 @@ export default function Home() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Handle favorite functionality
+                              toggleFavorite(trybe.id);
                             }}
-                            className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
+                            className={cn(
+                              "w-8 h-8 bg-white/80 hover:bg-white transition-colors",
+                              isFavorite(trybe.id)
+                                ? "text-red-500"
+                                : "text-gray-700"
+                            )}
                           >
-                            <Heart className="w-4 h-4" />
+                            <Heart className={cn(
+                              "w-4 h-4 transition-all",
+                              isFavorite(trybe.id) && "fill-current"
+                            )} />
                           </Button>
                           <Button
                             size="sm"
