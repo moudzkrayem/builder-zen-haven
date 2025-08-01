@@ -156,9 +156,16 @@ export default function Map({ onClose }: MapProps) {
 
           {/* Current location */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg">
-              <div className="w-8 h-8 bg-blue-500/30 rounded-full absolute -top-2 -left-2 animate-pulse" />
+            <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${userLocation ? 'bg-blue-500' : 'bg-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full absolute -top-2 -left-2 ${userLocation ? 'bg-blue-500/30 animate-pulse' : 'bg-gray-400/30'}`} />
             </div>
+            {userLocation && (
+              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-center">
+                <div className="bg-blue-500 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
+                  You are here
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Event markers */}
