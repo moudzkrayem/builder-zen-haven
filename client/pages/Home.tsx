@@ -292,9 +292,10 @@ export default function Home() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {featuredTrybes.slice(0, 4).map((trybe) => (
-                    <div
+                    <button
                       key={`similar-${trybe.id}`}
-                      className="bg-card rounded-xl overflow-hidden shadow-sm border border-border"
+                      onClick={() => handleEventClick(trybe.id)}
+                      className="bg-card rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow text-left w-full"
                     >
                       <div className="relative aspect-[4/3]">
                         <img
@@ -306,13 +307,20 @@ export default function Home() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle favorite functionality
+                            }}
                             className="w-8 h-8 bg-white/80 text-gray-700 hover:bg-white"
                           >
                             <Heart className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => handleJoinEvent(trybe.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJoinEvent(trybe.id);
+                            }}
                             className={cn(
                               "px-2 py-1 h-6 text-xs rounded-full",
                               joinedEvents.includes(trybe.id)
@@ -344,7 +352,7 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
