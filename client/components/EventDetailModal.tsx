@@ -177,34 +177,50 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
               </div>
             )}
 
-            {/* Rating Section (if user attended) */}
+            {/* Rating Section (if user attended and event finished) */}
             {isJoined && (
               <div>
                 <h3 className="font-semibold mb-2">Your Rating</h3>
-                <div className="flex items-center space-x-1">
-                  {[1, 2, 3, 4, 5].map((starValue) => {
-                    const currentRating = getUserRating(eventId) || 0;
-                    return (
-                      <button
+                {canRateEvent(eventId) ? (
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((starValue) => {
+                      const currentRating = getUserRating(eventId) || 0;
+                      return (
+                        <button
+                          key={starValue}
+                          onClick={() => rateEvent(eventId, starValue)}
+                          className="transition-colors hover:scale-110"
+                        >
+                          <Star
+                            className={cn(
+                              "w-5 h-5",
+                              starValue <= currentRating
+                                ? "text-yellow-500 fill-current"
+                                : "text-gray-300 hover:text-yellow-400"
+                            )}
+                          />
+                        </button>
+                      );
+                    })}
+                    <span className="text-sm text-muted-foreground ml-2">
+                      {getUserRating(eventId) ? `${getUserRating(eventId)}/5` : "Rate this event"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((starValue) => (
+                      <Star
                         key={starValue}
-                        onClick={() => rateEvent(eventId, starValue)}
-                        className="transition-colors hover:scale-110"
-                      >
-                        <Star
-                          className={cn(
-                            "w-5 h-5",
-                            starValue <= currentRating
-                              ? "text-yellow-500 fill-current"
-                              : "text-gray-300 hover:text-yellow-400"
-                          )}
-                        />
-                      </button>
-                    );
-                  })}
-                  <span className="text-sm text-muted-foreground ml-2">
-                    {getUserRating(eventId) ? `${getUserRating(eventId)}/5` : "Rate this event"}
-                  </span>
-                </div>
+                        className="w-5 h-5 text-gray-300"
+                      />
+                    ))}
+                    <span className="text-sm text-muted-foreground ml-2">
+                      {!isEventFinished(eventId)
+                        ? "Available after event ends"
+                        : "You must attend to rate"}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
