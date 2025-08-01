@@ -73,6 +73,11 @@ export default function Home() {
     }
   };
 
+  const handleEventClick = (eventId: number) => {
+    setActiveEventId(eventId);
+    setShowEventDetailModal(true);
+  };
+
   // Use events from context instead of local data
   const featuredTrybes = events;
 
