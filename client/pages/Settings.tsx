@@ -70,7 +70,7 @@ const settingsGroups = [
         type: "navigation",
       },
       {
-        icon: Eye,
+        icon: Heart,
         label: "Age Range",
         description: "18 - 35 years old",
         type: "navigation",
