@@ -51,6 +51,55 @@ export default function Map({ onClose }: MapProps) {
   const [selectedEvent, setSelectedEvent] = useState<
     (typeof mapEvents)[0] | null
   >(null);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
+  const getCurrentLocation = () => {
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by this browser");
+      setIsLoadingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        let errorMessage = "Unable to retrieve location";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out";
+            break;
+        }
+        setLocationError(errorMessage);
+        setIsLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  };
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 bg-background">
