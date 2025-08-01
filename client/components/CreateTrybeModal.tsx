@@ -23,6 +23,7 @@ interface TrybeData {
   eventName: string;
   location: string;
   time: string;
+  description: string;
   maxCapacity: number;
   fee: string;
   photos: string[];
