@@ -169,6 +169,7 @@ export default function ScheduleModal({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-green-600 hover:text-green-700 hover:bg-green-50"
                       >
                         <Check className="w-4 h-4 mr-1" />
