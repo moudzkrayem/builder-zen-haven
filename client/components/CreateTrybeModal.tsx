@@ -130,6 +130,24 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder="Tell people what to expect at your event..."
+              className="rounded-xl min-h-[100px] resize-none"
+              maxLength={500}
+            />
+            <div className="text-xs text-muted-foreground text-right">
+              {formData.description.length}/500 characters
+            </div>
+          </div>
+
           {/* Capacity */}
           <div className="space-y-2">
             <Label htmlFor="maxCapacity">Capacity *</Label>
