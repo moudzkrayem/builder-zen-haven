@@ -409,6 +409,18 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return connections.some(c => c.eventId === eventId);
   };
 
+  const toggleFavorite = (eventId: number) => {
+    setFavoriteEvents(prev =>
+      prev.includes(eventId)
+        ? prev.filter(id => id !== eventId)
+        : [...prev, eventId]
+    );
+  };
+
+  const isFavorite = (eventId: number): boolean => {
+    return favoriteEvents.includes(eventId);
+  };
+
   return (
     <EventsContext.Provider
       value={{
