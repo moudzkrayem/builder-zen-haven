@@ -51,6 +51,8 @@ export default function Home() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const [showEventDetailModal, setShowEventDetailModal] = useState(false);
+  const [activeEventId, setActiveEventId] = useState<number | null>(null);
 
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
