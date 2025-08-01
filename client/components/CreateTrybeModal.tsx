@@ -167,6 +167,31 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
+          {/* Age Range */}
+          <div className="space-y-2">
+            <Label>Age Range</Label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Who can join this event
+                </span>
+                <span className="font-semibold">
+                  {formData.ageRange[0]} - {formData.ageRange[1]} years
+                </span>
+              </div>
+              <Slider
+                value={formData.ageRange}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, ageRange: value as [number, number] })
+                }
+                max={80}
+                min={16}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </div>
+
           {/* Photo Upload */}
           <div className="space-y-2">
             <Label>Event Photos</Label>
