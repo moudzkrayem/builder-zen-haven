@@ -486,6 +486,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         userRatings,
         rateEvent,
         getUserRating,
+        canRateEvent,
+        isEventFinished,
         connections,
         addConnection,
         isConnected,
