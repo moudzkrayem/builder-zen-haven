@@ -186,6 +186,7 @@ export default function Home() {
               {featuredTrybes.map((trybe) => (
                 <div
                   key={trybe.id}
+                  onClick={() => handleEventClick(trybe.id)}
                   className="relative bg-card rounded-2xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <div className="flex">
