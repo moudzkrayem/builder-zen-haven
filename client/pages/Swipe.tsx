@@ -152,7 +152,11 @@ export default function Swipe() {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
         <div className="w-10 h-10" /> {/* Spacer */}
-        <div className="text-white font-bold text-lg">Trybe</div>
+        <img
+          src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2Fbc0b77f41718421ea09f3f1cb113eccc?format=webp&width=800"
+          alt="Trybe Logo"
+          className="h-8 w-auto object-contain"
+        />
         <Button
           variant="ghost"
           size="icon"
