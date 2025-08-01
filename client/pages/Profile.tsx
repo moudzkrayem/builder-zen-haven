@@ -308,6 +308,13 @@ export default function Profile() {
                 >
                   Discovery Settings
                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowSocialModal(true)}
+                  className="w-full justify-start h-12 rounded-xl text-foreground"
+                >
+                  Social Accounts
+                </Button>
               </div>
             </div>
           </>
