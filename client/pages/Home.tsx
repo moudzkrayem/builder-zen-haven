@@ -478,9 +478,10 @@ export default function Home() {
                 {featuredTrybes
                   .filter((trybe) => joinedEvents.includes(trybe.id))
                   .map((trybe) => (
-                    <div
+                    <button
                       key={`schedule-${trybe.id}`}
-                      className="bg-card rounded-xl p-4 border border-border flex items-center space-x-4"
+                      onClick={() => handleEventClick(trybe.id)}
+                      className="bg-card rounded-xl p-4 border border-border flex items-center space-x-4 hover:shadow-md transition-shadow text-left w-full"
                     >
                       <img
                         src={trybe.image}
@@ -496,7 +497,7 @@ export default function Home() {
                         </div>
                       </div>
                       <Badge className="bg-green-500 text-white">Joined</Badge>
-                    </div>
+                    </button>
                   ))}
               </div>
             </div>
