@@ -396,6 +396,10 @@ export default function Profile() {
         onClose={() => setShowEditModal(false)}
         userData={mockUser}
       />
+      <SocialAccountsModal
+        isOpen={showSocialModal}
+        onClose={() => setShowSocialModal(false)}
+      />
     </div>
   );
 }
