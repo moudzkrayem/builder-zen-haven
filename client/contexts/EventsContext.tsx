@@ -168,6 +168,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
 
   const addEvent = (eventData: any) => {
     const newEvent: Event = {
