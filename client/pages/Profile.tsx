@@ -63,6 +63,7 @@ export default function Profile() {
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState<"events" | "connections" | "views" | null>(null);
 
   return (
     <div className="h-full bg-background overflow-y-auto">
