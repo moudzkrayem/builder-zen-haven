@@ -39,6 +39,7 @@ export default function CreateTrybeModal({
     eventName: "",
     location: "",
     time: "",
+    description: "",
     maxCapacity: 10,
     fee: "Free",
     photos: [],
