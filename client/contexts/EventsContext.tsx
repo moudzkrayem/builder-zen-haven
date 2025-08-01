@@ -50,6 +50,15 @@ interface UserRating {
   isPrivate: boolean; // Always true for user ratings
 }
 
+interface Connection {
+  id: number;
+  name: string;
+  image: string;
+  eventId: number;
+  eventName: string;
+  connectedAt: string;
+}
+
 interface EventsContextType {
   events: Event[];
   addEvent: (eventData: any) => void;
