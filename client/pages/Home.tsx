@@ -42,7 +42,7 @@ const trendingSearches = [
 ];
 
 export default function Home() {
-  const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite } = useEvents();
+  const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showSimilar, setShowSimilar] = useState(false);
