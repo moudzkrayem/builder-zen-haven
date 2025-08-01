@@ -152,12 +152,13 @@ export default function ScheduleModal({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onOpenChat(
                           event.id,
                           event.hostName || event.host || "Host",
-                        )
-                      }
+                        );
+                      }}
                       className="flex items-center space-x-2"
                     >
                       <MessageCircle className="w-4 h-4" />
