@@ -385,9 +385,24 @@ export default function Profile() {
                                 <Users className="w-4 h-4" />
                                 <span>{event.attendees} attendees</span>
                               </div>
-                              <Badge variant="secondary" className="text-xs">
-                                Attended
-                              </Badge>
+                              <div className="flex items-center space-x-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  Attended
+                                </Badge>
+                                <Button
+                                  onClick={() => addConnection(event.id)}
+                                  disabled={isConnected(event.id)}
+                                  size="sm"
+                                  variant={isConnected(event.id) ? "outline" : "default"}
+                                  className="text-xs h-7"
+                                >
+                                  {isConnected(event.id) ? (
+                                    <><Check className="w-3 h-3 mr-1" />Connected</>
+                                  ) : (
+                                    <><UserPlus className="w-3 h-3 mr-1" />Connect</>
+                                  )}
+                                </Button>
+                              </div>
                             </div>
                             {/* Personal Rating System */}
                             <div className="mt-3 pt-3 border-t border-border">
