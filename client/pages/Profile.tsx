@@ -204,19 +204,28 @@ export default function Profile() {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-4 bg-accent/50 rounded-2xl">
+              <button
+                onClick={() => setShowStatsModal("events")}
+                className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
+              >
                 <div className="text-2xl font-bold text-primary mb-1">
                   {mockUser.stats.eventsAttended}
                 </div>
                 <div className="text-xs text-muted-foreground">Events</div>
-              </div>
-              <div className="text-center p-4 bg-accent/50 rounded-2xl">
+              </button>
+              <button
+                onClick={() => setShowStatsModal("connections")}
+                className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
+              >
                 <div className="text-2xl font-bold text-primary mb-1">
                   {mockUser.stats.connectionseMade}
                 </div>
                 <div className="text-xs text-muted-foreground">Connections</div>
-              </div>
-              <div className="relative text-center p-4 bg-accent/50 rounded-2xl">
+              </button>
+              <button
+                onClick={() => setShowStatsModal("views")}
+                className="relative text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
+              >
                 <div className="text-2xl font-bold text-muted-foreground mb-1">
                   <Lock className="w-6 h-6 mx-auto" />
                 </div>
@@ -227,7 +236,7 @@ export default function Profile() {
                 <div className="text-xs text-yellow-600 mt-1 font-medium">
                   Premium
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Interests */}
