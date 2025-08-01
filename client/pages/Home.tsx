@@ -369,26 +369,58 @@ export default function Home() {
                           alt={trybe.name}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute top-2 right-2 flex items-center space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(trybe.id);
-                            }}
-                            className={cn(
-                              "w-8 h-8 bg-white/80 hover:bg-white transition-colors",
-                              isFavorite(trybe.id)
-                                ? "text-red-500"
-                                : "text-gray-700"
-                            )}
-                          >
-                            <Heart className={cn(
-                              "w-4 h-4 transition-all",
-                              isFavorite(trybe.id) && "fill-current"
-                            )} />
-                          </Button>
+                        <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
+                          <div className="flex items-center space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(trybe.id);
+                              }}
+                              className={cn(
+                                "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
+                                isFavorite(trybe.id)
+                                  ? "text-red-500"
+                                  : "text-gray-700"
+                              )}
+                            >
+                              <Heart className={cn(
+                                "w-3 h-3 transition-all",
+                                isFavorite(trybe.id) && "fill-current"
+                              )} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareEvent(trybe);
+                              }}
+                              className="w-7 h-7 bg-white/80 hover:bg-white text-gray-700 hover:text-primary transition-colors"
+                            >
+                              <Share className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addConnection(trybe.id);
+                              }}
+                              disabled={isConnected(trybe.id)}
+                              className={cn(
+                                "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
+                                isConnected(trybe.id) ? "text-green-600" : "text-gray-700 hover:text-primary"
+                              )}
+                            >
+                              {isConnected(trybe.id) ? (
+                                <Check className="w-3 h-3" />
+                              ) : (
+                                <UserPlus className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </div>
                           <Button
                             size="sm"
                             onClick={(e) => {
