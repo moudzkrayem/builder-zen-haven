@@ -458,6 +458,11 @@ export default function Profile() {
         isOpen={showSocialModal}
         onClose={() => setShowSocialModal(false)}
       />
+      <StatsModal
+        isOpen={showStatsModal !== null}
+        onClose={() => setShowStatsModal(null)}
+        type={showStatsModal}
+      />
     </div>
   );
 }
