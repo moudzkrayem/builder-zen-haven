@@ -283,7 +283,11 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
                   <><UserPlus className="w-4 h-4 mr-2" />Connect+</>
                 )}
               </Button>
-              <Button variant="outline" className="flex-1 h-10 rounded-xl">
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                className="flex-1 h-10 rounded-xl"
+              >
                 <Share className="w-4 h-4 mr-2" />
                 Share
               </Button>
