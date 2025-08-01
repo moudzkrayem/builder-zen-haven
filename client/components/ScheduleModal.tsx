@@ -25,6 +25,7 @@ export default function ScheduleModal({
   isOpen,
   onClose,
   onOpenChat,
+  onEventClick,
 }: ScheduleModalProps) {
   const { events, joinedEvents, leaveEvent } = useEvents();
   const [cancellingEvent, setCancellingEvent] = useState<number | null>(null);
