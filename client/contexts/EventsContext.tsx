@@ -44,6 +44,12 @@ interface Message {
   isCurrentUser: boolean;
 }
 
+interface UserRating {
+  eventId: number;
+  rating: number; // 1-5 stars
+  isPrivate: boolean; // Always true for user ratings
+}
+
 interface EventsContextType {
   events: Event[];
   addEvent: (eventData: any) => void;
@@ -53,6 +59,9 @@ interface EventsContextType {
   chats: Chat[];
   addMessage: (chatId: number, content: string) => void;
   createChatForEvent: (eventId: number) => void;
+  userRatings: UserRating[];
+  rateEvent: (eventId: number, rating: number) => void;
+  getUserRating: (eventId: number) => number | null;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
