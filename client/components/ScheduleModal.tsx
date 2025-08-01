@@ -18,6 +18,7 @@ interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenChat: (eventId: number, hostName: string) => void;
+  onEventClick?: (eventId: number) => void;
 }
 
 export default function ScheduleModal({
