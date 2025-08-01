@@ -230,7 +230,7 @@ export default function Home() {
                         <h3 className="font-semibold text-foreground line-clamp-1">
                           {trybe.name}
                         </h3>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -239,16 +239,46 @@ export default function Home() {
                               toggleFavorite(trybe.id);
                             }}
                             className={cn(
-                              "w-8 h-8 transition-colors",
+                              "w-7 h-7 transition-colors",
                               isFavorite(trybe.id)
                                 ? "text-red-500"
                                 : "text-gray-700"
                             )}
                           >
                             <Heart className={cn(
-                              "w-4 h-4 transition-all",
+                              "w-3 h-3 transition-all",
                               isFavorite(trybe.id) && "fill-current"
                             )} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShareEvent(trybe);
+                            }}
+                            className="w-7 h-7 text-gray-700 hover:text-primary transition-colors"
+                          >
+                            <Share className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addConnection(trybe.id);
+                            }}
+                            disabled={isConnected(trybe.id)}
+                            className={cn(
+                              "w-7 h-7 transition-colors",
+                              isConnected(trybe.id) ? "text-green-600" : "text-gray-700 hover:text-primary"
+                            )}
+                          >
+                            {isConnected(trybe.id) ? (
+                              <Check className="w-3 h-3" />
+                            ) : (
+                              <UserPlus className="w-3 h-3" />
+                            )}
                           </Button>
                           <Button
                             size="sm"
@@ -257,7 +287,7 @@ export default function Home() {
                               handleJoinEvent(trybe.id);
                             }}
                             className={cn(
-                              "px-3 py-1 h-8 text-xs rounded-full",
+                              "px-2 py-1 h-7 text-xs rounded-full",
                               joinedEvents.includes(trybe.id)
                                 ? "bg-green-500 hover:bg-green-600 text-white"
                                 : "bg-primary hover:bg-primary/90 text-primary-foreground",
