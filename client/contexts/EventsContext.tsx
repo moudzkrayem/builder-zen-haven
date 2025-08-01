@@ -371,7 +371,56 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }, 2000);
   };
 
+  const isEventFinished = (eventId: number): boolean => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return false;
+
+    try {
+      // Try to parse the date string to check if event has passed
+      const eventDate = new Date(event.date);
+      const now = new Date();
+
+      // If parsing fails, check for specific patterns in the date string
+      if (isNaN(eventDate.getTime())) {
+        // Handle formats like "Sat 9:00 AM", "Sun 7:00 AM", "Thu 6:00 PM"
+        const today = new Date();
+        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const dayMap: { [key: string]: number } = {
+          'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6
+        };
+
+        const eventDayStr = event.date.toLowerCase().substring(0, 3);
+        const eventDay = dayMap[eventDayStr];
+
+        if (eventDay !== undefined) {
+          // Simple check: if event day has passed this week, consider it finished
+          return currentDay > eventDay;
+        }
+
+        // If we can't parse, default to allowing rating for now
+        return false;
+      }
+
+      return eventDate < now;
+    } catch (error) {
+      // If date parsing fails, default to false to allow rating
+      return false;
+    }
+  };
+
+  const canRateEvent = (eventId: number): boolean => {
+    // User must have joined the event AND the event must be finished
+    const hasAttended = joinedEvents.includes(eventId);
+    const eventFinished = isEventFinished(eventId);
+    return hasAttended && eventFinished;
+  };
+
   const rateEvent = (eventId: number, rating: number) => {
+    // Only allow rating if user attended and event is finished
+    if (!canRateEvent(eventId)) {
+      return;
+    }
+
     setUserRatings((prev) => {
       const existingRating = prev.find(r => r.eventId === eventId);
       if (existingRating) {
