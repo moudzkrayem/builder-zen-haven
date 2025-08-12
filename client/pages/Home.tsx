@@ -286,15 +286,20 @@ export default function Home() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              addConnection(trybe.id);
+                              if (trybe.isPremium) {
+                                setPremiumEventName(trybe.eventName || trybe.name);
+                                setShowPremiumUpgradeModal(true);
+                              } else {
+                                addConnection(trybe.id);
+                              }
                             }}
-                            disabled={isConnected(trybe.id)}
+                            disabled={!trybe.isPremium && isConnected(trybe.id)}
                             className={cn(
                               "w-7 h-7 transition-colors",
-                              isConnected(trybe.id) ? "text-green-600" : "text-gray-700 hover:text-primary"
+                              isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
                             )}
                           >
-                            {isConnected(trybe.id) ? (
+                            {isConnected(trybe.id) && !trybe.isPremium ? (
                               <Check className="w-3 h-3" />
                             ) : (
                               <UserPlus className="w-3 h-3" />
@@ -304,16 +309,25 @@ export default function Home() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleJoinEvent(trybe.id);
+                              if (trybe.isPremium) {
+                                setPremiumEventName(trybe.eventName || trybe.name);
+                                setShowPremiumUpgradeModal(true);
+                              } else {
+                                handleJoinEvent(trybe.id);
+                              }
                             }}
                             className={cn(
                               "px-2 py-1 h-7 text-xs rounded-full",
-                              joinedEvents.includes(trybe.id)
+                              trybe.isPremium
+                                ? "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                                : joinedEvents.includes(trybe.id)
                                 ? "bg-green-500 hover:bg-green-600 text-white"
                                 : "bg-primary hover:bg-primary/90 text-primary-foreground",
                             )}
                           >
-                            {joinedEvents.includes(trybe.id)
+                            {trybe.isPremium
+                              ? "Premium"
+                              : joinedEvents.includes(trybe.id)
                               ? "Joined"
                               : "Join"}
                           </Button>
