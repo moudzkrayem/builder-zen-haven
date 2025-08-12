@@ -12,6 +12,9 @@ import {
   DollarSign,
   Camera,
   Upload,
+  Crown,
+  Star,
+  Zap,
 } from "lucide-react";
 
 interface CreateTrybeModalProps {
