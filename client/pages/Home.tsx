@@ -7,6 +7,7 @@ import CreateTrybeModal from "@/components/CreateTrybeModal";
 import ScheduleModal from "@/components/ScheduleModal";
 import ChatModal from "@/components/ChatModal";
 import EventDetailModal from "@/components/EventDetailModal";
+import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import { useEvents } from "@/contexts/EventsContext";
 import {
   Search,
