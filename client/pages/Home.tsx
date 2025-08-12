@@ -715,6 +715,16 @@ export default function Home() {
         }}
         eventId={activeEventId}
       />
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showPremiumUpgradeModal}
+        onClose={() => {
+          setShowPremiumUpgradeModal(false);
+          setPremiumEventName("");
+        }}
+        eventName={premiumEventName}
+      />
     </>
   );
 }
