@@ -147,7 +147,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           <div>
             <h3 className="font-semibold">{chat.eventName}</h3>
             <p className="text-xs text-muted-foreground">
-              {isTyping ? "someone is typing..." : `${chat.participants} members`}
+              {isTyping ? "someone is typing..." : `${event?.attendees || chat.participants} members`}
             </p>
           </div>
         </div>
