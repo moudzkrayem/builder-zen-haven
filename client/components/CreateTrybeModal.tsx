@@ -99,7 +99,7 @@ export default function CreateTrybeModal({
                     <Zap className="w-4 h-4 ml-1 text-yellow-500" />
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Boost your event visibility and reach more people
+                    Create exclusive private events for verified members only
                   </p>
                 </div>
               </div>
