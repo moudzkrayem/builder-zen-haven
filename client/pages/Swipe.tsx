@@ -387,6 +387,13 @@ export default function Swipe() {
         isOpen={showFiltersModal}
         onClose={() => setShowFiltersModal(false)}
       />
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showPremiumUpgradeModal}
+        onClose={() => setShowPremiumUpgradeModal(false)}
+        eventName={currentEvent?.eventName}
+      />
     </div>
   );
 }
