@@ -57,6 +57,8 @@ export default function Home() {
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [showEventDetailModal, setShowEventDetailModal] = useState(false);
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
+  const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
+  const [premiumEventName, setPremiumEventName] = useState<string>("");
 
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
