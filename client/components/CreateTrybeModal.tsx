@@ -372,8 +372,21 @@ export default function CreateTrybeModal({
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1 rounded-xl">
-              Create Trybe
+            <Button
+              type="submit"
+              className={cn(
+                "flex-1 rounded-xl",
+                formData.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+              )}
+            >
+              {formData.isPremium ? (
+                <>
+                  <Crown className="w-4 h-4 mr-2" />
+                  Create Premium Trybe
+                </>
+              ) : (
+                "Create Trybe"
+              )}
             </Button>
           </div>
         </form>
