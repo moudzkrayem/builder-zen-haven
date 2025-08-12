@@ -33,6 +33,38 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
 
   const chat = chats.find((c) => c.id === chatId);
 
+  // Mock group members data
+  const groupMembers = [
+    {
+      id: 1,
+      name: "Sarah Chen",
+      image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop",
+      status: "online",
+      isHost: false,
+    },
+    {
+      id: 2,
+      name: "Mike Johnson",
+      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+      status: "offline",
+      isHost: false,
+    },
+    {
+      id: 3,
+      name: "Event Host",
+      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+      status: "online",
+      isHost: true,
+    },
+    {
+      id: 4,
+      name: "Alex Rivera",
+      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+      status: "online",
+      isHost: false,
+    },
+  ];
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -40,6 +72,17 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   }, [chat?.messages]);
 
   if (!isOpen || !chat) return null;
+
+  const handleStartPrivateChat = (member: any) => {
+    // This would create a new private chat
+    alert(`Starting private chat with ${member.name}`);
+  };
+
+  const handleViewProfile = (member: any) => {
+    // This would navigate to the member's profile
+    setSelectedMember(member);
+    alert(`Viewing ${member.name}'s profile`);
+  };
 
   const handleSendMessage = () => {
     if (!messageText.trim() || !chatId) return;
