@@ -80,8 +80,14 @@ export default function Home() {
   };
 
   const handleEventClick = (eventId: number) => {
-    setActiveEventId(eventId);
-    setShowEventDetailModal(true);
+    const event = events.find(e => e.id === eventId);
+    if (event?.isPremium) {
+      setPremiumEventName(event.eventName || event.name);
+      setShowPremiumUpgradeModal(true);
+    } else {
+      setActiveEventId(eventId);
+      setShowEventDetailModal(true);
+    }
   };
 
   const handleShareEvent = (event: any) => {
