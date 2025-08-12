@@ -68,6 +68,7 @@ export default function CreateTrybeModal({
       fee: "Free",
       photos: [],
       ageRange: [18, 65],
+      isPremium: false,
     });
   };
 
