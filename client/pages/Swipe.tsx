@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
 import SwipeFiltersModal from "@/components/SwipeFiltersModal";
+import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import {
   X,
   Heart,
@@ -12,6 +13,8 @@ import {
   Users,
   Settings,
   DollarSign,
+  Star,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
