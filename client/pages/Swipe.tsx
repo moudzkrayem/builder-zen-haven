@@ -184,6 +184,7 @@ export default function Swipe() {
           className={cn(
             "relative w-full h-full bg-card rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 cursor-grab active:cursor-grabbing",
             isDragging && "scale-105",
+            currentEvent.isPremium && "ring-2 ring-yellow-500/50 shadow-yellow-500/20",
           )}
           style={{
             transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.1}deg)`,
