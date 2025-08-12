@@ -31,6 +31,8 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPrivateChatModal, setShowPrivateChatModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chat = chats.find((c) => c.id === chatId);
