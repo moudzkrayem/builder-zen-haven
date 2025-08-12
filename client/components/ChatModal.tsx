@@ -24,9 +24,11 @@ interface ChatModalProps {
 }
 
 export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
-  const { chats, addMessage } = useEvents();
+  const { chats, addMessage, addConnection, isConnected } = useEvents();
   const [messageText, setMessageText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chat = chats.find((c) => c.id === chatId);
