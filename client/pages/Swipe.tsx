@@ -51,6 +51,7 @@ export default function Swipe() {
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
     eventImages: event.eventImages || [event.image],
     interests: event.interests || ["Event"],
+    isPremium: event.isPremium || false,
   }));
 
   const currentEvent = swipeEvents[currentIndex];
