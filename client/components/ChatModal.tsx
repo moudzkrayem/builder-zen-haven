@@ -135,6 +135,14 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         </div>
 
         <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowMembers(!showMembers)}
+            className={cn(showMembers && "bg-accent")}
+          >
+            <Users className="w-5 h-5" />
+          </Button>
           <Button variant="ghost" size="icon">
             <Phone className="w-5 h-5" />
           </Button>
