@@ -155,6 +155,76 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         </div>
       </div>
 
+      {/* Group Members Panel */}
+      {showMembers && (
+        <div className="border-b border-border bg-muted/20 p-4">
+          <h4 className="font-semibold mb-3 flex items-center">
+            <Users className="w-4 h-4 mr-2" />
+            Group Members ({groupMembers.length})
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            {groupMembers.map((member) => (
+              <div
+                key={member.id}
+                className="bg-card rounded-xl p-3 border border-border"
+              >
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="relative">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className={cn(
+                      "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card",
+                      member.status === "online" ? "bg-green-500" : "bg-gray-400"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{member.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {member.isHost ? "Host" : member.status}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewProfile(member)}
+                    className="flex-1 h-7 text-xs"
+                  >
+                    Profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleStartPrivateChat(member)}
+                    className="flex-1 h-7 text-xs"
+                  >
+                    <MessageSquare className="w-3 h-3 mr-1" />
+                    Chat
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={isConnected(member.id) ? "default" : "outline"}
+                    onClick={() => !isConnected(member.id) && addConnection(member.id)}
+                    disabled={isConnected(member.id)}
+                    className="h-7 px-2"
+                  >
+                    {isConnected(member.id) ? (
+                      <Check className="w-3 h-3" />
+                    ) : (
+                      <UserPlus className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {chat.messages.map((message, index) => (
