@@ -317,6 +317,27 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           </Button>
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setSelectedMember(null);
+        }}
+        user={selectedMember}
+        onStartPrivateChat={handleStartPrivateChat}
+      />
+
+      {/* Private Chat Modal */}
+      <PrivateChatModal
+        isOpen={showPrivateChatModal}
+        onClose={() => {
+          setShowPrivateChatModal(false);
+          setSelectedMember(null);
+        }}
+        user={selectedMember}
+      />
     </div>
   );
 }
