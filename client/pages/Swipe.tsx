@@ -258,15 +258,6 @@ export default function Swipe() {
               </div>
             </div>
 
-            {/* Premium Badge */}
-            {currentEvent.isPremium && (
-              <div className="absolute top-6 right-6 z-10">
-                <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm h-7 flex items-center">
-                  <Crown className="w-4 h-4 mr-1" />
-                  Premium
-                </Badge>
-              </div>
-            )}
 
             {/* Event info overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
