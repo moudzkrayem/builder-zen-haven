@@ -21,6 +21,7 @@ interface Event {
   rating?: number;
   interests?: string[];
   description?: string;
+  isPremium?: boolean;
 }
 
 interface Chat {
