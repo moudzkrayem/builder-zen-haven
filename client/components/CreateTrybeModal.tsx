@@ -85,6 +85,73 @@ export default function CreateTrybeModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Premium Option */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/20">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Crown className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold flex items-center">
+                    Trybe Premium
+                    <Zap className="w-4 h-4 ml-1 text-yellow-500" />
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Boost your event visibility and reach more people
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isPremium}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isPremium: e.target.checked })
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            {formData.isPremium && (
+              <div className="bg-gradient-to-br from-primary/5 to-accent/10 rounded-xl p-4 border border-primary/20">
+                <h4 className="font-semibold mb-3 flex items-center">
+                  <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                  Premium Features
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                    <span>Featured placement in event listings</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                    <span>Priority search ranking</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                    <span>Enhanced analytics and insights</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                    <span>Custom event badges</span>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-card rounded-lg border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Premium Cost:</span>
+                    <span className="text-lg font-bold text-primary">$9.99</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    One-time fee for this event
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Event Name */}
           <div className="space-y-2">
             <Label htmlFor="eventName">Name *</Label>
