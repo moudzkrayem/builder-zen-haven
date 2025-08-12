@@ -32,6 +32,7 @@ interface TrybeData {
   fee: string;
   photos: string[];
   ageRange: [number, number];
+  isPremium: boolean;
 }
 
 export default function CreateTrybeModal({
