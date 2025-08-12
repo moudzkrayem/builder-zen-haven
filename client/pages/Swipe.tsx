@@ -62,9 +62,14 @@ export default function Swipe() {
       setTimeout(() => setAnimatingButton(null), 300);
     }
 
-    // If swiping right (like), join the event
+    // If swiping right (like) on a premium event, show upgrade modal
     if (direction === "right" && currentEvent) {
-      joinEvent(currentEvent.id);
+      if (currentEvent.isPremium) {
+        setShowPremiumUpgradeModal(true);
+        return; // Don't proceed with the swipe
+      } else {
+        joinEvent(currentEvent.id);
+      }
     }
 
     if (currentIndex < swipeEvents.length - 1) {
