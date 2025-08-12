@@ -177,18 +177,28 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
       {/* Group Members Panel */}
       {showMembers && (
         <div className="border-b border-border bg-muted/20 p-4">
-          <h4 className="font-semibold mb-3 flex items-center">
-            <Users className="w-4 h-4 mr-2" />
-            Group Members ({groupMembers.length})
-          </h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold flex items-center">
+              <Users className="w-4 h-4 mr-2" />
+              Group Members ({groupMembers.length})
+            </h4>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMembers(false)}
+              className="text-xs"
+            >
+              Hide
+            </Button>
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-2">
             {groupMembers.map((member) => (
               <div
                 key={member.id}
-                className="bg-card rounded-xl p-3 border border-border"
+                className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:bg-accent/50 transition-colors"
               >
-                <div className="flex items-center space-x-3 mb-2">
-                  <div className="relative">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="relative flex-shrink-0">
                     <img
                       src={member.image}
                       alt={member.name}
@@ -206,45 +216,46 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                     </p>
                   </div>
                 </div>
+
                 {!member.isCurrentUser ? (
-                  <div className="flex space-x-1">
+                  <div className="flex items-center space-x-1 flex-shrink-0">
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       onClick={() => handleViewProfile(member)}
-                      className="flex-1 h-7 text-xs"
+                      className="h-8 w-8 p-0"
+                      title="View Profile"
                     >
-                      Profile
+                      <Users className="w-4 h-4" />
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       onClick={() => handleStartPrivateChat(member)}
-                      className="flex-1 h-7 text-xs"
+                      className="h-8 w-8 p-0"
+                      title="Start Chat"
                     >
-                      <MessageSquare className="w-3 h-3 mr-1" />
-                      Chat
+                      <MessageSquare className="w-4 h-4" />
                     </Button>
                     <Button
                       size="sm"
-                      variant={isConnected(member.id) ? "default" : "outline"}
+                      variant={isConnected(member.id) ? "default" : "ghost"}
                       onClick={() => !isConnected(member.id) && addConnection(member.id)}
                       disabled={isConnected(member.id)}
-                      className="h-7 px-2"
+                      className="h-8 w-8 p-0"
+                      title={isConnected(member.id) ? "Connected" : "Connect"}
                     >
                       {isConnected(member.id) ? (
-                        <Check className="w-3 h-3" />
+                        <Check className="w-4 h-4" />
                       ) : (
-                        <UserPlus className="w-3 h-3" />
+                        <UserPlus className="w-4 h-4" />
                       )}
                     </Button>
                   </div>
                 ) : (
-                  <div className="text-center">
-                    <Badge variant="secondary" className="text-xs">
-                      This is you
-                    </Badge>
-                  </div>
+                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                    You
+                  </Badge>
                 )}
               </div>
             ))}
