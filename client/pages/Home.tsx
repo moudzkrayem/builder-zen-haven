@@ -216,7 +216,12 @@ export default function Home() {
                 <div
                   key={trybe.id}
                   onClick={() => handleEventClick(trybe.id)}
-                  className="relative bg-card rounded-2xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
+                  className={cn(
+                    "relative bg-card rounded-2xl overflow-hidden shadow-sm border hover:shadow-md transition-all cursor-pointer",
+                    trybe.isPremium
+                      ? "border-primary/30 bg-gradient-to-br from-card to-primary/5"
+                      : "border-border"
+                  )}
                 >
                   <div className="flex">
                     <div className="relative w-24 h-24">
