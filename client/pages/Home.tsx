@@ -236,12 +236,6 @@ export default function Home() {
                             Popular
                           </Badge>
                         )}
-                        {trybe.isPremium && (
-                          <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs h-5 flex items-center">
-                            <Star className="w-3 h-3 mr-1" />
-                            Premium
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
