@@ -381,7 +381,12 @@ export default function Home() {
                     <button
                       key={`similar-${trybe.id}`}
                       onClick={() => handleEventClick(trybe.id)}
-                      className="bg-card rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow text-left w-full"
+                      className={cn(
+                        "bg-card rounded-xl overflow-hidden shadow-sm border hover:shadow-md transition-all text-left w-full",
+                        trybe.isPremium
+                          ? "border-primary/30 bg-gradient-to-br from-card to-primary/5"
+                          : "border-border"
+                      )}
                     >
                       <div className="relative aspect-[4/3]">
                         <img
