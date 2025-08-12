@@ -125,19 +125,19 @@ export default function CreateTrybeModal({
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Featured placement in event listings</span>
+                    <span>Private events for verified members only</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Priority search ranking</span>
+                    <span>Exclusive member screening and approval</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Enhanced analytics and insights</span>
+                    <span>Enhanced privacy controls and settings</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Custom event badges</span>
+                    <span>Curated high-quality member community</span>
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-card rounded-lg border">
