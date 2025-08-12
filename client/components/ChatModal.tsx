@@ -78,14 +78,13 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   if (!isOpen || !chat) return null;
 
   const handleStartPrivateChat = (member: any) => {
-    // This would create a new private chat
-    alert(`Starting private chat with ${member.name}`);
+    setSelectedMember(member);
+    setShowPrivateChatModal(true);
   };
 
   const handleViewProfile = (member: any) => {
-    // This would navigate to the member's profile
     setSelectedMember(member);
-    alert(`Viewing ${member.name}'s profile`);
+    setShowProfileModal(true);
   };
 
   const handleSendMessage = () => {
