@@ -230,13 +230,19 @@ export default function Home() {
                         alt={trybe.name}
                         className="w-full h-full object-cover"
                       />
-                      {trybe.isPopular && (
-                        <div className="absolute top-2 left-2">
+                      <div className="absolute top-2 left-2 flex flex-col space-y-1">
+                        {trybe.isPopular && (
                           <Badge className="bg-primary text-primary-foreground text-xs h-5">
                             Popular
                           </Badge>
-                        </div>
-                      )}
+                        )}
+                        {trybe.isPremium && (
+                          <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs h-5 flex items-center">
+                            <Star className="w-3 h-3 mr-1" />
+                            Premium
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex-1 p-4">
