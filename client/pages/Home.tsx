@@ -517,7 +517,12 @@ export default function Home() {
                 <div
                   key={`nearby-${trybe.id}`}
                   onClick={() => handleEventClick(trybe.id)}
-                  className="bg-card rounded-xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
+                  className={cn(
+                    "bg-card rounded-xl overflow-hidden shadow-sm border hover:shadow-md transition-all cursor-pointer",
+                    trybe.isPremium
+                      ? "border-primary/30 bg-gradient-to-br from-card to-primary/5"
+                      : "border-border"
+                  )}
                 >
                   <div className="relative aspect-[4/3]">
                     <img
