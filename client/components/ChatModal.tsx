@@ -205,38 +205,46 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                     </p>
                   </div>
                 </div>
-                <div className="flex space-x-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleViewProfile(member)}
-                    className="flex-1 h-7 text-xs"
-                  >
-                    Profile
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleStartPrivateChat(member)}
-                    className="flex-1 h-7 text-xs"
-                  >
-                    <MessageSquare className="w-3 h-3 mr-1" />
-                    Chat
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={isConnected(member.id) ? "default" : "outline"}
-                    onClick={() => !isConnected(member.id) && addConnection(member.id)}
-                    disabled={isConnected(member.id)}
-                    className="h-7 px-2"
-                  >
-                    {isConnected(member.id) ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      <UserPlus className="w-3 h-3" />
-                    )}
-                  </Button>
-                </div>
+                {!member.isCurrentUser ? (
+                  <div className="flex space-x-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewProfile(member)}
+                      className="flex-1 h-7 text-xs"
+                    >
+                      Profile
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleStartPrivateChat(member)}
+                      className="flex-1 h-7 text-xs"
+                    >
+                      <MessageSquare className="w-3 h-3 mr-1" />
+                      Chat
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={isConnected(member.id) ? "default" : "outline"}
+                      onClick={() => !isConnected(member.id) && addConnection(member.id)}
+                      disabled={isConnected(member.id)}
+                      className="h-7 px-2"
+                    >
+                      {isConnected(member.id) ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        <UserPlus className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Badge variant="secondary" className="text-xs">
+                      This is you
+                    </Badge>
+                  </div>
+                )}
               </div>
             ))}
           </div>
