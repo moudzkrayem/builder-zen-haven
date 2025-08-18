@@ -76,9 +76,14 @@ export default function Map({ onClose }: MapProps) {
     getCurrentLocation();
   }, []);
 
-  const handleJoinEvent = (eventId: number) => {
-    joinEvent(eventId);
-    setSelectedEvent(null);
+  const handleJoinEvent = (event: any) => {
+    if (event.isPremium) {
+      setPremiumEventName(event.eventName || event.name);
+      setShowPremiumUpgradeModal(true);
+    } else {
+      joinEvent(event.id);
+      setSelectedEvent(null);
+    }
   };
 
   return (
