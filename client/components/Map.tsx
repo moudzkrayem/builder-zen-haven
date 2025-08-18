@@ -5,45 +5,6 @@ import { useEvents } from "@/contexts/EventsContext";
 import { X, MapPin, Users, DollarSign, Clock, Navigation, RefreshCw, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock map data
-const mapEvents = [
-  {
-    id: 1,
-    name: "Coffee & Code Meetup",
-    location: "Downtown SF",
-    date: "Today, 3:00 PM",
-    attendees: 12,
-    maxCapacity: 15,
-    fee: "Free",
-    category: "Tech",
-    coordinates: { lat: 37.7749, lng: -122.4194 },
-    distance: "0.5 mi",
-  },
-  {
-    id: 2,
-    name: "Sunset Hiking",
-    location: "Twin Peaks",
-    date: "Tomorrow, 6:00 PM",
-    attendees: 8,
-    maxCapacity: 12,
-    fee: "$10",
-    category: "Fitness",
-    coordinates: { lat: 37.7544, lng: -122.4477 },
-    distance: "2.1 mi",
-  },
-  {
-    id: 3,
-    name: "Art Gallery Opening",
-    location: "SOMA Gallery",
-    date: "Friday, 7:00 PM",
-    attendees: 25,
-    maxCapacity: 30,
-    fee: "$25",
-    category: "Arts",
-    coordinates: { lat: 37.7749, lng: -122.4094 },
-    distance: "1.3 mi",
-  },
-];
 
 interface MapProps {
   onClose: () => void;
