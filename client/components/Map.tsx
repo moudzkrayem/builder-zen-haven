@@ -112,6 +112,11 @@ export default function Map({ onClose }: MapProps) {
     getCurrentLocation();
   }, []);
 
+  const handleJoinEvent = (eventId: number) => {
+    joinEvent(eventId);
+    setSelectedEvent(null);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background">
       {/* Header */}
