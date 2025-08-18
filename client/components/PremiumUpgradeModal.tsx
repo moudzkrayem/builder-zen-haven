@@ -20,16 +20,21 @@ interface PremiumUpgradeModalProps {
   eventName?: string;
 }
 
-export default function PremiumUpgradeModal({ 
-  isOpen, 
-  onClose, 
-  eventName 
+export default function PremiumUpgradeModal({
+  isOpen,
+  onClose,
+  eventName
 }: PremiumUpgradeModalProps) {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
-    // This would handle the actual upgrade process
-    alert("Redirecting to premium upgrade...");
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    alert("Welcome to Trybe Premium! You now have access to all exclusive features.");
     onClose();
   };
 
