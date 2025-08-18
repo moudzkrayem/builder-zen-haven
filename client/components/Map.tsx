@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
+import PremiumUpgradeModal from "./PremiumUpgradeModal";
 import { X, MapPin, Users, DollarSign, Clock, Navigation, RefreshCw, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
