@@ -47,11 +47,13 @@ export default function CreateTrybeModal({
     eventName: "",
     location: "",
     time: "",
+    duration: "2",
     description: "",
     maxCapacity: 10,
     fee: "Free",
     photos: [],
     ageRange: [18, 65],
+    repeatOption: "none",
     isPremium: false,
   });
 
