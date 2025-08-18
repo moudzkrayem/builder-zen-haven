@@ -199,7 +199,7 @@ export default function Map({ onClose }: MapProps) {
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                   <MapPin className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs font-bold">
                     {event.attendees}
                   </span>
