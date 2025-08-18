@@ -176,7 +176,7 @@ export default function Map({ onClose }: MapProps) {
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-foreground mb-1">
-                  {selectedEvent.name}
+                  {selectedEvent.eventName || selectedEvent.name}
                 </h3>
                 <div className="flex items-center space-x-3 text-sm text-muted-foreground mb-2">
                   <div className="flex items-center space-x-1">
