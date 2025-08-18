@@ -224,16 +224,20 @@ export default function Map({ onClose }: MapProps) {
             <div className="flex items-center space-x-3">
               <Button
                 size="sm"
-                onClick={() => handleJoinEvent(selectedEvent.id)}
-                disabled={joinedEvents.includes(selectedEvent.id)}
+                onClick={() => handleJoinEvent(selectedEvent)}
+                disabled={!selectedEvent.isPremium && joinedEvents.includes(selectedEvent.id)}
                 className={cn(
                   "flex-1",
-                  joinedEvents.includes(selectedEvent.id)
+                  selectedEvent.isPremium
+                    ? "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                    : joinedEvents.includes(selectedEvent.id)
                     ? "bg-green-500 hover:bg-green-600 text-white"
                     : "bg-primary hover:bg-primary/90 text-primary-foreground"
                 )}
               >
-                {joinedEvents.includes(selectedEvent.id) ? (
+                {selectedEvent.isPremium ? (
+                  "Premium"
+                ) : joinedEvents.includes(selectedEvent.id) ? (
                   <>
                     <Check className="w-4 h-4 mr-1" />
                     Joined
