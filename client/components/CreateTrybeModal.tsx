@@ -16,6 +16,8 @@ import {
   Crown,
   Star,
   Zap,
+  Clock,
+  Repeat,
 } from "lucide-react";
 
 interface CreateTrybeModalProps {
