@@ -389,6 +389,29 @@ export default function Swipe() {
         onClose={() => setShowPremiumUpgradeModal(false)}
         eventName={currentEvent?.eventName}
       />
+
+      {/* Success Popup Animation */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 pointer-events-none">
+          <div className="animate-bounce-in">
+            <div className="bg-white rounded-3xl p-8 shadow-2xl text-center max-w-sm mx-4">
+              <div className="mb-6">
+                <img
+                  src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F49b35debbaea49ccaf48c2011ad5ba4a?format=webp&width=800"
+                  alt="Trybe Logo"
+                  className="w-20 h-20 mx-auto animate-pulse"
+                />
+              </div>
+              <h2 className="text-2xl font-bold text-primary mb-2">
+                Connected to Trybe!
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                You've successfully joined this event
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
