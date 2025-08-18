@@ -255,12 +255,31 @@ export default function Map({ onClose }: MapProps) {
             <div className="flex items-center space-x-3">
               <Button
                 size="sm"
-                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={() => handleJoinEvent(selectedEvent.id)}
+                disabled={joinedEvents.includes(selectedEvent.id)}
+                className={cn(
+                  "flex-1",
+                  joinedEvents.includes(selectedEvent.id)
+                    ? "bg-green-500 hover:bg-green-600 text-white"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                )}
               >
-                Join Trybe
+                {joinedEvents.includes(selectedEvent.id) ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1" />
+                    Joined
+                  </>
+                ) : (
+                  "Join Trybe"
+                )}
               </Button>
-              <Button variant="outline" size="sm" className="flex-1">
-                View Details
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setSelectedEvent(null)}
+              >
+                Close
               </Button>
             </div>
           </div>
