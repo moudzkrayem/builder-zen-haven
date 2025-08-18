@@ -314,6 +314,16 @@ export default function Map({ onClose }: MapProps) {
           </div>
         </div>
       </div>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showPremiumUpgradeModal}
+        onClose={() => {
+          setShowPremiumUpgradeModal(false);
+          setPremiumEventName("");
+        }}
+        eventName={premiumEventName}
+      />
     </div>
   );
 }
