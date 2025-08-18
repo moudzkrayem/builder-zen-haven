@@ -70,6 +70,9 @@ export default function Swipe() {
         return; // Don't proceed with the swipe
       } else {
         joinEvent(currentEvent.id);
+        // Show success popup animation
+        setShowSuccessPopup(true);
+        setTimeout(() => setShowSuccessPopup(false), 2000);
       }
     }
 
