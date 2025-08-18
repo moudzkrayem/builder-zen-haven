@@ -323,6 +323,37 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
+          {/* Repeat Trybe Option */}
+          <div className="space-y-2">
+            <Label htmlFor="repeatOption">Repeat Trybe</Label>
+            <div className="relative">
+              <Repeat className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select
+                id="repeatOption"
+                value={formData.repeatOption}
+                onChange={(e) =>
+                  setFormData({ ...formData, repeatOption: e.target.value })
+                }
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              >
+                <option value="none">One-time event</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formData.repeatOption === "none"
+                ? "This event will only happen once"
+                : formData.repeatOption === "daily"
+                ? "This event will repeat every day at the same time"
+                : formData.repeatOption === "weekly"
+                ? "This event will repeat every week on the same day"
+                : "This event will repeat every month on the same date"
+              }
+            </p>
+          </div>
+
           {/* Photo Upload */}
           <div className="space-y-2">
             <Label>Event Photos</Label>
