@@ -28,11 +28,13 @@ interface TrybeData {
   eventName: string;
   location: string;
   time: string;
+  duration: string;
   description: string;
   maxCapacity: number;
   fee: string;
   photos: string[];
   ageRange: [number, number];
+  repeatOption: string;
   isPremium: boolean;
 }
 
