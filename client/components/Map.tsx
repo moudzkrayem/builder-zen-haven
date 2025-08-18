@@ -17,6 +17,8 @@ export default function Map({ onClose }: MapProps) {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
+  const [premiumEventName, setPremiumEventName] = useState<string>("");
 
   // Transform events for map display
   const mapEvents = events.map((event, index) => ({
