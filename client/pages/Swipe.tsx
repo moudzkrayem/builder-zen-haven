@@ -31,6 +31,7 @@ export default function Swipe() {
   >(null);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Use events from context and format them for swipe interface
