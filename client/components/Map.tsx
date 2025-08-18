@@ -50,12 +50,21 @@ interface MapProps {
 }
 
 export default function Map({ onClose }: MapProps) {
-  const [selectedEvent, setSelectedEvent] = useState<
-    (typeof mapEvents)[0] | null
-  >(null);
+  const { events, joinEvent, joinedEvents } = useEvents();
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
+  // Transform events for map display
+  const mapEvents = events.map((event, index) => ({
+    ...event,
+    coordinates: {
+      lat: 37.7749 + (index * 0.01),
+      lng: -122.4194 + (index * 0.01)
+    },
+    distance: `${(0.5 + index * 0.3).toFixed(1)} mi`,
+  }));
 
   const getCurrentLocation = () => {
     setIsLoadingLocation(true);
