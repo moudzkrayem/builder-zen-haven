@@ -212,6 +212,33 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
+          {/* Event Duration */}
+          <div className="space-y-2">
+            <Label htmlFor="duration">Event Duration</Label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select
+                id="duration"
+                value={formData.duration}
+                onChange={(e) =>
+                  setFormData({ ...formData, duration: e.target.value })
+                }
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              >
+                <option value="0.5">30 minutes</option>
+                <option value="1">1 hour</option>
+                <option value="1.5">1.5 hours</option>
+                <option value="2">2 hours</option>
+                <option value="3">3 hours</option>
+                <option value="4">4 hours</option>
+                <option value="6">6 hours</option>
+                <option value="8">8 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">All day</option>
+              </select>
+            </div>
+          </div>
+
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
