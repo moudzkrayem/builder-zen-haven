@@ -58,7 +58,7 @@ export default function Welcome() {
         {/* Action buttons */}
         <div className="w-full max-w-sm space-y-4">
           <Button
-            onClick={() => navigate("/home")}
+            onClick={() => navigate("/create-profile")}
             className="w-full h-14 text-lg font-semibold rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             Get Started
