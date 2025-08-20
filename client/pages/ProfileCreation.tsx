@@ -31,7 +31,7 @@ import {
   TrendingUp,
   Coffee,
   Music,
-  PaintBrush2,
+  Paintbrush,
   Dumbbell,
   Book,
   Camera as CameraIcon,
@@ -43,7 +43,7 @@ import {
   TreePine,
   GameController2,
   Utensils,
-  CarTaxiFront,
+  Car,
   Plane,
   Shirt,
   Home,
@@ -55,7 +55,7 @@ import {
   Calendar,
   MessageCircle,
   Monitor,
-  Camera3D,
+  Video,
   Lightbulb,
   Coins
 } from "lucide-react";
@@ -108,7 +108,7 @@ const INTEREST_CATEGORIES = {
     interests: ["Running", "Fitness", "Yoga", "Swimming", "Cycling", "Tennis", "Basketball", "Football", "Soccer", "Volleyball", "Boxing", "Martial Arts", "Pilates", "CrossFit", "Rock Climbing", "Surfing", "Skiing", "Snowboarding", "Golf", "Baseball"]
   },
   creative: {
-    icon: PaintBrush2,
+    icon: Paintbrush,
     label: "Arts & Creativity",
     color: "bg-purple-500",
     interests: ["Photography", "Art", "Writing", "Music", "Dancing", "Painting", "Drawing", "Sculpture", "Pottery", "Crafting", "Design", "Fashion Design", "Interior Design", "Acting", "Singing", "Stand-up Comedy", "Podcasting", "Vlogging", "Blogging"]
@@ -155,7 +155,7 @@ const EVENT_TYPES = [
   { id: "workshops", label: "Workshops & Classes", icon: Award },
   { id: "sports", label: "Sports & Fitness", icon: Dumbbell },
   { id: "social", label: "Social Meetups", icon: Users },
-  { id: "creative", label: "Creative Sessions", icon: PaintBrush2 },
+  { id: "creative", label: "Creative Sessions", icon: Paintbrush },
   { id: "outdoor", label: "Outdoor Adventures", icon: Mountain },
   { id: "networking", label: "Networking Events", icon: Handshake },
   { id: "food", label: "Food & Drink", icon: Utensils },
