@@ -292,7 +292,16 @@ export default function Home() {
           {/* Featured trybes */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Featured Trybes</h2>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {userProfile?.firstName ? "Recommended for You" : "Featured Trybes"}
+                </h2>
+                {userProfile?.firstName && (
+                  <p className="text-xs text-muted-foreground">
+                    Based on your interests and goals
+                  </p>
+                )}
+              </div>
               <Button variant="ghost" size="sm">
                 See All
               </Button>
