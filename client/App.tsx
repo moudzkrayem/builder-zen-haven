@@ -10,6 +10,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { EventsProvider } from "./contexts/EventsContext";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
+import ProfileCreation from "./pages/ProfileCreation";
 import Home from "./pages/Home";
 import Swipe from "./pages/Swipe";
 import Chats from "./pages/Chats";
