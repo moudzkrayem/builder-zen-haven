@@ -200,10 +200,21 @@ export default function Home() {
                 className="w-10 h-8 object-contain"
               />
               <div>
-                <h1 className="text-xl font-bold leading-tight">Find your</h1>
-                <h1 className="text-xl font-bold text-primary leading-tight">
-                  Trybe
-                </h1>
+                {userProfile?.firstName ? (
+                  <>
+                    <h1 className="text-lg font-bold leading-tight">Welcome back,</h1>
+                    <h1 className="text-lg font-bold text-primary leading-tight">
+                      {userProfile.firstName}!
+                    </h1>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-xl font-bold leading-tight">Find your</h1>
+                    <h1 className="text-xl font-bold text-primary leading-tight">
+                      Trybe
+                    </h1>
+                  </>
+                )}
               </div>
             </div>
             <Button variant="ghost" size="icon">
