@@ -197,7 +197,7 @@ export default function Swipe() {
           onTouchStart={handleDragStart}
         >
           {/* Photo carousel */}
-          <div className="relative h-full">
+          <div className="relative h-full min-h-[60vh]">
             <div className="absolute inset-0">
               <img
                 src={currentEvent.eventImages[currentPhotoIndex]}
