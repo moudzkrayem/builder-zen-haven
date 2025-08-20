@@ -108,8 +108,54 @@ export default function Home() {
     }
   };
 
-  // Use events from context instead of local data
-  const featuredTrybes = events;
+  // Load user profile on component mount
+  useEffect(() => {
+    const storedProfile = localStorage.getItem('userProfile');
+    if (storedProfile) {
+      setUserProfile(JSON.parse(storedProfile));
+    }
+  }, []);
+
+  // Filter and sort events based on user interests
+  const getPersonalizedEvents = () => {
+    if (!userProfile) return events;
+
+    const userInterests = [
+      ...(userProfile.thingsYouDoGreat || []),
+      ...(userProfile.thingsYouWantToTry || [])
+    ].map(interest => interest.toLowerCase());
+
+    // Score events based on interest match
+    const scoredEvents = events.map(event => {
+      let score = 0;
+      const eventInterests = (event.interests || []).map(i => i.toLowerCase());
+      const eventCategory = event.category.toLowerCase();
+
+      // Check for direct interest matches
+      eventInterests.forEach(eventInterest => {
+        userInterests.forEach(userInterest => {
+          if (eventInterest.includes(userInterest) || userInterest.includes(eventInterest)) {
+            score += 2;
+          }
+        });
+      });
+
+      // Check category matches
+      userInterests.forEach(userInterest => {
+        if (eventCategory.includes(userInterest) || userInterest.includes(eventCategory)) {
+          score += 1;
+        }
+      });
+
+      return { ...event, personalityScore: score };
+    });
+
+    // Sort by score (highest first) and return
+    return scoredEvents.sort((a, b) => b.personalityScore - a.personalityScore);
+  };
+
+  // Use personalized events instead of all events
+  const featuredTrybes = getPersonalizedEvents();
 
   return (
     <>
