@@ -147,7 +147,7 @@ export default function Swipe() {
 
   if (!currentEvent) {
     return (
-      <div className="h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/10">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/10">
         <div className="text-center">
           <Heart className="w-16 h-16 text-primary mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-foreground mb-2">
