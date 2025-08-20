@@ -883,7 +883,7 @@ export default function ProfileCreation() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/10">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
