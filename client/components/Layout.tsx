@@ -13,14 +13,15 @@ export default function Layout({ children }: LayoutProps) {
   const hideBottomNav =
     location.pathname === "/" ||
     location.pathname.startsWith("/onboarding") ||
-    location.pathname === "/create-profile";
+    location.pathname === "/create-profile" ||
+    location.pathname === "/swipe";
 
   return (
     <div className="relative min-h-screen-safe bg-background">
       {/* Main content */}
       <main
         className={`${
-          hideBottomNav ? "min-h-screen-safe" : "min-h-screen-safe-no-nav"
+          hideBottomNav ? "h-screen-safe" : "h-screen-safe-no-nav"
         } ${
           location.pathname === "/create-profile"
             ? "overflow-y-auto"
