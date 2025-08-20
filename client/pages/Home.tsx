@@ -59,6 +59,7 @@ export default function Home() {
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
