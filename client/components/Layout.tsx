@@ -11,13 +11,21 @@ export default function Layout({ children }: LayoutProps) {
 
   // Hide bottom nav on welcome/onboarding screens
   const hideBottomNav =
-    location.pathname === "/" || location.pathname.startsWith("/onboarding");
+    location.pathname === "/" ||
+    location.pathname.startsWith("/onboarding") ||
+    location.pathname === "/create-profile";
 
   return (
     <div className="relative min-h-screen-safe bg-background">
       {/* Main content */}
       <main
-        className={`${hideBottomNav ? "h-screen-safe" : "h-screen-safe-no-nav"} overflow-hidden`}
+        className={`${
+          hideBottomNav ? "min-h-screen-safe" : "min-h-screen-safe-no-nav"
+        } ${
+          location.pathname === "/create-profile"
+            ? "overflow-y-auto"
+            : "overflow-hidden"
+        }`}
       >
         {children}
       </main>
