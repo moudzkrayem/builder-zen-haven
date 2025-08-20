@@ -36,7 +36,7 @@ const categories = [
   { name: "Outdoors", color: "bg-emerald-500" },
 ];
 
-const trendingSearches = [
+const defaultTrendingSearches = [
   "Coffee meetups",
   "Hiking groups",
   "Art galleries",
