@@ -157,6 +157,35 @@ export default function Home() {
   // Use personalized events instead of all events
   const featuredTrybes = getPersonalizedEvents();
 
+  // Generate personalized trending searches
+  const getTrendingSearches = () => {
+    if (!userProfile) return defaultTrendingSearches;
+
+    const userInterests = [
+      ...(userProfile.thingsYouDoGreat || []),
+      ...(userProfile.thingsYouWantToTry || [])
+    ];
+
+    // Create searches based on user interests
+    const personalizedSearches = userInterests.slice(0, 4).map(interest => {
+      const variations = [
+        `${interest} meetups`,
+        `${interest} groups`,
+        `${interest} events`,
+        `Learn ${interest}`,
+      ];
+      return variations[Math.floor(Math.random() * variations.length)];
+    });
+
+    // Fill remaining with default searches
+    const remainingCount = 6 - personalizedSearches.length;
+    const remainingSearches = defaultTrendingSearches.slice(0, remainingCount);
+
+    return [...personalizedSearches, ...remainingSearches];
+  };
+
+  const trendingSearches = getTrendingSearches();
+
   return (
     <>
       {showMap && <Map onClose={() => setShowMap(false)} />}
