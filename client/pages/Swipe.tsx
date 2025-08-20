@@ -147,7 +147,7 @@ export default function Swipe() {
 
   if (!currentEvent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/10">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/10">
         <div className="text-center">
           <Heart className="w-16 h-16 text-primary mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-foreground mb-2">
@@ -162,7 +162,7 @@ export default function Swipe() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-background via-accent/5 to-primary/5">
+    <div className="relative h-full bg-gradient-to-br from-background via-accent/5 to-primary/5">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
         <div className="w-10 h-10" /> {/* Spacer */}
@@ -182,7 +182,7 @@ export default function Swipe() {
       </div>
 
       {/* Main Card */}
-      <div className="relative h-[calc(100vh-10rem)] pt-16 pb-24 px-4">
+      <div className="relative h-full pt-16 pb-24 px-4">
         <div
           ref={cardRef}
           className={cn(
@@ -197,7 +197,7 @@ export default function Swipe() {
           onTouchStart={handleDragStart}
         >
           {/* Photo carousel */}
-          <div className="relative h-full min-h-[60vh]">
+          <div className="relative h-full">
             <div className="absolute inset-0">
               <img
                 src={currentEvent.eventImages[currentPhotoIndex]}
