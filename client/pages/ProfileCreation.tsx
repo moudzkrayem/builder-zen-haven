@@ -289,7 +289,7 @@ export default function ProfileCreation() {
   const canProceed = () => {
     switch (currentStep) {
       case 0:
-        return profileData.firstName && profileData.lastName && profileData.location && profileData.occupation;
+        return profileData.firstName.trim() && profileData.lastName.trim();
       case 1:
         return profileData.photos.length > 0;
       case 2:
@@ -308,16 +308,6 @@ export default function ProfileCreation() {
       case 0:
         return (
           <div className="space-y-8">
-            {/* Hero section */}
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Welcome to your adventure!</h3>
-              <p className="text-muted-foreground">
-                Let's create a profile that helps you discover amazing activities and connect with incredible people.
-              </p>
-            </div>
 
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
@@ -329,6 +319,7 @@ export default function ProfileCreation() {
                     onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
                     placeholder="Your first name"
                     className="rounded-2xl border-2 focus:border-primary transition-colors"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -339,6 +330,7 @@ export default function ProfileCreation() {
                     onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
                     placeholder="Your last name"
                     className="rounded-2xl border-2 focus:border-primary transition-colors"
+                    required
                   />
                 </div>
               </div>
@@ -365,28 +357,28 @@ export default function ProfileCreation() {
               </Card>
 
               <div className="space-y-2">
-                <Label htmlFor="location" className="text-sm font-medium">Location *</Label>
+                <Label htmlFor="location" className="text-sm font-medium">Location</Label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="location"
                     value={profileData.location}
                     onChange={(e) => setProfileData({ ...profileData, location: e.target.value })}
-                    placeholder="City, State or Country"
+                    placeholder="City, State or Country (optional)"
                     className="pl-12 rounded-2xl border-2 focus:border-primary transition-colors"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="occupation" className="text-sm font-medium">What do you do? *</Label>
+                <Label htmlFor="occupation" className="text-sm font-medium">What do you do?</Label>
                 <div className="relative">
                   <Briefcase className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="occupation"
                     value={profileData.occupation}
                     onChange={(e) => setProfileData({ ...profileData, occupation: e.target.value })}
-                    placeholder="Your job title or profession"
+                    placeholder="Your job title or profession (optional)"
                     className="pl-12 rounded-2xl border-2 focus:border-primary transition-colors"
                   />
                 </div>
