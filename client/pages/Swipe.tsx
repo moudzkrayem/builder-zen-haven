@@ -162,7 +162,7 @@ export default function Swipe() {
   }
 
   return (
-    <div className="relative h-full bg-gradient-to-br from-background via-accent/5 to-primary/5">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-accent/5 to-primary/5">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
         <div className="w-10 h-10" /> {/* Spacer */}
