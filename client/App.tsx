@@ -31,6 +31,7 @@ const App = () => (
             <Layout>
               <Routes>
                 <Route path="/" element={<Welcome />} />
+                <Route path="/create-profile" element={<ProfileCreation />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/swipe" element={<Swipe />} />
                 <Route path="/chats" element={<Chats />} />
