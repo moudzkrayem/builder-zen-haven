@@ -926,7 +926,7 @@ export default function ProfileCreation() {
       </div>
 
       {/* Content */}
-      <div className="px-6 py-8 max-w-2xl mx-auto">
+      <div className="px-6 py-8 pb-16 max-w-2xl mx-auto">
         <div className={cn(
           "transition-all duration-300",
           isTransitioning ? "opacity-0 transform translate-y-4" : "opacity-100 transform translate-y-0"
