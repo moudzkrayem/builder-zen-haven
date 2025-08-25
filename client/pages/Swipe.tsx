@@ -182,7 +182,7 @@ export default function Swipe() {
       </div>
 
       {/* Main Card */}
-      <div className="relative h-full pt-16 pb-32 px-4">
+      <div className="relative h-full pt-16 pb-24 px-4">
         <div
           ref={cardRef}
           className={cn(
