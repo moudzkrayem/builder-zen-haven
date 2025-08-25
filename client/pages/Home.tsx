@@ -259,13 +259,29 @@ export default function Home() {
         <div className="px-4 pb-6">
           {/* Create Trybe Action */}
           <div className="mb-6 mt-4">
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-col">
+            <div className="grid grid-cols-3 gap-3">
               <Button
                 onClick={() => setShowCreateModal(true)}
-                className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1 sm:flex-row sm:justify-center sm:ml-auto"
+                className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col items-center justify-center space-y-1"
               >
-                <Plus className="w-6 h-6" />
-                <span className="text-sm font-semibold">Create Trybe</span>
+                <Plus className="w-5 h-5" />
+                <span className="text-xs font-semibold">Create Trybe</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowMap(true)}
+                className="h-14 rounded-2xl flex flex-col items-center justify-center space-y-1"
+              >
+                <MapPin className="w-5 h-5" />
+                <span className="text-xs font-semibold">Browse Map</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowScheduleModal(true)}
+                className="h-14 rounded-2xl flex flex-col items-center justify-center space-y-1"
+              >
+                <Calendar className="w-5 h-5" />
+                <span className="text-xs font-semibold">My Schedule</span>
               </Button>
             </div>
           </div>
@@ -781,27 +797,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Quick actions */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="h-12 rounded-xl"
-                onClick={() => setShowMap(true)}
-              >
-                <MapPin className="w-5 h-5 mr-2" />
-                Browse Map
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 rounded-xl"
-                onClick={() => setShowScheduleModal(true)}
-              >
-                <Calendar className="w-5 h-5 mr-2" />
-                View All Schedule
-              </Button>
-            </div>
-          </div>
 
           {/* Empty state */}
           {searchQuery && featuredTrybes.length === 0 && (
