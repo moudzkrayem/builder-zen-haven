@@ -162,7 +162,7 @@ export default function Swipe() {
   }
 
   return (
-    <div className="relative h-full bg-gradient-to-br from-background via-accent/5 to-primary/5">
+    <div className="relative h-screen-safe-no-nav bg-gradient-to-br from-background via-accent/5 to-primary/5">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
         <div className="w-10 h-10" /> {/* Spacer */}
@@ -182,7 +182,7 @@ export default function Swipe() {
       </div>
 
       {/* Main Card */}
-      <div className="relative h-full pt-16 pb-24 px-4">
+      <div className="relative h-full pt-16 pb-32 px-4">
         <div
           ref={cardRef}
           className={cn(
@@ -338,7 +338,7 @@ export default function Swipe() {
       </div>
 
       {/* Action buttons - Updated without super like */}
-      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center space-x-8 px-8">
+      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center space-x-8 px-8">
         <Button
           onClick={handleUndo}
           disabled={currentIndex === 0}
