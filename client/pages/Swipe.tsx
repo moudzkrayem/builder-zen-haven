@@ -338,7 +338,7 @@ export default function Swipe() {
       </div>
 
       {/* Action buttons - Updated without super like */}
-      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center space-x-8 px-8">
+      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center space-x-8 px-8">
         <Button
           onClick={handleUndo}
           disabled={currentIndex === 0}
