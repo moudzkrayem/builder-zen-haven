@@ -246,6 +246,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [favoriteEvents, setFavoriteEvents] = useState<number[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
 
   const addEvent = (eventData: any) => {
     const newEvent: Event = {
