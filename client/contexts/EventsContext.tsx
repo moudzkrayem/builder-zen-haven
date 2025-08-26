@@ -544,6 +544,63 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return favoriteEvents.includes(eventId);
   };
 
+  const sendFriendRequest = (toUserId: string, toUserName: string, eventId: number) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const currentUser = "user-current"; // This would come from auth context in real app
+    const currentUserName = "You"; // This would come from user profile
+
+    const newRequest: FriendRequest = {
+      id: `req-${Date.now()}`,
+      fromUserId: currentUser,
+      fromUserName: currentUserName,
+      fromUserImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+      toUserId,
+      toUserName,
+      eventId,
+      eventName: event.eventName || event.name,
+      status: 'pending',
+      sentAt: new Date().toISOString(),
+    };
+
+    setFriendRequests(prev => [...prev, newRequest]);
+  };
+
+  const acceptFriendRequest = (requestId: string) => {
+    setFriendRequests(prev =>
+      prev.map(req =>
+        req.id === requestId
+          ? { ...req, status: 'accepted' as const, respondedAt: new Date().toISOString() }
+          : req
+      )
+    );
+  };
+
+  const declineFriendRequest = (requestId: string) => {
+    setFriendRequests(prev =>
+      prev.map(req =>
+        req.id === requestId
+          ? { ...req, status: 'declined' as const, respondedAt: new Date().toISOString() }
+          : req
+      )
+    );
+  };
+
+  const getFriendRequestStatus = (toUserId: string, eventId: number): 'none' | 'pending' | 'accepted' | 'declined' => {
+    const request = friendRequests.find(req =>
+      req.toUserId === toUserId &&
+      req.eventId === eventId &&
+      req.fromUserId === "user-current"
+    );
+    return request ? request.status : 'none';
+  };
+
+  const canSendMessage = (toUserId: string, eventId: number): boolean => {
+    const status = getFriendRequestStatus(toUserId, eventId);
+    return status === 'accepted';
+  };
+
   return (
     <EventsContext.Provider
       value={{
