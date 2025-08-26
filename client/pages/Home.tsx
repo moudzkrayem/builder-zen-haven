@@ -8,6 +8,7 @@ import ScheduleModal from "@/components/ScheduleModal";
 import ChatModal from "@/components/ChatModal";
 import EventDetailModal from "@/components/EventDetailModal";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
+import AIBotModal from "@/components/AIBotModal";
 import { useEvents } from "@/contexts/EventsContext";
 import {
   Search,
@@ -24,6 +25,8 @@ import {
   UserPlus,
   Check,
   Share,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +61,7 @@ export default function Home() {
   const [showEventDetailModal, setShowEventDetailModal] = useState(false);
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
+  const [showAIBotModal, setShowAIBotModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
 
@@ -217,9 +221,22 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="icon">
-              <Filter className="w-5 h-5" />
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAIBotModal(true)}
+                className="relative"
+              >
+                <Bot className="w-5 h-5 text-primary" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center">
+                  <Sparkles className="w-2 h-2 text-white" />
+                </div>
+              </Button>
+              <Button variant="ghost" size="icon">
+                <Filter className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
@@ -863,6 +880,13 @@ export default function Home() {
           setPremiumEventName("");
         }}
         eventName={premiumEventName}
+      />
+
+      {/* AI Bot Modal */}
+      <AIBotModal
+        isOpen={showAIBotModal}
+        onClose={() => setShowAIBotModal(false)}
+        onEventClick={handleEventClick}
       />
     </>
   );
