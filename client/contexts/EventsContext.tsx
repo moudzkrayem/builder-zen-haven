@@ -94,6 +94,12 @@ interface EventsContextType {
   favoriteEvents: number[];
   toggleFavorite: (eventId: number) => void;
   isFavorite: (eventId: number) => boolean;
+  friendRequests: FriendRequest[];
+  sendFriendRequest: (toUserId: string, toUserName: string, eventId: number) => void;
+  acceptFriendRequest: (requestId: string) => void;
+  declineFriendRequest: (requestId: string) => void;
+  getFriendRequestStatus: (toUserId: string, eventId: number) => 'none' | 'pending' | 'accepted' | 'declined';
+  canSendMessage: (toUserId: string, eventId: number) => boolean;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
