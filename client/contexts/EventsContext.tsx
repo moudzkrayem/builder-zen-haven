@@ -623,6 +623,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         favoriteEvents,
         toggleFavorite,
         isFavorite,
+        friendRequests,
+        sendFriendRequest,
+        acceptFriendRequest,
+        declineFriendRequest,
+        getFriendRequestStatus,
+        canSendMessage,
       }}
     >
       {children}
