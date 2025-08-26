@@ -60,6 +60,20 @@ interface Connection {
   connectedAt: string;
 }
 
+interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserImage: string;
+  toUserId: string;
+  toUserName: string;
+  eventId: number;
+  eventName: string;
+  status: 'pending' | 'accepted' | 'declined';
+  sentAt: string;
+  respondedAt?: string;
+}
+
 interface EventsContextType {
   events: Event[];
   addEvent: (eventData: any) => void;
