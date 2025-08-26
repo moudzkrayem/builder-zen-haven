@@ -17,6 +17,8 @@ import {
   MessageSquare,
   UserPlus,
   Check,
+  Clock,
+  X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +29,17 @@ interface ChatModalProps {
 }
 
 export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
-  const { chats, addMessage, addConnection, isConnected, events, joinedEvents } = useEvents();
+  const {
+    chats,
+    addMessage,
+    addConnection,
+    isConnected,
+    events,
+    joinedEvents,
+    sendFriendRequest,
+    getFriendRequestStatus,
+    canSendMessage
+  } = useEvents();
   const [messageText, setMessageText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -94,8 +106,16 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   if (!isOpen || !chat) return null;
 
   const handleStartPrivateChat = (member: any) => {
-    setSelectedMember(member);
-    setShowPrivateChatModal(true);
+    if (canSendMessage(member.id, event?.id || 0)) {
+      setSelectedMember(member);
+      setShowPrivateChatModal(true);
+    }
+  };
+
+  const handleSendFriendRequest = (member: any) => {
+    if (event && !member.isCurrentUser && !member.isHost) {
+      sendFriendRequest(member.id, member.name, event.id);
+    }
   };
 
   const handleViewProfile = (member: any) => {
@@ -228,29 +248,103 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                     >
                       <Users className="w-4 h-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleStartPrivateChat(member)}
-                      className="h-8 w-8 p-0"
-                      title="Start Chat"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={isConnected(member.id) ? "default" : "ghost"}
-                      onClick={() => !isConnected(member.id) && addConnection(member.id)}
-                      disabled={isConnected(member.id)}
-                      className="h-8 w-8 p-0"
-                      title={isConnected(member.id) ? "Connected" : "Connect"}
-                    >
-                      {isConnected(member.id) ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        <UserPlus className="w-4 h-4" />
-                      )}
-                    </Button>
+                    {(() => {
+                      const requestStatus = getFriendRequestStatus(member.id, event?.id || 0);
+                      const canChat = canSendMessage(member.id, event?.id || 0);
+
+                      if (member.isHost) {
+                        // Host can always be messaged
+                        return (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleStartPrivateChat(member)}
+                            className="h-8 w-8 p-0"
+                            title="Message Host"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </Button>
+                        );
+                      }
+
+                      if (canChat) {
+                        // Friend request accepted - can message
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleStartPrivateChat(member)}
+                              className="h-8 w-8 p-0"
+                              title="Send Message"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </Button>
+                            <Badge variant="default" className="text-xs bg-green-500 text-white">
+                              Friends
+                            </Badge>
+                          </>
+                        );
+                      }
+
+                      if (requestStatus === 'pending') {
+                        // Request pending
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled
+                              className="h-8 w-8 p-0"
+                              title="Request Pending"
+                            >
+                              <Clock className="w-4 h-4 text-yellow-500" />
+                            </Button>
+                            <Badge variant="secondary" className="text-xs">
+                              Pending
+                            </Badge>
+                          </>
+                        );
+                      }
+
+                      if (requestStatus === 'declined') {
+                        // Request declined
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled
+                              className="h-8 w-8 p-0"
+                              title="Request Declined"
+                            >
+                              <XIcon className="w-4 h-4 text-red-500" />
+                            </Button>
+                            <Badge variant="secondary" className="text-xs text-red-600">
+                              Declined
+                            </Badge>
+                          </>
+                        );
+                      }
+
+                      // No request sent yet - show send request button
+                      return (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleSendFriendRequest(member)}
+                            className="h-8 w-8 p-0"
+                            title="Send Friend Request"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                          </Button>
+                          <Badge variant="outline" className="text-xs">
+                            Send Request
+                          </Badge>
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <Badge variant="secondary" className="text-xs flex-shrink-0">
