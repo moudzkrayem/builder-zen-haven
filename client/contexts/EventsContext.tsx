@@ -9,6 +9,7 @@ interface Event {
   location: string;
   date: string;
   time?: string;
+  duration?: string;
   attendees: number;
   maxCapacity: number;
   fee: string;
@@ -22,6 +23,8 @@ interface Event {
   interests?: string[];
   description?: string;
   isPremium?: boolean;
+  ageRange?: [number, number];
+  repeatOption?: string;
 }
 
 interface Chat {
