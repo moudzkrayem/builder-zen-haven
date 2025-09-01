@@ -325,13 +325,13 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         }
         setDraft({ ...draft, location: val });
         setCreateStep('time');
-        ask("When is it happening? Please enter date and time like 2025-09-12 18:30 or 2025-09-12T18:30");
+        sendDateTimePrompt("When is it happening? Pick a date & time:");
         break;
       }
       case 'time': {
         const normalized = normalizeDateTime(raw);
         if (!normalized) {
-          ask("I couldn't read that time. Use format 2025-09-12 18:30");
+          sendDateTimePrompt("I couldn't read that time. Please select a date & time:");
           break;
         }
         setDraft({ ...draft, time: normalized });
