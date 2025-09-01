@@ -250,7 +250,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   const addEvent = (eventData: any) => {
     const newEvent: Event = {
-      id: Date.now(), // Simple ID generation
+      id: eventData.id ?? Date.now(), // Allow caller to provide id, fallback to timestamp
       name: eventData.eventName,
       eventName: eventData.eventName,
       hostName: "You", // Current user as host
@@ -268,10 +268,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       maxCapacity: eventData.maxCapacity,
       fee: eventData.fee,
       image:
-        eventData.photos[0] ||
+        (eventData.photos && eventData.photos[0]) ||
         "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop",
       eventImages:
-        eventData.photos.length > 0
+        eventData.photos && eventData.photos.length > 0
           ? eventData.photos
           : [
               "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop",
@@ -279,12 +279,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             ],
       hostImage:
         "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-      category: "Social", // Default category
+      category: eventData.category || "Social", // Default category
       isPopular: false,
       host: "You",
       rating: 5.0,
-      interests: ["New Event"],
-      description: `Join us for ${eventData.eventName}! This is a newly created event.`,
+      interests: eventData.interests || ["New Event"],
+      description: eventData.description && eventData.description.trim().length > 0
+        ? eventData.description
+        : `Join us for ${eventData.eventName}! This is a newly created event.`,
+      isPremium: Boolean(eventData.isPremium),
     };
 
     setEvents((prevEvents) => [newEvent, ...prevEvents]);
