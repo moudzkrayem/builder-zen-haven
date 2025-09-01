@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,23 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     ageRange: event?.ageRange || [18, 65],
     repeatOption: event?.repeatOption || "none",
   }));
+
+  useEffect(() => {
+    if (!event) return;
+    setForm({
+      eventName: event.eventName || event.name || "",
+      location: event.location || "",
+      time: event.time || "",
+      duration: event.duration || "2",
+      maxCapacity: event.maxCapacity || 10,
+      fee: event.fee || "Free",
+      description: event.description || "",
+      isPremium: Boolean(event.isPremium),
+      photos: event.eventImages || [],
+      ageRange: event.ageRange || [18, 65],
+      repeatOption: event.repeatOption || "none",
+    });
+  }, [event]);
 
   if (!isOpen || !event) return null;
 
@@ -129,6 +146,27 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="duration">Event Duration</Label>
+            <select
+              id="duration"
+              value={form.duration}
+              onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
+              className="w-full pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            >
+              <option value="0.5">30 minutes</option>
+              <option value="1">1 hour</option>
+              <option value="1.5">1.5 hours</option>
+              <option value="2">2 hours</option>
+              <option value="3">3 hours</option>
+              <option value="4">4 hours</option>
+              <option value="6">6 hours</option>
+              <option value="8">8 hours</option>
+              <option value="12">12 hours</option>
+              <option value="24">All day</option>
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="capacity">Capacity</Label>
@@ -169,6 +207,88 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
               maxLength={500}
             />
             <div className="text-xs text-muted-foreground text-right">{form.description.length}/500</div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Age Range</Label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Who can join this event</span>
+                <span className="font-semibold">{form.ageRange[0]} - {form.ageRange[1]} years</span>
+              </div>
+              <Slider
+                value={form.ageRange as [number, number]}
+                onValueChange={(value) => setForm((f: any) => ({ ...f, ageRange: value as [number, number] }))}
+                max={80}
+                min={16}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="repeatOption">Repeat Trybe</Label>
+            <select
+              id="repeatOption"
+              value={form.repeatOption}
+              onChange={(e) => setForm((f: any) => ({ ...f, repeatOption: e.target.value }))}
+              className="w-full pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            >
+              <option value="none">One-time event</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {form.repeatOption === "none"
+                ? "This event will only happen once"
+                : form.repeatOption === "daily"
+                ? "This event will repeat every day at the same time"
+                : form.repeatOption === "weekly"
+                ? "This event will repeat every week on the same day"
+                : "This event will repeat every month on the same date"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Event Photos</Label>
+            {form.photos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {form.photos.map((photo: string, index: number) => (
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
+                    <img src={photo} alt={`Event photo ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, photos: f.photos.filter((_: any, i: number) => i !== index) }))}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-6 text-center">
+              <Camera className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-muted-foreground text-sm mb-3">Add photos to showcase your event</p>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                id="edit-photo-upload"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setPhotoFiles(files as File[]);
+                  (e.target as HTMLInputElement).value = '';
+                }}
+              />
+              <Button type="button" variant="outline" onClick={() => document.getElementById("edit-photo-upload")?.click()} className="rounded-xl">
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Photos
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/20">
