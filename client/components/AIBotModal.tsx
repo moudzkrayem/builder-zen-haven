@@ -312,6 +312,29 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       setMessages(prev => [...prev, m]);
     };
 
+    // Normalize generic continue/skip tokens for UI controls
+    if ((createStep === 'ageRange' || createStep === 'photos') && (raw === 'continue' || raw === 'skip')) {
+      // proceed; values already set in UI handlers or defaults
+      if (createStep === 'ageRange') {
+        setCreateStep('repeatOption');
+        sendActionMessage("Repeat this Trybe?", [
+          { label: 'One-time', value: 'repeat:none', style: 'primary' },
+          { label: 'Daily', value: 'repeat:daily' },
+          { label: 'Weekly', value: 'repeat:weekly' },
+          { label: 'Monthly', value: 'repeat:monthly' },
+        ]);
+        return;
+      }
+      if (createStep === 'photos') {
+        setCreateStep('isPremium');
+        sendActionMessage("Make it Premium?", [
+          { label: 'Yes', value: 'yes', style: 'primary' },
+          { label: 'No', value: 'no', style: 'secondary' },
+        ]);
+        return;
+      }
+    }
+
     switch (createStep) {
       case 'eventName': {
         const val = raw.trim();
