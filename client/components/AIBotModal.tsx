@@ -342,6 +342,43 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           break;
         }
         setDraft({ ...draft, time: normalized });
+        setCreateStep('duration');
+        sendActionMessage("How long will it last?", [
+          { label: '30 min', value: 'duration:0.5' },
+          { label: '1 hr', value: 'duration:1' },
+          { label: '1.5 hr', value: 'duration:1.5' },
+          { label: '2 hr', value: 'duration:2', style: 'primary' },
+          { label: '3 hr', value: 'duration:3' },
+          { label: '4 hr', value: 'duration:4' },
+          { label: '6 hr', value: 'duration:6' },
+          { label: '8 hr', value: 'duration:8' },
+          { label: '12 hr', value: 'duration:12' },
+          { label: 'All day', value: 'duration:24' },
+        ]);
+        break;
+      }
+      case 'duration': {
+        const m = raw.match(/^duration:(.*)$/);
+        if (!m) {
+          sendActionMessage("Please choose a duration.", [
+            { label: '30 min', value: 'duration:0.5' },
+            { label: '1 hr', value: 'duration:1' },
+            { label: '2 hr', value: 'duration:2' },
+          ]);
+          break;
+        }
+        const dur = m[1];
+        setDraft({ ...draft, duration: dur });
+        setCreateStep('description');
+        sendActionMessage("Add a short description (optional).", [
+          { label: 'Skip', value: 'skip', style: 'secondary' }
+        ]);
+        break;
+      }
+      case 'description': {
+        const isSkip = raw.trim().toLowerCase() === 'skip';
+        const val = isSkip ? '' : raw.trim();
+        setDraft({ ...draft, description: val });
         setCreateStep('maxCapacity');
         ask("How many people can join? (1-100)");
         break;
@@ -360,15 +397,44 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       case 'fee': {
         const f = normalizeFee(raw);
         setDraft({ ...draft, fee: f });
-        setCreateStep('description');
-        sendActionMessage("Add a short description (optional).", [
-          { label: 'Skip', value: 'skip', style: 'secondary' }
+        setCreateStep('ageRange');
+        const id = `ai-${Date.now()}`;
+        const msg: AIMessage = { id, content: "Select an age range:", isBot: true, timestamp: new Date(), type: 'text', control: 'age' };
+        setAgeInputs(prev => ({ ...prev, [id]: { min: draft.ageRange?.[0] ?? 18, max: draft.ageRange?.[1] ?? 65 } }));
+        setMessages(prev => [...prev, msg]);
+        break;
+      }
+      case 'ageRange': {
+        // Proceed when user clicks Continue via UI (we set draft on change in UI)
+        setCreateStep('repeatOption');
+        sendActionMessage("Repeat this Trybe?", [
+          { label: 'One-time', value: 'repeat:none', style: 'primary' },
+          { label: 'Daily', value: 'repeat:daily' },
+          { label: 'Weekly', value: 'repeat:weekly' },
+          { label: 'Monthly', value: 'repeat:monthly' },
         ]);
         break;
       }
-      case 'description': {
-        const val = raw.trim().toLowerCase() === 'skip' ? '' : raw.trim();
-        setDraft({ ...draft, description: val });
+      case 'repeatOption': {
+        const m = raw.match(/^repeat:(none|daily|weekly|monthly)$/);
+        if (!m) {
+          sendActionMessage("Choose a repeat option:", [
+            { label: 'One-time', value: 'repeat:none', style: 'primary' },
+            { label: 'Daily', value: 'repeat:daily' },
+            { label: 'Weekly', value: 'repeat:weekly' },
+            { label: 'Monthly', value: 'repeat:monthly' },
+          ]);
+          break;
+        }
+        setDraft({ ...draft, repeatOption: m[1] });
+        setCreateStep('photos');
+        const upId = `ai-${Date.now()}`;
+        const photoMsg: AIMessage = { id: upId, content: "Add event photos (optional).", isBot: true, timestamp: new Date(), type: 'text', control: 'upload' };
+        setMessages(prev => [...prev, photoMsg]);
+        break;
+      }
+      case 'photos': {
+        // After adding photos via UI, user clicks Continue or Skip
         setCreateStep('isPremium');
         sendActionMessage("Make it Premium?", [
           { label: 'Yes', value: 'yes', style: 'primary' },
@@ -382,7 +448,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         const updated = { ...draft, isPremium: premium };
         setDraft(updated);
         setCreateStep('confirm');
-        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}\n• Repeat: ${updated.repeatOption || 'none'}${updated.description ? `\n• About: ${updated.description}` : ''}`;
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}\n• Repeat: ${updated.repeatOption || 'none'}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
         sendActionMessage(summary + "\n\nReady to go?", [
           { label: 'Confirm', value: 'confirm', style: 'primary' },
           { label: 'Cancel', value: 'cancel', style: 'secondary' },
