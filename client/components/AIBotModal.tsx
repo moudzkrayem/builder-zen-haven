@@ -747,17 +747,20 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           <div className="px-4 pb-2">
             <div className="text-xs text-muted-foreground mb-2">Quick suggestions:</div>
             <div className="flex flex-wrap gap-2">
-              {AI_PERSONALITY.suggestions.map((suggestion, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="text-xs rounded-full"
-                >
-                  {suggestion}
-                </Button>
-              ))}
+              {AI_PERSONALITY.suggestions.map((suggestion, index) => {
+                const isCreate = /create\s+a?\s*trybe/i.test(suggestion);
+                return (
+                  <Button
+                    key={index}
+                    variant={isCreate ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className={cn("text-xs rounded-full", isCreate && "bg-primary text-primary-foreground")}
+                  >
+                    {suggestion}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}
