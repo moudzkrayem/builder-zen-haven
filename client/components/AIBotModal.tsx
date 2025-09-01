@@ -405,7 +405,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         break;
       }
       case 'ageRange': {
-        // Proceed when user clicks Continue via UI (we set draft on change in UI)
+        // Any input here continues; if skipped, defaults are kept
         setCreateStep('repeatOption');
         sendActionMessage("Repeat this Trybe?", [
           { label: 'One-time', value: 'repeat:none', style: 'primary' },
