@@ -50,7 +50,8 @@ const AI_PERSONALITY = {
     "Show me events for this weekend",
     "Find creative activities near me",
     "What's trending right now?",
-    "Recommend based on my interests"
+    "Recommend based on my interests",
+    "Create a Trybe for me"
   ]
 };
 
