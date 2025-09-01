@@ -340,7 +340,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
         if (changes.length > 0) {
           const content = `Event updated by host:\n${changes.join("\n")}`;
-          // Post a system message to the event chat if it exists
+          // Post a system message to the event chat if it exists and sync metadata
           setChats(prevChats => prevChats.map(chat => {
             if (chat.eventId !== eventId) return chat;
             const msg: Message = {
@@ -353,6 +353,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             };
             return {
               ...chat,
+              eventName: newE.eventName || newE.name,
+              eventImage: newE.image,
+              participants: newE.attendees,
               messages: [...chat.messages, msg],
               lastMessage: content,
               time: 'now',
