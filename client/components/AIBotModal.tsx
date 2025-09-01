@@ -630,8 +630,8 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                         <Card key={event.id} className="border border-border/50 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onEventClick(event.id)}>
                           <CardContent className="p-3">
                             <div className="flex items-start space-x-3">
-                              <img 
-                                src={event.image} 
+                              <img
+                                src={event.image}
                                 alt={event.name}
                                 className="w-12 h-12 rounded-lg object-cover"
                               />
@@ -667,7 +667,45 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                     })}
                   </div>
                 )}
-                
+
+                {message.control === 'datetime' && (
+                  <div className="mt-3 flex items-center space-x-2">
+                    <Input
+                      type="datetime-local"
+                      value={dateInputs[message.id] || ''}
+                      onChange={(e) => setDateInputs(prev => ({ ...prev, [message.id]: e.target.value }))}
+                      className="rounded-full flex-1"
+                    />
+                    <Button size="sm" className="rounded-full" onClick={() => {
+                      const v = dateInputs[message.id];
+                      if (v) {
+                        // Feed into create flow handler
+                        setIsTyping(true);
+                        handleCreateFlowInput(v);
+                      }
+                    }}>Set</Button>
+                  </div>
+                )}
+
+                {message.actions && message.actions.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {message.actions.map((a, idx) => (
+                      <Button
+                        key={idx}
+                        size="sm"
+                        variant={a.style === 'primary' ? 'default' : 'outline'}
+                        className="rounded-full"
+                        onClick={() => {
+                          setIsTyping(true);
+                          handleCreateFlowInput(a.value);
+                        }}
+                      >
+                        {a.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="text-xs opacity-70 mt-2">
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
