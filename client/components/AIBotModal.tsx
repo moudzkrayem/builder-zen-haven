@@ -754,11 +754,91 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                     <Button size="sm" className="rounded-full" onClick={() => {
                       const v = dateInputs[message.id];
                       if (v) {
-                        // Feed into create flow handler
                         setIsTyping(true);
                         handleCreateFlowInput(v);
                       }
                     }}>Set</Button>
+                  </div>
+                )}
+
+                {message.control === 'age' && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Min: {ageInputs[message.id]?.min ?? 18}</span>
+                      <span>Max: {ageInputs[message.id]?.max ?? 65}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        type="range"
+                        min={16}
+                        max={80}
+                        value={ageInputs[message.id]?.min ?? 18}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          setAgeInputs(prev => ({ ...prev, [message.id]: { min: v, max: prev[message.id]?.max ?? 65 } }));
+                          setDraft(d => d ? { ...d, ageRange: [v, d.ageRange?.[1] ?? 65] as [number, number] } : d);
+                        }}
+                        className="flex-1"
+                      />
+                      <Input
+                        type="range"
+                        min={16}
+                        max={80}
+                        value={ageInputs[message.id]?.max ?? 65}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          setAgeInputs(prev => ({ ...prev, [message.id]: { min: prev[message.id]?.min ?? 18, max: v } }));
+                          setDraft(d => d ? { ...d, ageRange: [d.ageRange?.[0] ?? 18, v] as [number, number] } : d);
+                        }}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => {
+                        setIsTyping(true);
+                        handleCreateFlowInput('skip');
+                      }}>Skip</Button>
+                      <Button size="sm" className="rounded-full" onClick={() => {
+                        setIsTyping(true);
+                        handleCreateFlowInput('continue');
+                      }}>Continue</Button>
+                    </div>
+                  </div>
+                )}
+
+                {message.control === 'upload' && (
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      id={`upload-${message.id}`}
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach((file) => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const url = ev.target?.result as string;
+                            setDraft(d => d ? { ...d, photos: [...(d.photos || []), url] } : d);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                        (e.target as HTMLInputElement).value = '';
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => document.getElementById(`upload-${message.id}`)?.click()}>Upload Photos</Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => { setIsTyping(true); handleCreateFlowInput('skip'); }}>Skip</Button>
+                      <Button size="sm" className="rounded-full" onClick={() => { setIsTyping(true); handleCreateFlowInput('continue'); }}>Continue</Button>
+                    </div>
+                    {draft?.photos && draft.photos.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {draft.photos.map((p, i) => (
+                          <img key={i} src={p} alt={`p-${i}`} className="w-20 h-20 object-cover rounded-md" />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
