@@ -28,36 +28,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
-// Mock user data
-const mockUser = {
-  name: "Jamie Taylor",
-  age: 25,
-  profession: "UX Designer",
-  education: "Stanford University",
-  location: "San Francisco, CA",
-  bio: "Adventure seeker and coffee enthusiast ☕️ Love exploring new places and meeting creative minds. Always up for a good conversation about design, travel, or life! ✨",
-  photos: [
-    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop",
-    "https://cdn.builder.io/api/v1/file/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7163ace5f39a47219e785f3fe9201f21",
-    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop",
-  ],
-  interests: [
-    "Design",
-    "Coffee",
-    "Travel",
-    "Photography",
-    "Hiking",
-    "Art",
-    "Music",
-    "Yoga",
-  ],
-  stats: {
-    eventsAttended: 47,
-    connectionseMade: 128,
-    profileViews: 256,
-  },
-};
-
 export default function Profile() {
   const { events, joinedEvents, getUserRating, rateEvent, connections, addConnection, isConnected, canRateEvent, isEventFinished } = useEvents();
   const [isEditing, setIsEditing] = useState(false);
@@ -67,6 +37,21 @@ export default function Profile() {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState<"events" | "connections" | "views" | null>(null);
   const navigate = useNavigate();
+
+  const [profile, setProfile] = useState<any | null>(null);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('userProfile');
+      if (stored) setProfile(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const profileName = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : "";
+  const profilePhotos: string[] = profile?.photos || [];
+  const profileInterests: string[] = [
+    ...(profile?.thingsYouDoGreat || []),
+    ...(profile?.thingsYouWantToTry || []),
+  ];
 
   return (
     <div className="h-full bg-background overflow-y-auto">
@@ -123,7 +108,7 @@ export default function Profile() {
             {/* Profile photos */}
             <div className="mb-6 mt-6">
               <div className="grid grid-cols-3 gap-2 mb-4">
-                {mockUser.photos.map((photo, index) => (
+                {profilePhotos.map((photo, index) => (
                   <div
                     key={index}
                     className="relative aspect-[3/4] rounded-2xl overflow-hidden"
@@ -158,16 +143,16 @@ export default function Profile() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-3xl font-bold">
-                    {mockUser.name}, {mockUser.age}
+                    {profileName || ""}{profile?.age ? `, ${profile.age}` : ""}
                   </h2>
                   <div className="flex items-center space-x-4 mt-2 text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <Briefcase className="w-4 h-4" />
-                      <span className="text-sm">{mockUser.profession}</span>
+                      <span className="text-sm">{profile?.occupation || ""}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-4 h-4" />
-                      <span className="text-sm">{mockUser.location}</span>
+                      <span className="text-sm">{profile?.location || ""}</span>
                     </div>
                   </div>
                 </div>
@@ -181,7 +166,7 @@ export default function Profile() {
               <div className="flex items-center space-x-1 mb-4">
                 <GraduationCap className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  {mockUser.education}
+                  {profile?.education || ""}
                 </span>
                 {isEditing && (
                   <Button variant="ghost" size="sm" className="p-1 h-auto">
@@ -192,7 +177,7 @@ export default function Profile() {
 
               {/* Bio */}
               <div className="relative">
-                <p className="text-foreground leading-relaxed">{mockUser.bio}</p>
+                <p className="text-foreground leading-relaxed">{profile?.bio || ""}</p>
                 {isEditing && (
                   <Button
                     variant="ghost"
@@ -212,7 +197,7 @@ export default function Profile() {
                 className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
               >
                 <div className="text-2xl font-bold text-primary mb-1">
-                  {mockUser.stats.eventsAttended}
+                  {joinedEvents.length}
                 </div>
                 <div className="text-xs text-muted-foreground">Events</div>
               </button>
@@ -221,7 +206,7 @@ export default function Profile() {
                 className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
               >
                 <div className="text-2xl font-bold text-primary mb-1">
-                  {mockUser.stats.connectionseMade}
+                  {connections.length}
                 </div>
                 <div className="text-xs text-muted-foreground">Connections</div>
               </button>
@@ -254,7 +239,7 @@ export default function Profile() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {mockUser.interests.map((interest, index) => (
+                {profileInterests.map((interest, index) => (
                   <Badge
                     key={index}
                     variant="secondary"
@@ -470,7 +455,15 @@ export default function Profile() {
       <EditProfileModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        userData={mockUser}
+        userData={{
+          name: profileName || "",
+          age: profile?.age || 0,
+          profession: profile?.occupation || "",
+          education: profile?.education || "",
+          location: profile?.location || "",
+          bio: profile?.bio || "",
+          interests: profileInterests,
+        }}
       />
       <SocialAccountsModal
         isOpen={showSocialModal}
