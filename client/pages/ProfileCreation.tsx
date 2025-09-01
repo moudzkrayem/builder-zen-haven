@@ -950,13 +950,13 @@ export default function ProfileCreation() {
             </div>
             
             <Button
-              onClick={handleNext}
+              onClick={currentStep === STEP_TITLES.length - 1 ? handleComplete : handleNext}
               disabled={!canProceed()}
               size="lg"
               className={cn(
                 "rounded-2xl px-8 font-semibold transition-all hover:scale-105",
-                currentStep === STEP_TITLES.length - 1 
-                  ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg" 
+                currentStep === STEP_TITLES.length - 1
+                  ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
                   : "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
               )}
             >
