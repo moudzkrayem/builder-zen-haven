@@ -41,6 +41,8 @@ interface AIMessage {
   timestamp: Date;
   recommendations?: number[];
   type: 'text' | 'recommendations' | 'notification';
+  actions?: { label: string; value: string; style?: 'primary' | 'secondary' }[];
+  control?: 'datetime';
 }
 
 const AI_PERSONALITY = {
