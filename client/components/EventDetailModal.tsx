@@ -304,6 +304,12 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
           </div>
         </div>
       </div>
+      <EditEventModal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        event={event}
+        onSave={(updates) => updateEvent(eventId!, updates as any, true)}
+      />
     </div>
   );
 }
