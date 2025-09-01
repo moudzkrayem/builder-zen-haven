@@ -360,7 +360,9 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         const f = normalizeFee(raw);
         setDraft({ ...draft, fee: f });
         setCreateStep('description');
-        ask("Add a short description (optional). Type 'skip' to continue.");
+        sendActionMessage("Add a short description (optional).", [
+          { label: 'Skip', value: 'skip', style: 'secondary' }
+        ]);
         break;
       }
       case 'description': {
