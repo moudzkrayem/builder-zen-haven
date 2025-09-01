@@ -379,7 +379,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         const updated = { ...draft, isPremium: premium };
         setDraft(updated);
         setCreateStep('confirm');
-        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}`;
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}\n• Repeat: ${updated.repeatOption || 'none'}${updated.description ? `\n• About: ${updated.description}` : ''}`;
         sendActionMessage(summary + "\n\nReady to go?", [
           { label: 'Confirm', value: 'confirm', style: 'primary' },
           { label: 'Cancel', value: 'cancel', style: 'secondary' },
