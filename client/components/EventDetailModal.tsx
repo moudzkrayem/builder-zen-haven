@@ -2,21 +2,23 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
-import { 
-  X, 
-  MapPin, 
-  Clock, 
-  Users, 
-  DollarSign, 
-  Heart, 
+import {
+  X,
+  MapPin,
+  Clock,
+  Users,
+  DollarSign,
+  Heart,
   Star,
   UserPlus,
   Check,
   Calendar,
   Share,
-  Info
+  Info,
+  Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import EditEventModal from "@/components/EditEventModal";
 
 interface EventDetailModalProps {
   isOpen: boolean;
@@ -35,10 +37,12 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
     getUserRating,
     rateEvent,
     canRateEvent,
-    isEventFinished
+    isEventFinished,
+    updateEvent
   } = useEvents();
-  
+
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showEdit, setShowEdit] = useState(false);
 
   if (!isOpen || !eventId) return null;
 
