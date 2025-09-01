@@ -120,7 +120,7 @@ export default function PremiumUpgradeModal({
             <div className="text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="text-2xl font-bold">$14.99</span>
+                <span className="text-2xl font-bold">$9.99</span>
                 <span className="text-sm text-muted-foreground">/month</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
@@ -149,7 +149,7 @@ export default function PremiumUpgradeModal({
               </span>
             </div>
             <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              Get your first month for just $7.99 when you upgrade today!
+              Premium membership now just $9.99/month.
             </p>
           </div>
         </div>
