@@ -104,49 +104,49 @@ const INTEREST_CATEGORIES = {
   sports: {
     icon: Dumbbell,
     label: "Sports & Fitness",
-    color: "bg-blue-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Running", "Fitness", "Yoga", "Swimming", "Cycling", "Tennis", "Basketball", "Football", "Soccer", "Volleyball", "Boxing", "Martial Arts", "Pilates", "CrossFit", "Rock Climbing", "Surfing", "Skiing", "Snowboarding", "Golf", "Baseball"]
   },
   creative: {
     icon: Paintbrush,
     label: "Arts & Creativity",
-    color: "bg-purple-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Photography", "Art", "Writing", "Music", "Dancing", "Painting", "Drawing", "Sculpture", "Pottery", "Crafting", "Design", "Fashion Design", "Interior Design", "Acting", "Singing", "Stand-up Comedy", "Podcasting", "Vlogging", "Blogging"]
   },
   tech: {
     icon: Code,
     label: "Tech & Innovation",
-    color: "bg-green-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Programming", "Coding", "Gaming", "App Development", "Web Design", "Data Science", "AI/ML", "Robotics", "Virtual Reality", "Blockchain", "Cybersecurity", "Digital Marketing", "SEO"]
   },
   culinary: {
     icon: Utensils,
     label: "Food & Drink",
-    color: "bg-orange-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Cooking", "Baking", "Wine Tasting", "Coffee Culture", "Food Blogging", "Restaurant Reviews", "Mixology", "Brewing", "Grilling", "Vegetarian Cooking", "International Cuisine", "Food Photography"]
   },
   outdoor: {
     icon: Mountain,
     label: "Outdoor Adventures",
-    color: "bg-emerald-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Hiking", "Camping", "Fishing", "Hunting", "Gardening", "Nature Photography", "Bird Watching", "Kayaking", "Rafting", "Backpacking", "Geocaching", "Stargazing", "Beach Activities"]
   },
   social: {
     icon: Users,
     label: "Social & Networking",
-    color: "bg-pink-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Networking", "Public Speaking", "Volunteering", "Community Service", "Event Planning", "Leadership", "Mentoring", "Team Building", "Social Media", "Influencing", "Consulting", "Teaching"]
   },
   business: {
     icon: Briefcase,
     label: "Business & Finance",
-    color: "bg-indigo-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Entrepreneurship", "Investing", "Sales", "Marketing", "Real Estate", "Cryptocurrency", "Stock Trading", "Business Development", "Startups", "E-commerce", "Freelancing", "Project Management"]
   },
   learning: {
     icon: Book,
     label: "Learning & Growth",
-    color: "bg-teal-500",
+    color: "bg-gradient-to-br from-primary to-accent",
     interests: ["Reading", "Languages", "History", "Science", "Philosophy", "Psychology", "Self-Development", "Meditation", "Mindfulness", "Life Coaching", "Skill Building", "Online Courses", "Workshops"]
   }
 };
@@ -422,7 +422,7 @@ export default function ProfileCreation() {
           <div className="space-y-8">
             {/* Hero section */}
             <div className="text-center mb-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
                 <CameraIcon className="w-10 h-10 text-white" />
               </div>
               <h3 className="text-xl font-bold mb-2">Show your authentic self</h3>
@@ -713,7 +713,7 @@ export default function ProfileCreation() {
           <div className="space-y-8">
             {/* Hero section */}
             <div className="text-center mb-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
                 <Settings className="w-10 h-10 text-white" />
               </div>
               <h3 className="text-xl font-bold mb-2">Perfect your experience</h3>
