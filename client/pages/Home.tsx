@@ -25,7 +25,6 @@ import {
   UserPlus,
   Check,
   Share,
-  Bot,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +63,7 @@ export default function Home() {
   const [showAIBotModal, setShowAIBotModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [hasShownAIWelcome, setHasShownAIWelcome] = useState(false);
 
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
@@ -119,6 +119,18 @@ export default function Home() {
       setUserProfile(JSON.parse(storedProfile));
     }
   }, []);
+
+  // Auto-open AI assistant once per session after login/profile is available
+  useEffect(() => {
+    if (!hasShownAIWelcome && userProfile) {
+      const alreadyShown = sessionStorage.getItem('aiWelcomeShown');
+      if (!alreadyShown) {
+        setShowAIBotModal(true);
+        sessionStorage.setItem('aiWelcomeShown', 'true');
+        setHasShownAIWelcome(true);
+      }
+    }
+  }, [userProfile, hasShownAIWelcome]);
 
   // Filter and sort events based on user interests
   const getPersonalizedEvents = () => {
@@ -228,7 +240,11 @@ export default function Home() {
                 onClick={() => setShowAIBotModal(true)}
                 className="relative"
               >
-                <Bot className="w-5 h-5 text-primary" />
+                <img
+                  src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=800"
+                  alt="AI Assistant"
+                  className="w-5 h-5 object-contain"
+                />
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center">
                   <Sparkles className="w-2 h-2 text-white" />
                 </div>
