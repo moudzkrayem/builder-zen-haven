@@ -110,7 +110,7 @@ export default function PaymentModal({
           <div className="bg-gradient-to-br from-primary/5 to-accent/10 rounded-2xl p-4 border border-primary/20 mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold">Trybe Premium Monthly</span>
-              <span className="text-2xl font-bold text-primary">$14.99</span>
+              <span className="text-2xl font-bold text-primary">$9.99</span>
             </div>
             <div className="text-sm text-muted-foreground mb-3">
               7-day free trial • Cancel anytime
@@ -323,7 +323,7 @@ export default function PaymentModal({
           </div>
           
           <p className="text-xs text-muted-foreground text-center mt-3">
-            You'll be charged $14.99/month after your 7-day free trial. Cancel anytime.
+            You'll be charged $9.99/month after your 7-day free trial. Cancel anytime.
           </p>
         </div>
       </div>
