@@ -106,7 +106,6 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [createStep, setCreateStep] = useState<CreateStep>('idle');
   const [draft, setDraft] = useState<TrybeDraft | null>(null);
-  const [pendingEventId, setPendingEventId] = useState<number | null>(null);
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
