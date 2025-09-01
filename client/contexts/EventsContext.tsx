@@ -318,6 +318,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           minute: "2-digit",
         });
       }
+      if (applied.eventImages && applied.eventImages.length > 0) {
+        applied.image = applied.eventImages[0];
+      }
 
       const nextEvents = prev.map(e => e.id === eventId ? { ...e, ...applied } : e);
 
@@ -325,7 +328,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         const oldE = prevEvent;
         const newE = nextEvents.find(e => e.id === eventId)!;
         const changes: string[] = [];
-        if (applied.eventName && applied.eventName !== oldE.eventName) {
+        if (applied.eventName && applied.eventName !== (oldE.eventName || oldE.name)) {
           changes.push(`• Name: ${oldE.eventName || oldE.name} → ${newE.eventName || newE.name}`);
         }
         if (applied.location && applied.location !== oldE.location) {
@@ -334,11 +337,25 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         if (applied.time) {
           changes.push(`• Time: ${oldE.time ? new Date(oldE.time).toLocaleString() : oldE.date} → ${newE.time ? new Date(newE.time).toLocaleString() : newE.date}`);
         }
+        if (applied.duration && applied.duration !== oldE.duration) {
+          changes.push(`• Duration: ${oldE.duration || '-'} → ${newE.duration}`);
+        }
         if (typeof applied.maxCapacity === 'number' && applied.maxCapacity !== oldE.maxCapacity) {
           changes.push(`• Capacity: ${oldE.maxCapacity} → ${newE.maxCapacity}`);
         }
         if (applied.fee && applied.fee !== oldE.fee) {
           changes.push(`• Fee: ${oldE.fee} → ${newE.fee}`);
+        }
+        if (applied.ageRange && JSON.stringify(applied.ageRange) !== JSON.stringify(oldE.ageRange)) {
+          changes.push(`• Age Range: ${oldE.ageRange ? `${oldE.ageRange[0]}-${oldE.ageRange[1]}` : '-'} → ${newE.ageRange ? `${newE.ageRange[0]}-${newE.ageRange[1]}` : '-'}`);
+        }
+        if (applied.repeatOption && applied.repeatOption !== oldE.repeatOption) {
+          changes.push(`• Repeat: ${oldE.repeatOption || 'none'} → ${newE.repeatOption || 'none'}`);
+        }
+        if (applied.eventImages && oldE.eventImages) {
+          if (applied.eventImages.length !== oldE.eventImages.length) {
+            changes.push(`• Photos: ${oldE.eventImages.length} → ${newE.eventImages?.length || 0}`);
+          }
         }
         if (typeof applied.isPremium === 'boolean' && applied.isPremium !== !!oldE.isPremium) {
           changes.push(`• Premium: ${oldE.isPremium ? 'Yes' : 'No'} → ${newE.isPremium ? 'Yes' : 'No'}`);
