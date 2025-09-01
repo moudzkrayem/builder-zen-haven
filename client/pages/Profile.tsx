@@ -47,7 +47,12 @@ export default function Profile() {
   }, []);
 
   const profileName = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : "";
-  const profilePhotos: string[] = profile?.photos || [];
+  let profilePhotos: string[] = profile?.photos || [];
+  if (!profilePhotos.length) {
+    try {
+      profilePhotos = JSON.parse(sessionStorage.getItem('userProfilePhotos') || '[]');
+    } catch { profilePhotos = []; }
+  }
   const profileInterests: string[] = [
     ...(profile?.thingsYouDoGreat || []),
     ...(profile?.thingsYouWantToTry || []),
