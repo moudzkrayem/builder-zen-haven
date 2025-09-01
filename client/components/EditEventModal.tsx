@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { X, MapPin, Calendar, Users, DollarSign, Crown } from "lucide-react";
+import { X, MapPin, Calendar, Users, DollarSign, Crown, Upload, Camera } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 export interface EditEventModalProps {
   isOpen: boolean;
@@ -16,26 +17,32 @@ export interface EditEventModalProps {
     location: string;
     time?: string;
     date: string;
+    duration?: string;
     maxCapacity: number;
     fee: string;
     description?: string;
     isPremium?: boolean;
+    eventImages?: string[];
+    ageRange?: [number, number];
+    repeatOption?: string;
   } | null;
   onSave: (updates: Partial<EditEventModalProps["event"]>) => void;
 }
 
 export default function EditEventModal({ isOpen, onClose, event, onSave }: EditEventModalProps) {
-  const [form, setForm] = useState(() => {
-    return {
-      eventName: event?.eventName || event?.name || "",
-      location: event?.location || "",
-      time: event?.time || "",
-      maxCapacity: event?.maxCapacity || 10,
-      fee: event?.fee || "Free",
-      description: event?.description || "",
-      isPremium: Boolean(event?.isPremium),
-    };
-  });
+  const [form, setForm] = useState(() => ({
+    eventName: event?.eventName || event?.name || "",
+    location: event?.location || "",
+    time: event?.time || "",
+    duration: event?.duration || "2",
+    maxCapacity: event?.maxCapacity || 10,
+    fee: event?.fee || "Free",
+    description: event?.description || "",
+    isPremium: Boolean(event?.isPremium),
+    photos: event?.eventImages || [],
+    ageRange: event?.ageRange || [18, 65],
+    repeatOption: event?.repeatOption || "none",
+  }));
 
   if (!isOpen || !event) return null;
 
@@ -45,13 +52,28 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     if (form.eventName && form.eventName !== (event.eventName || event.name)) updates.eventName = form.eventName;
     if (form.location && form.location !== event.location) updates.location = form.location;
     if (form.time && form.time !== (event.time || "")) updates.time = form.time;
+    if (form.duration && form.duration !== (event.duration || "")) updates.duration = form.duration;
     if (form.maxCapacity !== event.maxCapacity) updates.maxCapacity = form.maxCapacity;
     if (form.fee && form.fee !== event.fee) updates.fee = form.fee;
     if ((form.description || "") !== (event.description || "")) updates.description = form.description;
     if (Boolean(form.isPremium) !== Boolean(event.isPremium)) updates.isPremium = form.isPremium;
+    if (form.repeatOption !== (event.repeatOption || "none")) updates.repeatOption = form.repeatOption;
+    if (form.ageRange && JSON.stringify(form.ageRange) !== JSON.stringify(event.ageRange || [18,65])) updates.ageRange = form.ageRange;
+    if (form.photos && JSON.stringify(form.photos) !== JSON.stringify(event.eventImages || [])) updates.eventImages = form.photos;
 
     onSave(updates);
     onClose();
+  };
+
+  const setPhotoFiles = (files: File[]) => {
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        setForm((f: any) => ({ ...f, photos: [...(f.photos || []), url] }));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   return (
