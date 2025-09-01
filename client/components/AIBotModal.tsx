@@ -75,12 +75,37 @@ const INTEREST_ICONS: { [key: string]: any } = {
   social: Users
 };
 
+type TrybeDraft = {
+  eventName: string;
+  location: string;
+  time: string;
+  description: string;
+  maxCapacity: number;
+  fee: string;
+  photos: string[];
+  isPremium: boolean;
+};
+
+type CreateStep =
+  | 'idle'
+  | 'eventName'
+  | 'location'
+  | 'time'
+  | 'maxCapacity'
+  | 'fee'
+  | 'description'
+  | 'isPremium'
+  | 'confirm';
+
 export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModalProps) {
-  const { events } = useEvents();
+  const { events, addEvent } = useEvents();
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [createStep, setCreateStep] = useState<CreateStep>('idle');
+  const [draft, setDraft] = useState<TrybeDraft | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<number | null>(null);
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
