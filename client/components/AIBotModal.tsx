@@ -386,12 +386,23 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const userText = input;
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI thinking
+    if (createStep !== 'idle') {
+      await handleCreateFlowInput(userText);
+      return;
+    }
+
+    if (detectCreateIntent(userText)) {
+      startCreateFlow();
+      setIsTyping(false);
+      return;
+    }
+
     setTimeout(() => {
-      const response = generateAIResponse(input);
+      const response = generateAIResponse(userText);
       setMessages(prev => [...prev, response]);
       setIsTyping(false);
     }, 1000 + Math.random() * 1000);
