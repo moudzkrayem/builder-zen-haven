@@ -108,6 +108,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [createStep, setCreateStep] = useState<CreateStep>('idle');
   const [draft, setDraft] = useState<TrybeDraft | null>(null);
+  const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
