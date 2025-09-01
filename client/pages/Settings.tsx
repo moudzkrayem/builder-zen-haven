@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 const settingsGroups = [
   {
@@ -155,6 +156,7 @@ const settingsGroups = [
 
 export default function Settings() {
   const { theme, setTheme, isDark } = useTheme();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState({
     newTrybes: true,
     messages: true,
@@ -176,7 +178,7 @@ export default function Settings() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-2xl font-bold">Settings</h1>

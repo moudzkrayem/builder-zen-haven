@@ -25,7 +25,6 @@ import {
   UserPlus,
   Check,
   Share,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -131,6 +130,15 @@ export default function Home() {
       }
     }
   }, [userProfile, hasShownAIWelcome]);
+
+  // Open schedule modal if requested from other pages
+  useEffect(() => {
+    const openSchedule = sessionStorage.getItem('openScheduleOnLoad');
+    if (openSchedule) {
+      setShowScheduleModal(true);
+      sessionStorage.removeItem('openScheduleOnLoad');
+    }
+  }, []);
 
   // Filter and sort events based on user interests
   const getPersonalizedEvents = () => {
@@ -245,9 +253,6 @@ export default function Home() {
                   alt="AI Assistant"
                   className="w-5 h-5 object-contain"
                 />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center">
-                  <Sparkles className="w-2 h-2 text-white" />
-                </div>
               </Button>
               <Button variant="ghost" size="icon">
                 <Filter className="w-5 h-5" />

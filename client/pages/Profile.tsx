@@ -26,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 // Mock user data
 const mockUser = {
@@ -65,6 +66,7 @@ export default function Profile() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState<"events" | "connections" | "views" | null>(null);
+  const navigate = useNavigate();
 
   return (
     <div className="h-full bg-background overflow-y-auto">
@@ -80,7 +82,7 @@ export default function Profile() {
             >
               <Edit3 className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings") }>
               <Settings className="w-5 h-5" />
             </Button>
           </div>
@@ -281,17 +283,17 @@ export default function Profile() {
 
             {/* Quick actions */}
             <div className="space-y-3">
-              <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90">
+              <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90" onClick={() => setActiveTab("profile")}>
                 <Heart className="w-5 h-5 mr-2" />
                 Preview My Profile
               </Button>
 
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-12 rounded-xl">
+                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { sessionStorage.setItem('openScheduleOnLoad','true'); navigate('/home'); }}>
                   <Users className="w-5 h-5 mr-2" />
                   My Events
                 </Button>
-                <Button variant="outline" className="h-12 rounded-xl">
+                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { sessionStorage.setItem('openScheduleOnLoad','true'); navigate('/home'); }}>
                   <Calendar className="w-5 h-5 mr-2" />
                   Schedule
                 </Button>

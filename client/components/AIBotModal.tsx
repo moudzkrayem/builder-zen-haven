@@ -7,8 +7,6 @@ import { useEvents } from "@/contexts/EventsContext";
 import {
   X,
   Send,
-  Bot,
-  Sparkles,
   Calendar,
   MapPin,
   Users,
@@ -320,7 +318,11 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
+              <img
+                src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=800"
+                alt="Trybe AI"
+                className="w-6 h-6 object-contain"
+              />
             </div>
             <div>
               <h2 className="text-lg font-bold">{AI_PERSONALITY.name}</h2>
@@ -350,7 +352,11 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
               )}>
                 {message.isBot && (
                   <div className="flex items-center space-x-2 mb-2">
-                    <Bot className="w-4 h-4" />
+                    <img
+                      src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=800"
+                      alt="Trybe AI"
+                      className="w-4 h-4 object-contain"
+                    />
                     <span className="text-xs font-medium">Trybe AI</span>
                   </div>
                 )}
@@ -414,7 +420,11 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
             <div className="flex justify-start">
               <div className="bg-muted text-muted-foreground rounded-2xl p-3 max-w-[80%]">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Bot className="w-4 h-4" />
+                  <img
+                    src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=800"
+                    alt="Trybe AI"
+                    className="w-4 h-4 object-contain"
+                  />
                   <span className="text-xs font-medium">Trybe AI</span>
                 </div>
                 <div className="flex space-x-1">

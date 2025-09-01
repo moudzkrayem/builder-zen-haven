@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Heart, Sparkles, Users, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Welcome() {
   const navigate = useNavigate();
