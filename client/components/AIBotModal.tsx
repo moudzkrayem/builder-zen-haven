@@ -194,6 +194,186 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     }
   };
 
+  const detectCreateIntent = (text: string) => {
+    const t = text.toLowerCase();
+    const hasCreate = /(create|make|start|host|set up|setup|organize)/.test(t);
+    const mentionsEvent = /(trybe|tribe|event|gathering|group|meetup)/.test(t);
+    return hasCreate && mentionsEvent;
+  };
+
+  const startCreateFlow = () => {
+    setDraft({
+      eventName: "",
+      location: "",
+      time: "",
+      description: "",
+      maxCapacity: 10,
+      fee: "Free",
+      photos: [],
+      isPremium: false,
+    });
+    setCreateStep('eventName');
+    const msg: AIMessage = {
+      id: `ai-${Date.now()}`,
+      content: "Awesome! Let's create your Trybe. What should we call it?",
+      isBot: true,
+      timestamp: new Date(),
+      type: 'text'
+    };
+    setMessages(prev => [...prev, msg]);
+  };
+
+  const normalizeFee = (raw: string): string => {
+    const t = raw.trim();
+    if (!t) return "Free";
+    if (/free/i.test(t)) return "Free";
+    const num = t.replace(/[^0-9.]/g, "");
+    if (num) return `$${parseFloat(num).toString()}`;
+    return t;
+  };
+
+  const normalizeDateTime = (raw: string): string | null => {
+    let t = raw.trim();
+    if (!t) return null;
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(t)) {
+      t = t.replace(" ", "T");
+    }
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return null;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const handleCreateFlowInput = async (raw: string) => {
+    if (raw.toLowerCase() === 'cancel') {
+      setCreateStep('idle');
+      setDraft(null);
+      const msg: AIMessage = {
+        id: `ai-${Date.now()}`,
+        content: "Got it, I canceled the creation. If you change your mind, just say 'create a trybe'.",
+        isBot: true,
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, msg]);
+      setIsTyping(false);
+      return;
+    }
+
+    if (!draft) return;
+
+    const ask = (content: string) => {
+      const m: AIMessage = {
+        id: `ai-${Date.now()}`,
+        content,
+        isBot: true,
+        timestamp: new Date(),
+        type: 'text'
+      };
+      setMessages(prev => [...prev, m]);
+    };
+
+    switch (createStep) {
+      case 'eventName': {
+        const val = raw.trim();
+        if (!val) {
+          ask("Please provide a name for your Trybe.");
+          break;
+        }
+        setDraft({ ...draft, eventName: val });
+        setCreateStep('location');
+        ask("Great! Where will it take place? (City or venue)");
+        break;
+      }
+      case 'location': {
+        const val = raw.trim();
+        if (!val) {
+          ask("What's the location?");
+          break;
+        }
+        setDraft({ ...draft, location: val });
+        setCreateStep('time');
+        ask("When is it happening? Please enter date and time like 2025-09-12 18:30 or 2025-09-12T18:30");
+        break;
+      }
+      case 'time': {
+        const normalized = normalizeDateTime(raw);
+        if (!normalized) {
+          ask("I couldn't read that time. Use format 2025-09-12 18:30");
+          break;
+        }
+        setDraft({ ...draft, time: normalized });
+        setCreateStep('maxCapacity');
+        ask("How many people can join? (1-100)");
+        break;
+      }
+      case 'maxCapacity': {
+        const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+        if (!n || n < 1 || n > 100) {
+          ask("Please provide a number between 1 and 100.");
+          break;
+        }
+        setDraft({ ...draft, maxCapacity: n });
+        setCreateStep('fee');
+        ask("Is it Free or paid? You can type 'Free' or an amount like $10");
+        break;
+      }
+      case 'fee': {
+        const f = normalizeFee(raw);
+        setDraft({ ...draft, fee: f });
+        setCreateStep('description');
+        ask("Add a short description (optional). Type 'skip' to continue.");
+        break;
+      }
+      case 'description': {
+        const val = raw.trim().toLowerCase() === 'skip' ? '' : raw.trim();
+        setDraft({ ...draft, description: val });
+        setCreateStep('isPremium');
+        ask("Make it Premium? Type 'yes' or 'no'. Premium events are exclusive to verified members.");
+        break;
+      }
+      case 'isPremium': {
+        const t = raw.trim().toLowerCase();
+        const premium = /^(y|yes|premium|true)$/i.test(t);
+        const updated = { ...draft, isPremium: premium };
+        setDraft(updated);
+        setCreateStep('confirm');
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}\n\nType 'confirm' to create or 'cancel' to abort.`;
+        ask(summary);
+        break;
+      }
+      case 'confirm': {
+        if (raw.trim().toLowerCase() !== 'confirm') {
+          ask("Please type 'confirm' to create or 'cancel' to abort.");
+          break;
+        }
+        const id = Date.now();
+        setPendingEventId(id);
+        const payload = { ...draft, id };
+        addEvent(payload);
+        setCreateStep('idle');
+        setDraft(null);
+        const createdMsg: AIMessage = {
+          id: `ai-${Date.now()}`,
+          content: "Your Trybe is live! 🎉 Tap to view details.",
+          isBot: true,
+          timestamp: new Date(),
+          recommendations: [id],
+          type: 'recommendations'
+        };
+        setMessages(prev => [...prev, createdMsg]);
+        setIsTyping(false);
+        return;
+      }
+    }
+    setIsTyping(false);
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim()) return;
 
