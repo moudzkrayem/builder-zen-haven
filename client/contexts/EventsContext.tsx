@@ -300,6 +300,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       if (!prevEvent) return prev;
 
       const applied: Partial<Event> = { ...updates };
+      if (applied.eventName) {
+        applied.name = applied.eventName;
+      }
       if (applied.time) {
         applied.date = new Date(applied.time).toLocaleDateString("en-US", {
           weekday: "short",
