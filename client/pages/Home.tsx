@@ -356,7 +356,7 @@ export default function Home() {
                   </p>
                 )}
               </div>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={() => setShowSimilar(true)}>
                 See All
               </Button>
             </div>
