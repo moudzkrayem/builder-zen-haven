@@ -61,6 +61,42 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Compress an image file to a small data URL (max dimension 320px)
+const readAndCompressFile = (file: File, maxDim = 320, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("Failed to read file"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img as HTMLImageElement;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(fr.result as string);
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => resolve(fr.result as string);
+      img.src = fr.result as string;
+    };
+    fr.readAsDataURL(file);
+  });
+};
+
 interface ProfileData {
   // Basic Info
   firstName: string;
@@ -223,9 +259,25 @@ export default function ProfileCreation() {
   };
 
   const handleComplete = () => {
-    // Store profile data in localStorage
-    localStorage.setItem('userProfile', JSON.stringify(profileData));
-    
+    // Safely store profile data (avoid quota by limiting photos size/count)
+    const safeProfile = { ...profileData } as typeof profileData;
+    safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
+    try {
+      const json = JSON.stringify(safeProfile);
+      if (json.length > 4_500_000) {
+        safeProfile.photos = [];
+      }
+      localStorage.setItem('userProfile', JSON.stringify(safeProfile));
+      try {
+        sessionStorage.setItem('userProfilePhotos', JSON.stringify(safeProfile.photos));
+      } catch {}
+    } catch {
+      try {
+        const { photos, ...rest } = safeProfile as any;
+        localStorage.setItem('userProfile', JSON.stringify(rest));
+      } catch {}
+    }
+
     // Create celebration animation
     const confetti = document.createElement('div');
     confetti.innerHTML = '🎉';
@@ -469,20 +521,20 @@ export default function ProfileCreation() {
                   type="file"
                   multiple
                   accept="image/*"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const files = Array.from(e.target.files || []);
-                    files.forEach((file) => {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const imageUrl = event.target?.result as string;
-                        setProfileData((prev) => ({
-                          ...prev,
-                          photos: [...prev.photos, imageUrl],
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    });
-                    e.target.value = "";
+                    const compressed: string[] = [];
+                    for (const f of files) {
+                      try {
+                        const data = await readAndCompressFile(f, 320, 0.7);
+                        compressed.push(data);
+                      } catch {}
+                    }
+                    setProfileData((prev) => ({
+                      ...prev,
+                      photos: [...prev.photos, ...compressed].slice(0, 6),
+                    }));
+                    e.currentTarget.value = "";
                   }}
                   className="hidden"
                   id="photo-upload"
