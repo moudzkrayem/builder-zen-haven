@@ -112,6 +112,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const [createStep, setCreateStep] = useState<CreateStep>('idle');
   const [draft, setDraft] = useState<TrybeDraft | null>(null);
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
+  const [ageInputs, setAgeInputs] = useState<Record<string, { min: number; max: number }>>({});
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
