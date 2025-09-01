@@ -225,6 +225,31 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     setMessages(prev => [...prev, msg]);
   };
 
+  const sendActionMessage = (content: string, actions: { label: string; value: string; style?: 'primary' | 'secondary' }[]) => {
+    const msg: AIMessage = {
+      id: `ai-${Date.now()}`,
+      content,
+      isBot: true,
+      timestamp: new Date(),
+      type: 'text',
+      actions
+    };
+    setMessages(prev => [...prev, msg]);
+  };
+
+  const sendDateTimePrompt = (content: string) => {
+    const id = `ai-${Date.now()}`;
+    const msg: AIMessage = {
+      id,
+      content,
+      isBot: true,
+      timestamp: new Date(),
+      type: 'text',
+      control: 'datetime'
+    };
+    setMessages(prev => [...prev, msg]);
+  };
+
   const normalizeFee = (raw: string): string => {
     const t = raw.trim();
     if (!t) return "Free";
