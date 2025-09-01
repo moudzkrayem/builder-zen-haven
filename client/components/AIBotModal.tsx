@@ -42,7 +42,7 @@ interface AIMessage {
   recommendations?: number[];
   type: 'text' | 'recommendations' | 'notification';
   actions?: { label: string; value: string; style?: 'primary' | 'secondary' }[];
-  control?: 'datetime';
+  control?: 'datetime' | 'age' | 'upload';
 }
 
 const AI_PERSONALITY = {
