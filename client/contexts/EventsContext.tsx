@@ -77,6 +77,7 @@ interface FriendRequest {
 interface EventsContextType {
   events: Event[];
   addEvent: (eventData: any) => void;
+  updateEvent: (eventId: number, updates: Partial<Event>, notify: boolean) => void;
   joinEvent: (eventId: number) => void;
   leaveEvent: (eventId: number) => void;
   joinedEvents: number[];
@@ -291,6 +292,78 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     };
 
     setEvents((prevEvents) => [newEvent, ...prevEvents]);
+  };
+
+  const updateEvent = (eventId: number, updates: Partial<Event>, notify: boolean) => {
+    setEvents(prev => {
+      const prevEvent = prev.find(e => e.id === eventId);
+      if (!prevEvent) return prev;
+
+      const applied: Partial<Event> = { ...updates };
+      if (applied.time) {
+        applied.date = new Date(applied.time).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      const nextEvents = prev.map(e => e.id === eventId ? { ...e, ...applied } : e);
+
+      if (notify) {
+        const oldE = prevEvent;
+        const newE = nextEvents.find(e => e.id === eventId)!;
+        const changes: string[] = [];
+        if (applied.eventName && applied.eventName !== oldE.eventName) {
+          changes.push(`• Name: ${oldE.eventName || oldE.name} → ${newE.eventName || newE.name}`);
+        }
+        if (applied.location && applied.location !== oldE.location) {
+          changes.push(`• Location: ${oldE.location} → ${newE.location}`);
+        }
+        if (applied.time) {
+          changes.push(`• Time: ${oldE.time ? new Date(oldE.time).toLocaleString() : oldE.date} → ${newE.time ? new Date(newE.time).toLocaleString() : newE.date}`);
+        }
+        if (typeof applied.maxCapacity === 'number' && applied.maxCapacity !== oldE.maxCapacity) {
+          changes.push(`• Capacity: ${oldE.maxCapacity} → ${newE.maxCapacity}`);
+        }
+        if (applied.fee && applied.fee !== oldE.fee) {
+          changes.push(`• Fee: ${oldE.fee} → ${newE.fee}`);
+        }
+        if (typeof applied.isPremium === 'boolean' && applied.isPremium !== !!oldE.isPremium) {
+          changes.push(`• Premium: ${oldE.isPremium ? 'Yes' : 'No'} → ${newE.isPremium ? 'Yes' : 'No'}`);
+        }
+        if (applied.description && applied.description !== oldE.description) {
+          changes.push(`• Description updated`);
+        }
+
+        if (changes.length > 0) {
+          const content = `Event updated by host:\n${changes.join("\n")}`;
+          // Post a system message to the event chat if it exists
+          setChats(prevChats => prevChats.map(chat => {
+            if (chat.eventId !== eventId) return chat;
+            const msg: Message = {
+              id: Date.now(),
+              senderId: 'system',
+              senderName: 'System',
+              content,
+              timestamp: new Date().toISOString(),
+              isCurrentUser: false,
+            };
+            return {
+              ...chat,
+              messages: [...chat.messages, msg],
+              lastMessage: content,
+              time: 'now',
+              unreadCount: chat.unreadCount + 1,
+            };
+          }));
+        }
+      }
+
+      return nextEvents;
+    });
   };
 
   const joinEvent = (eventId: number) => {
@@ -609,6 +682,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       value={{
         events,
         addEvent,
+        updateEvent,
         joinEvent,
         leaveEvent,
         joinedEvents,
