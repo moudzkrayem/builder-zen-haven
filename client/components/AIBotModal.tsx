@@ -352,7 +352,6 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           break;
         }
         const id = Date.now();
-        setPendingEventId(id);
         const payload = { ...draft, id };
         addEvent(payload);
         setCreateStep('idle');
