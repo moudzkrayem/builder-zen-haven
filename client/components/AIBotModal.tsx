@@ -361,22 +361,38 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         const val = raw.trim().toLowerCase() === 'skip' ? '' : raw.trim();
         setDraft({ ...draft, description: val });
         setCreateStep('isPremium');
-        ask("Make it Premium? Type 'yes' or 'no'. Premium events are exclusive to verified members.");
+        sendActionMessage("Make it Premium?", [
+          { label: 'Yes', value: 'yes', style: 'primary' },
+          { label: 'No', value: 'no', style: 'secondary' },
+        ]);
         break;
       }
       case 'isPremium': {
         const t = raw.trim().toLowerCase();
-        const premium = /^(y|yes|premium|true)$/i.test(t);
+        const premium = /^(y|yes|premium|true)$/i.test(t) ? true : /^(n|no|false)$/i.test(t) ? false : false;
         const updated = { ...draft, isPremium: premium };
         setDraft(updated);
         setCreateStep('confirm');
-        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}\n\nType 'confirm' to create or 'cancel' to abort.`;
-        ask(summary);
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}`;
+        sendActionMessage(summary + "\n\nReady to go?", [
+          { label: 'Confirm', value: 'confirm', style: 'primary' },
+          { label: 'Cancel', value: 'cancel', style: 'secondary' },
+        ]);
         break;
       }
       case 'confirm': {
-        if (raw.trim().toLowerCase() !== 'confirm') {
-          ask("Please type 'confirm' to create or 'cancel' to abort.");
+        const v = raw.trim().toLowerCase();
+        if (v !== 'confirm') {
+          if (v === 'cancel') {
+            setCreateStep('idle');
+            setDraft(null);
+            ask("Canceled. Say 'create a trybe' anytime to start again.");
+          } else {
+            sendActionMessage("Please choose:", [
+              { label: 'Confirm', value: 'confirm', style: 'primary' },
+              { label: 'Cancel', value: 'cancel', style: 'secondary' },
+            ]);
+          }
           break;
         }
         const id = Date.now();
