@@ -268,6 +268,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         minute: "2-digit",
       }),
       time: eventData.time,
+      duration: eventData.duration,
       attendees: 1, // Creator is first attendee
       maxCapacity: eventData.maxCapacity,
       fee: eventData.fee,
@@ -292,6 +293,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         ? eventData.description
         : `Join us for ${eventData.eventName}! This is a newly created event.`,
       isPremium: Boolean(eventData.isPremium),
+      ageRange: eventData.ageRange,
+      repeatOption: eventData.repeatOption,
     };
 
     setEvents((prevEvents) => [newEvent, ...prevEvents]);
