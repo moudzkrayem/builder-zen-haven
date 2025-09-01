@@ -45,7 +45,7 @@ const plans = [
   {
     id: "premium",
     name: "Trybe Premium",
-    price: "$19.99",
+    price: "$9.99",
     period: "month",
     description: "Ultimate social experience",
     features: [
