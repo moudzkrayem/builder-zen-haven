@@ -88,7 +88,12 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
         <div className="flex items-center justify-between p-4 border-b border-border bg-card">
           <h2 className="text-lg font-bold">Event Details</h2>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            {(event.hostName === 'You' || event.host === 'You') && (
+              <Button variant="ghost" size="icon" onClick={() => setShowEdit(true)} className="rounded-full">
+                <Pencil className="w-5 h-5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleShare} className="rounded-full">
               <Share className="w-5 h-5" />
             </Button>
             <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
