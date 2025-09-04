@@ -120,12 +120,6 @@ export default function PrivateChatModal({ isOpen, onClose, user }: PrivateChatM
 
         <div className="flex items-center space-x-2">
           <Button variant="ghost" size="icon">
-            <Phone className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Video className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
             <MoreVertical className="w-5 h-5" />
           </Button>
         </div>
