@@ -6,12 +6,9 @@ import { useEvents } from "@/contexts/EventsContext";
 import UserProfileModal from "./UserProfileModal";
 import PrivateChatModal from "./PrivateChatModal";
 import {
-  X,
   Send,
   ArrowLeft,
   MoreVertical,
-  Phone,
-  Video,
   Info,
   Users,
   MessageSquare,
