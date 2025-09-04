@@ -2,12 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  X,
   Send,
   ArrowLeft,
   MoreVertical,
-  Phone,
-  Video,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
