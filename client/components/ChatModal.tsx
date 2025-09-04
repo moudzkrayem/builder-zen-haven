@@ -35,7 +35,8 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     joinedEvents,
     sendFriendRequest,
     getFriendRequestStatus,
-    canSendMessage
+    canSendMessage,
+    leaveEvent,
   } = useEvents();
   const [messageText, setMessageText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -43,6 +44,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPrivateChatModal, setShowPrivateChatModal] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chat = chats.find((c) => c.id === chatId);
