@@ -172,7 +172,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="relative flex items-center space-x-2">
           <Button
             variant="ghost"
             size="icon"
@@ -181,15 +181,38 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           >
             <Users className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon">
-            <Phone className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Video className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowOptions(!showOptions);
+            }}
+            className="relative"
+          >
             <MoreVertical className="w-5 h-5" />
           </Button>
+
+          {showOptions && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-12 z-50 w-44 bg-card rounded-lg shadow-lg border border-border p-2"
+            >
+              <button
+                onClick={() => {
+                  if (event) {
+                    leaveEvent(event.id);
+                  }
+                  setShowOptions(false);
+                  onClose();
+                }}
+                className="w-full text-left px-3 py-2 rounded-md hover:bg-destructive/10 text-sm text-red-600"
+              >
+                Leave group (cancel spot)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
