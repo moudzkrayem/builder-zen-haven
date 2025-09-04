@@ -19,7 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Swipe() {
-  const { events, joinEvent } = useEvents();
+  const { events, joinEvent, joinedEvents } = useEvents();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -34,8 +34,10 @@ export default function Swipe() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Use events from context and format them for swipe interface
-  const swipeEvents = events.map((event) => ({
+  // Use events from context and format them for swipe interface, excluding joined events so scheduled items don't reappear
+  const swipeEvents = events
+    .filter(event => !joinedEvents.includes(event.id))
+    .map((event) => ({
     id: event.id,
     eventName: event.eventName || event.name,
     hostName: event.hostName || event.host || "Unknown Host",

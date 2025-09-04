@@ -178,8 +178,8 @@ export default function Home() {
     return scoredEvents.sort((a, b) => b.personalityScore - a.personalityScore);
   };
 
-  // Use personalized events instead of all events
-  const featuredTrybes = getPersonalizedEvents();
+  // Use personalized events instead of all events, but exclude joined events so scheduled items move to My Schedule
+  const featuredTrybes = getPersonalizedEvents().filter(e => !joinedEvents.includes(e.id));
 
   // Generate personalized trending searches
   const getTrendingSearches = () => {
@@ -329,25 +329,6 @@ export default function Home() {
               </Button>
             </div>
           </div>
-
-          {/* Trending searches */}
-          {searchQuery === "" && (
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold mb-3">Trending</h2>
-              <div className="flex flex-wrap gap-2">
-                {trendingSearches.map((search, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="px-3 py-1 rounded-full cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                    onClick={() => setSearchQuery(search)}
-                  >
-                    {search}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Featured trybes */}
           <div className="mb-6">

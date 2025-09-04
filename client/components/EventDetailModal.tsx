@@ -83,7 +83,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden">
+      <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-card">
           <h2 className="text-lg font-bold">Event Details</h2>

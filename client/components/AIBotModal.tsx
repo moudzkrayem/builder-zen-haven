@@ -104,7 +104,7 @@ type CreateStep =
   | 'confirm';
 
 export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModalProps) {
-  const { events, addEvent } = useEvents();
+  const { events, addEvent, joinedEvents } = useEvents();
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -157,8 +157,9 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       ...(userProfile.thingsYouWantToTry || [])
     ].map(interest => interest.toLowerCase());
 
-    // Score events based on user interests
+    // Score events based on user interests (exclude events the user already joined)
     const recommendations = events
+      .filter(event => !joinedEvents.includes(event.id))
       .map(event => {
         let score = 0;
         const eventInterests = (event.interests || []).map(i => i.toLowerCase());
