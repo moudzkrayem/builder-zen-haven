@@ -464,7 +464,7 @@ export default function AdminDashboard() {
           </section>
 
           {/* Users table */}
-          <section className="mt-6 bg-card  border rounded-xl p-4 shadow-sm ">
+          <section style={{ display: (activeTab === 'overview' || activeTab === 'users') ? undefined : 'none' }} className="mt-6 bg-card  border rounded-xl p-4 shadow-sm ">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">Users</h4>
               <div className="text-sm text-muted-foreground">{sorted.length} results</div>
