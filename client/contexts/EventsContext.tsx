@@ -627,6 +627,25 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return rating ? rating.rating : null;
   };
 
+  // Host rating functions
+  const rateHost = (eventId: number, rating: number) => {
+    if (!canRateEvent(eventId)) return;
+    const event = events.find(e => e.id === eventId);
+    const hostName = event ? (event.hostName || event.host) : undefined;
+    setHostRatings(prev => {
+      const existing = prev.find(h => h.eventId === eventId);
+      if (existing) {
+        return prev.map(h => h.eventId === eventId ? { ...h, rating } : h);
+      }
+      return [...prev, { eventId, hostName, rating, isPrivate: true }];
+    });
+  };
+
+  const getHostRating = (eventId: number): number | null => {
+    const h = hostRatings.find(h => h.eventId === eventId);
+    return h ? h.rating : null;
+  };
+
   const addConnection = (eventId: number) => {
     const event = events.find(e => e.id === eventId);
     if (!event || isConnected(eventId)) return;
