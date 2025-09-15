@@ -245,7 +245,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-primary/5 dark:from-slate-900 dark:to-slate-800 p-6">
-      <div className="max-w-[1400px] mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-xl dark:shadow-black/20 overflow-hidden flex">
+      <div className="max-w-[1400px] mx-auto bg-card dark:bg-slate-900 rounded-2xl shadow-xl dark:shadow-black/20 overflow-hidden flex">
         {/* Sidebar */}
         <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
           <div className="flex items-center mb-6">
@@ -292,37 +292,37 @@ export default function AdminDashboard() {
 
           {/* Top KPI cards */}
           <section className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Total Users</div>
               <div className="text-2xl font-bold">{users.length}</div>
               <div className="text-xs text-muted-foreground">New: {newUsers.length} • Returning: {returningUsers.length}</div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Trybe Created</div>
               <div className="text-2xl font-bold">{totalTrybes}</div>
-              <div className="text-xs text-success">Active: {activeTrybes} • Finished: {finishedTrybes}</div>
+              <div className="text-xs text-green-500">Active: {activeTrybes} • Finished: {finishedTrybes}</div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Avg Event Rating</div>
               <div className="text-2xl font-bold">{eventRatings.length ? (eventRatings.reduce((a,b)=>a+b.rating,0)/eventRatings.length).toFixed(2) : '-'}</div>
               <div className="text-xs text-muted-foreground">Host Avg: {ctxHostRatings.length ? (ctxHostRatings.reduce((a,b)=>a+b.rating,0)/ctxHostRatings.length).toFixed(2) : '-'}</div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Total Ratings</div>
               <div className="text-2xl font-bold">{eventRatings.length + ctxHostRatings.length}</div>
               <div className="text-xs text-muted-foreground">Last 30 days</div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Latest Transactions</div>
               <div className="text-2xl font-bold">{transactions.filter(t=>t.package.includes('Premium')).length}</div>
               <div className="text-xs text-muted-foreground">Trybe Premium</div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none col-span-1">
               <div className="text-sm text-muted-foreground">Click Events</div>
               <div className="text-2xl font-bold">{analytics.clicks.length}</div>
               <div className="text-xs text-muted-foreground">Tracking history length: {analytics.pageVisits.length}</div>
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
 
           {/* Charts and visual query */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div className="lg:col-span-2 p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
+            <div className="lg:col-span-2 p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Total New Users</h3>
                 <div className="text-sm text-muted-foreground">6 months</div>
@@ -341,7 +341,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
               <h3 className="font-semibold mb-2">Visual Query</h3>
               <div className="space-y-2">
                 <select className="w-full rounded border px-2 py-1" value={vqMetric} onChange={(e)=>setVqMetric(e.target.value)}>
@@ -355,14 +355,14 @@ export default function AdminDashboard() {
                   <option value="90d">90 days</option>
                 </select>
                 <Button onClick={runVisualQuery}>Run</Button>
-                {vqResult && <div className="mt-2 p-2 bg-gray-50 dark:bg-slate-700 rounded">{vqResult}</div>}
+                {vqResult && <div className="mt-2 p-2 bg-muted dark:bg-slate-700 rounded">{vqResult}</div>}
               </div>
             </div>
           </section>
 
           {/* Lists */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Latest Registrations</h4>
                 <div className="text-sm text-muted-foreground">Last 7 days</div>
@@ -382,7 +382,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Latest Transactions</h4>
                 <div className="text-sm text-muted-foreground">Last Month</div>
@@ -394,13 +394,13 @@ export default function AdminDashboard() {
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-muted-foreground">{t.package} • ${t.price}</div>
                     </div>
-                    <div className={`text-sm ${t.status==='Active' ? 'text-success' : 'text-destructive'}`}>{t.status}</div>
+                    <div className={`text-sm ${t.status==='Active' ? 'text-green-500' : 'text-destructive'}`}>{t.status}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Trybe Events</h4>
                 <div className="text-sm text-muted-foreground">Active / Finished</div>
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
 
           {/* Data tracking history & Command center */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-2">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Data Tracking History</h4>
                 <div className="text-sm text-muted-foreground">Recent activity</div>
@@ -430,7 +430,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="p-4 bg-white dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
+            <div className="p-4 bg-card dark:bg-slate-800 border rounded-xl shadow-sm dark:shadow-none">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Command Center</h4>
                 <div className="text-sm text-muted-foreground">Run admin commands</div>
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
                 <Button variant="ghost" onClick={() => runCommand('reindex-search')}>Reindex Search</Button>
 
                 <div className="mt-3 text-xs text-muted-foreground">Command Log</div>
-                <div className="max-h-40 overflow-auto bg-gray-50 dark:bg-slate-700 p-2 rounded">
+                <div className="max-h-40 overflow-auto bg-muted dark:bg-slate-700 p-2 rounded">
                   {cmdLog.length === 0 && <div className="text-xs text-muted-foreground">No commands run yet</div>}
                   {cmdLog.map((l, idx) => <div key={idx} className="text-xs">{l}</div>)}
                 </div>
@@ -451,7 +451,7 @@ export default function AdminDashboard() {
           </section>
 
           {/* Users table */}
-          <section className="mt-6 bg-white dark:bg-slate-800 border rounded-xl p-4 shadow-sm dark:shadow-none">
+          <section className="mt-6 bg-card dark:bg-slate-800 border rounded-xl p-4 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">Users</h4>
               <div className="text-sm text-muted-foreground">{sorted.length} results</div>
