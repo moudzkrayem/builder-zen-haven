@@ -245,7 +245,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-[1400px] mx-auto bg-card rounded-2xl shadow-xl dark:shadow-black/20 overflow-hidden flex">
+      <div className="max-w-[1400px] mx-auto bg-card rounded-2xl shadow-xl overflow-hidden flex">
         {/* Sidebar */}
         <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
           <div className="flex items-center mb-6">
