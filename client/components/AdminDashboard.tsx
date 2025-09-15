@@ -92,7 +92,12 @@ export default function AdminDashboard() {
 
   const totalUsers = users.length;
   const totalClicks = analytics.clicks.length;
-  const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b.rating, 0) / ratings.length).toFixed(2) : "-";
+
+  const avgEventRating = eventRatings.length ? (eventRatings.reduce((a,b)=>a+b.rating,0)/eventRatings.length) : null;
+  const avgEventRatingStr = avgEventRating ? avgEventRating.toFixed(2) : "-";
+
+  const avgHostRating = ctxHostRatings.length ? (ctxHostRatings.reduce((a,b)=>a+b.rating,0)/ctxHostRatings.length) : null;
+  const avgHostRatingStr = avgHostRating ? avgHostRating.toFixed(2) : "-";
 
   // clicks by page for pie
   const clicksByPage = analytics.clicks.reduce<Record<string, number>>((acc, c) => {
@@ -103,9 +108,9 @@ export default function AdminDashboard() {
   const pages = Object.keys(clicksByPage);
   const clicksValues = pages.map((p) => clicksByPage[p]);
 
-  // ratings distribution for bar chart
+  // ratings distribution for bar chart (use eventRatings)
   const ratingCounts = [0, 0, 0, 0, 0];
-  ratings.forEach((r) => {
+  eventRatings.forEach((r) => {
     const idx = Math.max(1, Math.min(5, Math.round(r.rating))) - 1;
     ratingCounts[idx]++;
   });
