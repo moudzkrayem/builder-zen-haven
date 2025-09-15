@@ -72,10 +72,23 @@ function BarChart({ labels, values }: { labels: string[]; values: number[] }) {
 }
 
 export default function AdminDashboard() {
-  const analytics = useMemo(() => getAnalytics(), []);
+  const [analyticsState, setAnalyticsState] = useState(() => getAnalytics());
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (!e.key || e.key === 'trybe_analytics_v1') {
+        setAnalyticsState(getAnalytics());
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const analytics = analyticsState;
   const users = useMemo(() => getUsers(), []);
   const staticRatings = useMemo(() => getRatings(), []);
   const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings, events, isEventFinished } = useEvents();
+
+  const [activeTab, setActiveTab] = useState<'overview'|'users'|'events'|'analytics'|'settings'>('overview');
 
   const eventRatings = [...staticRatings.filter(r => typeof r.eventId !== 'undefined'), ...ctxUserRatings.map(r => ({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', toUserId: undefined, eventId: r.eventId, rating: r.rating, comment: undefined, createdAt: new Date().toISOString() }))];
 
