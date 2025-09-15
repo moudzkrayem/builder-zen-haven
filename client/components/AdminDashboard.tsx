@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { getAnalytics } from "../lib/analytics";
+import { getAnalytics, clearAnalytics } from "../lib/analytics";
 import { getUsers, getRatings, User, Rating } from "../lib/users";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function formatMs(ms: number | undefined) {
   if (!ms) return "0s";
@@ -78,6 +80,11 @@ export default function AdminDashboard() {
   const [showClicks, setShowClicks] = useState(true);
   const [minRatingFilter, setMinRatingFilter] = useState(0);
 
+  // interactive controls
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<"name" | "avgReceived" | "eventsJoined">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const totalUsers = users.length;
   const totalClicks = analytics.clicks.length;
   const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b.rating, 0) / ratings.length).toFixed(2) : "-";
@@ -114,69 +121,138 @@ export default function AdminDashboard() {
   const filtered = userAggregates.filter((ua) => {
     const receivedAvg = ua.avgReceived || 0;
     return receivedAvg >= minRatingFilter;
+  }).filter(ua => ua.user.name.toLowerCase().includes(search.toLowerCase()));
+
+  // sort
+  const sorted = filtered.sort((a, b) => {
+    let av: any = a.user.name;
+    let bv: any = b.user.name;
+    if (sortField === "avgReceived") {
+      av = a.avgReceived || 0;
+      bv = b.avgReceived || 0;
+    } else if (sortField === "eventsJoined") {
+      av = a.user.eventsJoined || 0;
+      bv = b.user.eventsJoined || 0;
+    }
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
+  function exportCSV() {
+    const rows = [
+      ["id", "name", "email", "location", "signupDate", "lastActive", "eventsJoined", "messagesCount", "avgReceived", "avgGiven"],
+      ...sorted.map((ua) => [
+        ua.user.id,
+        ua.user.name,
+        ua.user.email || "",
+        ua.user.location || "",
+        ua.user.signupDate || "",
+        ua.user.lastActive || "",
+        String(ua.user.eventsJoined || 0),
+        String(ua.user.messagesCount || 0),
+        ua.avgReceived ? ua.avgReceived.toFixed(2) : "",
+        ua.avgGiven ? ua.avgGiven.toFixed(2) : "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users_export_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <div className="text-sm text-muted-foreground">Manage and inspect user data</div>
+        <div className="flex items-center space-x-4">
+          <img src="/placeholder.svg" alt="logo" className="w-10 h-10" />
+          <div>
+            <h1 className="text-2xl font-bold">Trybe Admin</h1>
+            <div className="text-sm text-muted-foreground">Analytics & user management</div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" onClick={() => { clearAnalytics(); window.location.reload(); }}>Clear Analytics</Button>
+          <Button onClick={() => window.location.reload()}>Refresh</Button>
+          <Button variant="outline" onClick={exportCSV}>Export CSV</Button>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 border rounded">
+        <div className="p-4 bg-primary/5 border rounded">
           <div className="text-sm text-muted-foreground">Total Users</div>
-          <div className="text-xl font-semibold">{totalUsers}</div>
+          <div className="text-2xl font-semibold">{totalUsers}</div>
         </div>
-        <div className="p-4 border rounded">
+        <div className="p-4 bg-primary/5 border rounded">
           <div className="text-sm text-muted-foreground">Total Clicks</div>
-          <div className="text-xl font-semibold">{totalClicks}</div>
+          <div className="text-2xl font-semibold">{totalClicks}</div>
         </div>
-        <div className="p-4 border rounded">
+        <div className="p-4 bg-primary/5 border rounded">
           <div className="text-sm text-muted-foreground">Avg Rating</div>
-          <div className="text-xl font-semibold">{avgRating}</div>
+          <div className="text-2xl font-semibold">{avgRating}</div>
         </div>
-        <div className="p-4 border rounded">
+        <div className="p-4 bg-primary/5 border rounded">
           <div className="text-sm text-muted-foreground">Total Ratings</div>
-          <div className="text-xl font-semibold">{ratings.length}</div>
+          <div className="text-2xl font-semibold">{ratings.length}</div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="p-4 border rounded">
-          <h3 className="font-semibold mb-2">Fields</h3>
-          <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} /> <span>Email</span></label>
-          <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showSocial} onChange={(e) => setShowSocial(e.target.checked)} /> <span>Social Links</span></label>
-          <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showTime} onChange={(e) => setShowTime(e.target.checked)} /> <span>Time Spent</span></label>
-          <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showClicks} onChange={(e) => setShowClicks(e.target.checked)} /> <span>Click Count</span></label>
-
-          <div className="mt-4">
-            <label className="text-sm">Min Received Rating Filter: <strong>{minRatingFilter}</strong></label>
-            <input type="range" min={0} max={5} value={minRatingFilter} onChange={(e) => setMinRatingFilter(Number(e.target.value))} />
+      <section className="mb-6 p-4 border rounded bg-card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3 w-full">
+            <Input placeholder="Search users by name" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <select className="rounded border px-2 py-1" value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
+              <option value="name">Sort: Name</option>
+              <option value="avgReceived">Sort: Avg Received</option>
+              <option value="eventsJoined">Sort: Events Joined</option>
+            </select>
+            <select className="rounded border px-2 py-1" value={sortDir} onChange={(e) => setSortDir(e.target.value as any)}>
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
           </div>
         </div>
 
-        <div className="p-4 border rounded col-span-2">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Clicks by Page</h3>
-            <div className="text-sm text-muted-foreground">Top pages and distribution</div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div>
-              <PieChart data={clicksValues.length ? clicksValues : [1]} size={160} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 border rounded">
+            <h3 className="font-semibold mb-2">Field Selection</h3>
+            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} /> <span>Email</span></label>
+            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showSocial} onChange={(e) => setShowSocial(e.target.checked)} /> <span>Social Links</span></label>
+            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showTime} onChange={(e) => setShowTime(e.target.checked)} /> <span>Time Spent</span></label>
+            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showClicks} onChange={(e) => setShowClicks(e.target.checked)} /> <span>Click Count</span></label>
+
+            <div className="mt-4">
+              <label className="text-sm">Min Received Rating Filter: <strong>{minRatingFilter}</strong></label>
+              <input className="w-full" type="range" min={0} max={5} value={minRatingFilter} onChange={(e) => setMinRatingFilter(Number(e.target.value))} />
             </div>
-            <div className="flex-1">
-              {pages.length === 0 && <div className="text-sm text-muted-foreground">No click data</div>}
-              {pages.map((p, i) => (
-                <div key={p} className="flex items-center justify-between mb-1">
-                  <div className="truncate">{p}</div>
-                  <div className="font-mono">{clicksByPage[p]}</div>
-                </div>
-              ))}
+          </div>
+
+          <div className="p-4 border rounded col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">Clicks by Page</h3>
+              <div className="text-sm text-muted-foreground">Top pages and distribution</div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div>
+                <PieChart data={clicksValues.length ? clicksValues : [1]} size={160} />
+              </div>
+              <div className="flex-1">
+                {pages.length === 0 && <div className="text-sm text-muted-foreground">No click data</div>}
+                {pages.map((p, i) => (
+                  <div key={p} className="flex items-center justify-between mb-1">
+                    <div className="truncate">{p}</div>
+                    <div className="font-mono">{clicksByPage[p]}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -215,7 +291,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((ua) => (
+              {sorted.map((ua) => (
                 <tr key={ua.user.id} className="border-t">
                   <td className="p-2">{ua.user.name}</td>
                   {showEmail && <td className="p-2">{ua.user.email || '-'}</td>}
