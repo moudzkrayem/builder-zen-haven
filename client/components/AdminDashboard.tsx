@@ -206,6 +206,22 @@ export default function AdminDashboard() {
   }
 
   function exportCSV() {
+    const { theme, setTheme, isDark } = useTheme();
+  }
+
+  function ThemeToggle() {
+    const { theme, setTheme, isDark } = useTheme();
+    const toggle = () => setTheme(isDark ? "light" : "dark");
+    return (
+      <button onClick={toggle} className="p-2 rounded-md bg-transparent hover:bg-accent/10">
+        {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </button>
+    );
+  }
+
+  // end ThemeToggle
+
+  function exportCSV() {
     const rows = [
       ["id", "name", "email", "location", "signupDate", "lastActive", "eventsJoined", "messagesCount", "avgReceived", "avgGiven"],
       ...sorted.map((ua) => [
