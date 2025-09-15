@@ -304,7 +304,7 @@ export default function AdminDashboard() {
           </header>
 
           {/* Top KPI cards */}
-          <section className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+          <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
             <div className="p-4 bg-card  border rounded-xl shadow-sm  col-span-1">
               <div className="text-sm text-muted-foreground">Total Users</div>
               <div className="text-2xl font-bold">{users.length}</div>
