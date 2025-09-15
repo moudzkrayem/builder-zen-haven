@@ -288,8 +288,8 @@ export default function AdminDashboard() {
         <main className="flex-1 p-6">
           <header className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold">Overview</h2>
-              <div className="text-sm text-muted-foreground">Insights & metrics</div>
+              <h2 className="text-xl font-bold">{activeTab === 'overview' ? 'Overview' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
+              <div className="text-sm text-muted-foreground">{activeTab === 'overview' ? 'Insights & metrics' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} management`}</div>
             </div>
 
             <div className="flex items-center space-x-2">
