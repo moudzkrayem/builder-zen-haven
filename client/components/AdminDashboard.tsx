@@ -72,7 +72,11 @@ function BarChart({ labels, values, height = 120 }: { labels: string[]; values: 
 export default function AdminDashboard() {
   const analytics = useMemo(() => getAnalytics(), []);
   const users = useMemo(() => getUsers(), []);
-  const ratings = useMemo(() => getRatings(), []);
+  const staticRatings = useMemo(() => getRatings(), []);
+  const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings } = useEvents();
+
+  // merge event ratings from static + context
+  const eventRatings = [...staticRatings.filter(r => typeof r.eventId !== 'undefined'), ...ctxUserRatings.map(r => ({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', eventId: r.eventId, rating: r.rating, createdAt: new Date().toISOString() }))];
 
   // selection for visible fields
   const [showEmail, setShowEmail] = useState(true);
