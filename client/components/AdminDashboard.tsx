@@ -93,6 +93,10 @@ export default function AdminDashboard() {
   const totalUsers = users.length;
   const totalClicks = analytics.clicks.length;
 
+  const ctxUserRatingsMapped = ctxUserRatings.map(r=>({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', toUserId: undefined, eventId: r.eventId, rating: r.rating, comment: undefined, createdAt: new Date().toISOString() }));
+
+  const allRatings = [...staticRatings, ...ctxUserRatingsMapped];
+
   const avgEventRating = eventRatings.length ? (eventRatings.reduce((a,b)=>a+b.rating,0)/eventRatings.length) : null;
   const avgEventRatingStr = avgEventRating ? avgEventRating.toFixed(2) : "-";
 
@@ -120,8 +124,8 @@ export default function AdminDashboard() {
     const userClicks = analytics.clicks.filter((c) => c.page.includes(u.id)).length; // heuristic
     const visits = analytics.pageVisits.filter((p) => p.path.includes(u.id));
     const timeSpent = visits.reduce((a, b) => a + (b.duration || 0), 0);
-    const given = ratings.filter((r) => r.fromUserId === u.id);
-    const received = ratings.filter((r) => r.toUserId === u.id);
+    const given = allRatings.filter((r) => r.fromUserId === u.id);
+    const received = allRatings.filter((r) => r.toUserId === u.id);
     const avgGiven = given.length ? given.reduce((a, b) => a + b.rating, 0) / given.length : null;
     const avgReceived = received.length ? received.reduce((a, b) => a + b.rating, 0) / received.length : null;
     return { user: u, userClicks, timeSpent, given, received, avgGiven, avgReceived };
@@ -203,12 +207,12 @@ export default function AdminDashboard() {
           <div className="text-2xl font-semibold">{totalClicks}</div>
         </div>
         <div className="p-4 bg-primary/5 border rounded">
-          <div className="text-sm text-muted-foreground">Avg Rating</div>
-          <div className="text-2xl font-semibold">{avgRating}</div>
+          <div className="text-sm text-muted-foreground">Avg Event Rating</div>
+          <div className="text-2xl font-semibold">{avgEventRatingStr}</div>
         </div>
         <div className="p-4 bg-primary/5 border rounded">
           <div className="text-sm text-muted-foreground">Total Ratings</div>
-          <div className="text-2xl font-semibold">{ratings.length}</div>
+          <div className="text-2xl font-semibold">{allRatings.length + ctxHostRatings.length}</div>
         </div>
       </section>
 
