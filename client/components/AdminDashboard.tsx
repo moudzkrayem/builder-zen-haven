@@ -244,7 +244,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-primary/5 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-white to-primary/5 dark:from-slate-900 dark:to-slate-800 p-6">
       <div className="max-w-[1400px] mx-auto bg-white rounded-2xl shadow-xl overflow-hidden flex">
         {/* Sidebar */}
         <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
