@@ -343,7 +343,7 @@ export default function AdminDashboard() {
           </section>
 
           {/* Charts and visual query */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="lg:col-span-2 p-4 bg-card  border rounded-xl shadow-sm ">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Total New Users</h3>
