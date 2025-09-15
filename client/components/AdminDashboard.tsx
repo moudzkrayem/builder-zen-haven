@@ -272,6 +272,9 @@ export default function AdminDashboard() {
               <Button variant="ghost" onClick={() => { runCommand('clear-analytics'); }}>Clear</Button>
               <Button onClick={() => window.location.reload()}>Refresh</Button>
               <Button variant="outline" onClick={exportCSV}>Export</Button>
+
+              {/* Theme toggle */}
+              <ThemeToggle />
             </div>
           </header>
 
