@@ -499,6 +499,31 @@ export default function AdminDashboard() {
               </table>
             </div>
           </section>
+
+          {/* Events tab content */}
+          <section style={{ display: activeTab === 'events' ? undefined : 'none' }} className="mt-6 bg-card border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold">Events</h4>
+              <div className="text-sm text-muted-foreground">{events.length} events</div>
+            </div>
+
+            <div className="space-y-3">
+              {events.map(ev => (
+                <div key={ev.id} className="flex items-center justify-between p-3 border rounded">
+                  <div>
+                    <div className="font-medium">{ev.eventName || ev.name}</div>
+                    <div className="text-xs text-muted-foreground">{ev.location} • {ev.date}</div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="text-sm text-muted-foreground">{isEventFinished(ev.id) ? 'Finished' : 'Active'}</div>
+                    <Button variant="ghost" onClick={() => updateEvent(ev.id, { time: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() }, true)}>Mark Finished</Button>
+                    <Button onClick={() => updateEvent(ev.id, { isPopular: !ev.isPopular }, true)} variant="outline">Toggle Popular</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
         </main>
       </div>
     </div>
