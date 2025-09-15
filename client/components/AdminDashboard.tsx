@@ -4,6 +4,8 @@ import { getUsers, getRatings, User, Rating } from "../lib/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEvents } from "@/contexts/EventsContext";
+import { useTheme } from "@/components/ThemeProvider";
+import { Sun, Moon } from "lucide-react";
 
 function formatMs(ms: number | undefined) {
   if (!ms) return "0s";
