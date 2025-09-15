@@ -36,6 +36,8 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
     isConnected,
     getUserRating,
     rateEvent,
+    rateHost,
+    getHostRating,
     canRateEvent,
     isEventFinished,
     updateEvent
