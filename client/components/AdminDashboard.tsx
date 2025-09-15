@@ -205,10 +205,6 @@ export default function AdminDashboard() {
     }
   }
 
-  function exportCSV() {
-    const { theme, setTheme, isDark } = useTheme();
-  }
-
   function ThemeToggle() {
     const { theme, setTheme, isDark } = useTheme();
     const toggle = () => setTheme(isDark ? "light" : "dark");
