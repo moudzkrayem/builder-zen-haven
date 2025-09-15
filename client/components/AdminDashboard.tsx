@@ -180,165 +180,174 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <header className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <img src="/placeholder.svg" alt="logo" className="w-10 h-10" />
-          <div>
-            <h1 className="text-2xl font-bold">Trybe Admin</h1>
-            <div className="text-sm text-muted-foreground">Analytics & user management</div>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" onClick={() => { clearAnalytics(); window.location.reload(); }}>Clear Analytics</Button>
-          <Button onClick={() => window.location.reload()}>Refresh</Button>
-          <Button variant="outline" onClick={exportCSV}>Export CSV</Button>
-        </div>
-      </header>
-
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-primary/5 border rounded">
-          <div className="text-sm text-muted-foreground">Total Users</div>
-          <div className="text-2xl font-semibold">{totalUsers}</div>
-        </div>
-        <div className="p-4 bg-primary/5 border rounded">
-          <div className="text-sm text-muted-foreground">Total Clicks</div>
-          <div className="text-2xl font-semibold">{totalClicks}</div>
-        </div>
-        <div className="p-4 bg-primary/5 border rounded">
-          <div className="text-sm text-muted-foreground">Avg Event Rating</div>
-          <div className="text-2xl font-semibold">{avgEventRatingStr}</div>
-        </div>
-        <div className="p-4 bg-primary/5 border rounded">
-          <div className="text-sm text-muted-foreground">Total Ratings</div>
-          <div className="text-2xl font-semibold">{allRatings.length + ctxHostRatings.length}</div>
-        </div>
-      </section>
-
-      <section className="mb-6 p-4 border rounded bg-card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3 w-full">
-            <Input placeholder="Search users by name" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="rounded border px-2 py-1" value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
-              <option value="name">Sort: Name</option>
-              <option value="avgReceived">Sort: Avg Received</option>
-              <option value="eventsJoined">Sort: Events Joined</option>
-            </select>
-            <select className="rounded border px-2 py-1" value={sortDir} onChange={(e) => setSortDir(e.target.value as any)}>
-              <option value="asc">Asc</option>
-              <option value="desc">Desc</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 border rounded">
-            <h3 className="font-semibold mb-2">Field Selection</h3>
-            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} /> <span>Email</span></label>
-            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showSocial} onChange={(e) => setShowSocial(e.target.checked)} /> <span>Social Links</span></label>
-            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showTime} onChange={(e) => setShowTime(e.target.checked)} /> <span>Time Spent</span></label>
-            <label className="flex items-center space-x-2 mb-2"><input type="checkbox" checked={showClicks} onChange={(e) => setShowClicks(e.target.checked)} /> <span>Click Count</span></label>
-
-            <div className="mt-4">
-              <label className="text-sm">Min Received Rating Filter: <strong>{minRatingFilter}</strong></label>
-              <input className="w-full" type="range" min={0} max={5} value={minRatingFilter} onChange={(e) => setMinRatingFilter(Number(e.target.value))} />
+    <div className="min-h-screen bg-gradient-to-br from-white to-primary/5 p-6">
+      <div className="max-w-[1300px] mx-auto bg-white rounded-2xl shadow-xl overflow-hidden flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
+          <div className="flex items-center mb-6">
+            <img src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=800" alt="brand" className="w-10 h-10 mr-3" />
+            <div>
+              <div className="text-lg font-bold">Trybe</div>
+              <div className="text-xs text-muted-foreground">Admin Studio</div>
             </div>
           </div>
 
-          <div className="p-4 border rounded col-span-2">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold">Clicks by Page</h3>
-              <div className="text-sm text-muted-foreground">Top pages and distribution</div>
+          <nav className="space-y-2">
+            <button className="w-full text-left px-3 py-2 rounded-md bg-primary text-white font-semibold">Overview</button>
+            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-50">Users</button>
+            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-50">Events</button>
+            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-50">Analytics</button>
+            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-50">Settings</button>
+          </nav>
+
+          <div className="mt-8 text-xs text-muted-foreground">
+            <div className="font-semibold">Today</div>
+            <div className="mt-2">Active users: <strong>{totalUsers}</strong></div>
+            <div>Clicks: <strong>{totalClicks}</strong></div>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 p-6">
+          <header className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold">Overview</h2>
+              <div className="text-sm text-muted-foreground">Insights & metrics</div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div>
-                <PieChart data={clicksValues.length ? clicksValues : [1]} size={160} />
+
+            <div className="flex items-center space-x-2">
+              <Input placeholder="Search users, events..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Button variant="ghost" onClick={() => { clearAnalytics(); window.location.reload(); }}>Clear</Button>
+              <Button onClick={() => window.location.reload()}>Refresh</Button>
+              <Button variant="outline" onClick={exportCSV}>Export</Button>
+            </div>
+          </header>
+
+          {/* Top cards */}
+          <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="text-sm text-muted-foreground">Users</div>
+              <div className="text-2xl font-bold">{totalUsers}</div>
+              <div className="text-xs text-success mt-1">Last 30 days • +3.2%</div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="text-sm text-muted-foreground">Subscriptions</div>
+              <div className="text-2xl font-bold">360</div>
+              <div className="text-xs text-destructive mt-1">Last 30 days • -1.2%</div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="text-sm text-muted-foreground">Generated Images</div>
+              <div className="text-2xl font-bold">43,583</div>
+              <div className="text-xs text-success mt-1">Last 30 days • +2.6%</div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="text-sm text-muted-foreground">Generated Codes</div>
+              <div className="text-2xl font-bold">34,385</div>
+              <div className="text-xs text-success mt-1">Last 30 days • +3.2%</div>
+            </div>
+          </section>
+
+          {/* Charts area */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div className="lg:col-span-2 p-4 bg-white border rounded-xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Total New Users</h3>
+                <div className="text-sm text-muted-foreground">6 months</div>
               </div>
-              <div className="flex-1">
-                {pages.length === 0 && <div className="text-sm text-muted-foreground">No click data</div>}
-                {pages.map((p, i) => (
-                  <div key={p} className="flex items-center justify-between mb-1">
-                    <div className="truncate">{p}</div>
-                    <div className="font-mono">{clicksByPage[p]}</div>
+              <div className="h-56 flex items-center justify-center">
+                {/* Placeholder chart area */}
+                <div className="w-full h-full flex items-center justify-center">[Line chart placeholder]</div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <h3 className="font-semibold mb-2">Total New Users</h3>
+              <div className="h-56 flex items-center justify-center">[Bar chart placeholder]</div>
+            </div>
+          </section>
+
+          {/* Lists */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Latest Registrations</h4>
+                <div className="text-sm text-muted-foreground">Last 7 days</div>
+              </div>
+              <div className="space-y-2">
+                {users.slice(0,5).map(u => (
+                  <div key={u.id} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{u.name}</div>
+                      <div className="text-xs text-muted-foreground">{u.signupDate?.split('T')[0]}</div>
+                    </div>
+                    <div>
+                      <Button variant="link">View</Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="p-4 border rounded">
-          <h3 className="font-semibold mb-2">Ratings Distribution</h3>
-          <BarChart labels={["1","2","3","4","5"]} values={ratingCounts} />
-        </div>
-
-        <div className="p-4 border rounded">
-          <h3 className="font-semibold mb-2">Recent Ratings</h3>
-          <div className="space-y-2 max-h-48 overflow-auto">
-            {/* Show combined recent ratings (event + host) with no comments/details */}
-            {[...ctxHostRatings.map(h=>({ type: 'host', id: `host-${h.eventId}-${h.rating}`, rating: h.rating, eventId: h.eventId })), ...eventRatings.map(e=>({ type: 'event', id: `event-${e.eventId}-${e.rating}`, rating: e.rating, eventId: e.eventId }))].slice().reverse().map((r: any) => (
-              <div key={r.id} className="p-2 border rounded">
-                <div className="text-sm"><strong>{r.rating}★</strong> — {r.type === 'host' ? 'Host rating' : 'Event rating'}</div>
-                <div className="text-xs text-muted-foreground">{r.eventId ? `event ${r.eventId}` : ''}</div>
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Latest Transactions</h4>
+                <div className="text-sm text-muted-foreground">Last Month</div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <div className="space-y-2">
+                {users.slice(0,5).map(u => (
+                  <div key={u.id} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{u.name}</div>
+                      <div className="text-xs text-muted-foreground">Package Starter • $11.99</div>
+                    </div>
+                    <div className="text-sm text-success">Active</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
 
-      <section>
-        <h3 className="font-semibold mb-2">Users</h3>
-        <div className="overflow-auto border rounded">
-          <table className="min-w-full table-auto">
-            <thead className="bg-muted p-2">
-              <tr>
-                <th className="p-2 text-left">Name</th>
-                {showEmail && <th className="p-2 text-left">Email</th>}
-                {showSocial && <th className="p-2 text-left">Social</th>}
-                {showTime && <th className="p-2 text-left">Time Spent</th>}
-                {showClicks && <th className="p-2 text-left">Clicks</th>}
-                <th className="p-2 text-left">Avg Received</th>
-                <th className="p-2 text-left">Avg Given</th>
-                <th className="p-2 text-left">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((ua) => (
-                <tr key={ua.user.id} className="border-t">
-                  <td className="p-2">{ua.user.name}</td>
-                  {showEmail && <td className="p-2">{ua.user.email || '-'}</td>}
-                  {showSocial && <td className="p-2">{ua.user.social ? Object.values(ua.user.social).filter(Boolean).join(' | ') : '-'}</td>}
-                  {showTime && <td className="p-2">{formatMs(ua.timeSpent)}</td>}
-                  {showClicks && <td className="p-2">{ua.userClicks}</td>}
-                  <td className="p-2">{ua.avgReceived ? ua.avgReceived.toFixed(2) : '-'}</td>
-                  <td className="p-2">{ua.avgGiven ? ua.avgGiven.toFixed(2) : '-'}</td>
-                  <td className="p-2">
-                    <details>
-                      <summary className="cursor-pointer">View</summary>
-                      <div className="mt-2">
-                        <div className="text-sm font-semibold">Ratings Given</div>
-                        {ua.given.length === 0 && <div className="text-sm text-muted-foreground">None</div>}
-                        {ua.given.map((g: Rating) => (
-                          <div key={g.id} className="text-sm">{g.rating}★ — {g.comment} <span className="text-xs text-muted-foreground">{g.eventId ? `event ${g.eventId}` : g.toUserId ? `to ${g.toUserId}` : ''}</span></div>
-                        ))}
+          {/* Users table */}
+          <section className="mt-6 bg-white border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold">Users</h4>
+              <div className="text-sm text-muted-foreground">{sorted.length} results</div>
+            </div>
 
-                        <div className="mt-2 text-sm font-semibold">Ratings Received</div>
-                        {ua.received.length === 0 && <div className="text-sm text-muted-foreground">None</div>}
-                        {ua.received.map((g: Rating) => (
-                          <div key={g.id} className="text-sm">{g.rating}★ — {g.comment} <span className="text-xs text-muted-foreground">from {g.fromUserId}</span></div>
-                        ))}
-                      </div>
-                    </details>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            <div className="overflow-auto">
+              <table className="min-w-full table-auto">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="p-2 text-left">Name</th>
+                    {showEmail && <th className="p-2 text-left">Email</th>}
+                    {showSocial && <th className="p-2 text-left">Social</th>}
+                    {showTime && <th className="p-2 text-left">Time Spent</th>}
+                    {showClicks && <th className="p-2 text-left">Clicks</th>}
+                    <th className="p-2 text-left">Avg Recv</th>
+                    <th className="p-2 text-left">Avg Given</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map(u => (
+                    <tr key={u.user.id} className="border-t">
+                      <td className="p-2">{u.user.name}</td>
+                      {showEmail && <td className="p-2">{u.user.email || '-'}</td>}
+                      {showSocial && <td className="p-2">{u.user.social ? Object.values(u.user.social).filter(Boolean).join(' | ') : '-'}</td>}
+                      {showTime && <td className="p-2">{formatMs(u.timeSpent)}</td>}
+                      {showClicks && <td className="p-2">{u.userClicks}</td>}
+                      <td className="p-2">{u.avgReceived ? u.avgReceived.toFixed(2) : '-'}</td>
+                      <td className="p-2">{u.avgGiven ? u.avgGiven.toFixed(2) : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
