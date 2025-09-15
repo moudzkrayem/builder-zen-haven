@@ -3,6 +3,7 @@ import { getAnalytics, clearAnalytics } from "../lib/analytics";
 import { getUsers, getRatings, User, Rating } from "../lib/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useEvents } from "@/contexts/EventsContext";
 
 function formatMs(ms: number | undefined) {
   if (!ms) return "0s";
