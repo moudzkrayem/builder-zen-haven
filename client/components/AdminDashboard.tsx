@@ -374,7 +374,7 @@ export default function AdminDashboard() {
           </section>
 
           {/* Lists */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-card  border rounded-xl shadow-sm  lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Latest Registrations</h4>
