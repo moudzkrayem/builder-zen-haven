@@ -1,4 +1,3 @@
-import React, { useMemo, useState } from "react";
 import React, { useMemo, useState, useEffect } from "react";
 import { getAnalytics, clearAnalytics } from "../lib/analytics";
 import { getUsers, getRatings, User, Rating } from "../lib/users";
