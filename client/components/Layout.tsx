@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
+import React, { useEffect, ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import BottomNavigation from "./BottomNavigation";
-import { useEffect } from "react";
 import { initAnalytics, recordPageEnter, recordPageLeave, log } from "../lib/analytics";
 
 interface LayoutProps {
@@ -43,9 +44,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="relative min-h-screen-safe bg-background">
       {/* Main content */}
       <main
-        className={`$${
-          hideBottomNav ? "min-h-screen-safe" : "min-h-screen-safe-no-nav"
-        } ${
+        className={`${hideBottomNav ? "min-h-screen-safe" : "min-h-screen-safe-no-nav"} ${
           location.pathname === "/create-profile" ? "overflow-y-auto" : "overflow-hidden"
         }`}
       >
