@@ -258,6 +258,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
+  const [hostRatings, setHostRatings] = useState<HostRating[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [favoriteEvents, setFavoriteEvents] = useState<number[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
