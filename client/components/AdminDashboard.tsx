@@ -257,11 +257,11 @@ export default function AdminDashboard() {
           </div>
 
           <nav className="space-y-2">
-            <button className="w-full text-left px-3 py-2 rounded-md bg-primary text-white font-semibold">Overview</button>
-            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/10">Users</button>
-            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/10">Events</button>
-            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/10">Analytics</button>
-            <button className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/10">Settings</button>
+            <button onClick={()=>setActiveTab('overview')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='overview' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Overview</button>
+            <button onClick={()=>setActiveTab('users')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='users' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Users</button>
+            <button onClick={()=>setActiveTab('events')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='events' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Events</button>
+            <button onClick={()=>setActiveTab('analytics')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='analytics' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Analytics</button>
+            <button onClick={()=>setActiveTab('settings')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='settings' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Settings</button>
           </nav>
 
           <div className="mt-8 text-xs text-muted-foreground">
