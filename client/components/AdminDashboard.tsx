@@ -274,10 +274,11 @@ export default function AdminDashboard() {
         <div className="p-4 border rounded">
           <h3 className="font-semibold mb-2">Recent Ratings</h3>
           <div className="space-y-2 max-h-48 overflow-auto">
-            {ratings.slice().reverse().map((r) => (
+            {/* Show combined recent ratings (event + host) with no comments/details */}
+            {[...ctxHostRatings.map(h=>({ type: 'host', id: `host-${h.eventId}-${h.rating}`, rating: h.rating, eventId: h.eventId })), ...eventRatings.map(e=>({ type: 'event', id: `event-${e.eventId}-${e.rating}`, rating: e.rating, eventId: e.eventId }))].slice().reverse().map((r: any) => (
               <div key={r.id} className="p-2 border rounded">
-                <div className="text-sm"><strong>{r.rating}★</strong> — {r.comment}</div>
-                <div className="text-xs text-muted-foreground">From: {getUsers().find(u=>u.id===r.fromUserId)?.name || r.fromUserId} {r.toUserId ? `to ${getUsers().find(u=>u.id===r.toUserId)?.name}` : r.eventId ? `for event ${r.eventId}` : ''}</div>
+                <div className="text-sm"><strong>{r.rating}★</strong> — {r.type === 'host' ? 'Host rating' : 'Event rating'}</div>
+                <div className="text-xs text-muted-foreground">{r.eventId ? `event ${r.eventId}` : ''}</div>
               </div>
             ))}
           </div>
