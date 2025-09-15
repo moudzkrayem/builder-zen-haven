@@ -86,7 +86,7 @@ export default function AdminDashboard() {
   const analytics = analyticsState;
   const users = useMemo(() => getUsers(), []);
   const staticRatings = useMemo(() => getRatings(), []);
-  const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings, events, isEventFinished } = useEvents();
+  const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings, events, isEventFinished, updateEvent } = useEvents();
 
   const [activeTab, setActiveTab] = useState<'overview'|'users'|'events'|'analytics'|'settings'>('overview');
 
