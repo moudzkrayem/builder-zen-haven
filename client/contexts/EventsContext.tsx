@@ -54,6 +54,13 @@ interface UserRating {
   isPrivate: boolean; // Always true for user ratings
 }
 
+interface HostRating {
+  eventId: number;
+  hostName?: string;
+  rating: number; // 1-5
+  isPrivate: boolean;
+}
+
 interface Connection {
   id: number;
   name: string;
@@ -88,8 +95,11 @@ interface EventsContextType {
   addMessage: (chatId: number, content: string) => void;
   createChatForEvent: (eventId: number) => void;
   userRatings: UserRating[];
+  hostRatings: HostRating[];
   rateEvent: (eventId: number, rating: number) => void;
+  rateHost: (eventId: number, rating: number) => void;
   getUserRating: (eventId: number) => number | null;
+  getHostRating: (eventId: number) => number | null;
   canRateEvent: (eventId: number) => boolean;
   isEventFinished: (eventId: number) => boolean;
   connections: Connection[];
