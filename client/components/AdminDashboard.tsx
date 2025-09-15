@@ -16,7 +16,7 @@ function formatMs(ms: number | undefined) {
 
 function PieChart({ data, size = 160 }: { data: number[]; size?: number }) {
   const total = data.reduce((a, b) => a + b, 0) || 1;
-  const colors = ["#4f46e5", "#06b6d4", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6"];
+  const colors = ["#6D28D9", "#7C3AED", "#8B5CF6", "#06B6D4", "#10B981"];
   let angle = -90;
   const radius = size / 2;
   const cx = size / 2;
@@ -49,7 +49,7 @@ function PieChart({ data, size = 160 }: { data: number[]; size?: number }) {
   );
 }
 
-function BarChart({ labels, values, height = 120 }: { labels: string[]; values: number[]; height?: number }) {
+function BarChart({ labels, values }: { labels: string[]; values: number[] }) {
   const max = Math.max(...values, 1);
   return (
     <div className="w-full">
@@ -59,7 +59,7 @@ function BarChart({ labels, values, height = 120 }: { labels: string[]; values: 
             <div
               title={`${labels[i]}: ${v}`}
               style={{ height: `${(v / max) * 100}%` }}
-              className="bg-primary rounded-t transition-all"
+              className="bg-gradient-to-b from-primary to-purple-600 rounded-t transition-all"
             />
             <div className="text-xs mt-1 truncate">{labels[i]}</div>
           </div>
@@ -73,71 +73,79 @@ export default function AdminDashboard() {
   const analytics = useMemo(() => getAnalytics(), []);
   const users = useMemo(() => getUsers(), []);
   const staticRatings = useMemo(() => getRatings(), []);
-  const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings } = useEvents();
+  const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings, events, isEventFinished } = useEvents();
 
-  // merge event ratings from static + context
-  const eventRatings = [...staticRatings.filter(r => typeof r.eventId !== 'undefined'), ...ctxUserRatings.map(r => ({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', eventId: r.eventId, rating: r.rating, createdAt: new Date().toISOString() }))];
+  const eventRatings = [...staticRatings.filter(r => typeof r.eventId !== 'undefined'), ...ctxUserRatings.map(r => ({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', toUserId: undefined, eventId: r.eventId, rating: r.rating, comment: undefined, createdAt: new Date().toISOString() }))];
 
-  // selection for visible fields
+  // unified ratings array
+  const allRatings = [...staticRatings.filter(r => typeof r.eventId === 'undefined'), ...eventRatings];
+
+  // UI state
   const [showEmail, setShowEmail] = useState(true);
   const [showSocial, setShowSocial] = useState(true);
   const [showTime, setShowTime] = useState(true);
   const [showClicks, setShowClicks] = useState(true);
   const [minRatingFilter, setMinRatingFilter] = useState(0);
-
-  // interactive controls
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<"name" | "avgReceived" | "eventsJoined">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const totalUsers = users.length;
-  const totalClicks = analytics.clicks.length;
+  // user segmentation: new vs returning (30 days)
+  const now = Date.now();
+  const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+  const newUsers = users.filter(u => u.signupDate && now - new Date(u.signupDate).getTime() <= THIRTY_DAYS);
+  const returningUsers = users.filter(u => !u.signupDate || now - new Date(u.signupDate).getTime() > THIRTY_DAYS);
 
-  const ctxUserRatingsMapped = ctxUserRatings.map(r=>({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', toUserId: undefined, eventId: r.eventId, rating: r.rating, comment: undefined, createdAt: new Date().toISOString() }));
+  // trybe events counts
+  const totalTrybes = events.length;
+  const activeTrybes = events.filter(e => !isEventFinished(e.id)).length;
+  const finishedTrybes = events.filter(e => isEventFinished(e.id)).length;
 
-  const allRatings = [...staticRatings, ...ctxUserRatingsMapped];
+  // transactions - simulated from users for demo (Trybe Premium)
+  const transactions = useMemo(() => {
+    return users.map((u, i) => ({
+      id: `tx-${i}`,
+      userId: u.id,
+      name: u.name,
+      package: i % 2 === 0 ? "Trybe Premium" : "Trybe Starter",
+      price: i % 2 === 0 ? 19.99 : 11.99,
+      status: i % 2 === 0 ? "Active" : "Expired",
+      date: u.signupDate || new Date().toISOString(),
+    }));
+  }, [users]);
 
-  const avgEventRating = eventRatings.length ? (eventRatings.reduce((a,b)=>a+b.rating,0)/eventRatings.length) : null;
-  const avgEventRatingStr = avgEventRating ? avgEventRating.toFixed(2) : "-";
-
-  const avgHostRating = ctxHostRatings.length ? (ctxHostRatings.reduce((a,b)=>a+b.rating,0)/ctxHostRatings.length) : null;
-  const avgHostRatingStr = avgHostRating ? avgHostRating.toFixed(2) : "-";
-
-  // clicks by page for pie
+  // clicks by page
   const clicksByPage = analytics.clicks.reduce<Record<string, number>>((acc, c) => {
     acc[c.page] = (acc[c.page] || 0) + 1;
     return acc;
   }, {});
-
   const pages = Object.keys(clicksByPage);
-  const clicksValues = pages.map((p) => clicksByPage[p]);
+  const clicksValues = pages.map(p => clicksByPage[p]);
 
-  // ratings distribution for bar chart (use eventRatings)
+  // ratings distribution (events)
   const ratingCounts = [0, 0, 0, 0, 0];
   eventRatings.forEach((r) => {
     const idx = Math.max(1, Math.min(5, Math.round(r.rating))) - 1;
     ratingCounts[idx]++;
   });
 
-  // compute per-user aggregates
+  // users aggregates
   const userAggregates = users.map((u) => {
-    const userClicks = analytics.clicks.filter((c) => c.page.includes(u.id)).length; // heuristic
+    const userClicks = analytics.clicks.filter((c) => c.page.includes(u.id)).length;
     const visits = analytics.pageVisits.filter((p) => p.path.includes(u.id));
     const timeSpent = visits.reduce((a, b) => a + (b.duration || 0), 0);
-    const given = allRatings.filter((r) => r.fromUserId === u.id);
-    const received = allRatings.filter((r) => r.toUserId === u.id);
+    const given = allRatings.filter((r: any) => r.fromUserId === u.id);
+    const received = allRatings.filter((r: any) => r.toUserId === u.id);
     const avgGiven = given.length ? given.reduce((a, b) => a + b.rating, 0) / given.length : null;
     const avgReceived = received.length ? received.reduce((a, b) => a + b.rating, 0) / received.length : null;
     return { user: u, userClicks, timeSpent, given, received, avgGiven, avgReceived };
   });
 
-  // filtered users by min rating
   const filtered = userAggregates.filter((ua) => {
     const receivedAvg = ua.avgReceived || 0;
     return receivedAvg >= minRatingFilter;
   }).filter(ua => ua.user.name.toLowerCase().includes(search.toLowerCase()));
 
-  // sort
   const sorted = filtered.sort((a, b) => {
     let av: any = a.user.name;
     let bv: any = b.user.name;
@@ -152,6 +160,48 @@ export default function AdminDashboard() {
     if (av > bv) return sortDir === "asc" ? 1 : -1;
     return 0;
   });
+
+  // Visual Query state
+  const [vqMetric, setVqMetric] = useState<string>("users");
+  const [vqRange, setVqRange] = useState<string>("30d");
+  const [vqResult, setVqResult] = useState<string | null>(null);
+
+  function runVisualQuery() {
+    if (vqMetric === "users") {
+      setVqResult(`Users: total ${users.length}, new ${newUsers.length}, returning ${returningUsers.length}`);
+    } else if (vqMetric === "clicks") {
+      setVqResult(`Total clicks: ${analytics.clicks.length}`);
+    } else if (vqMetric === "ratings") {
+      setVqResult(`Total ratings: ${eventRatings.length + ctxHostRatings.length}`);
+    } else {
+      setVqResult("No data");
+    }
+  }
+
+  // Command center
+  const [cmdLog, setCmdLog] = useState<string[]>([]);
+  function runCommand(cmd: string) {
+    setCmdLog(prev => [`${new Date().toISOString()} - ${cmd}`, ...prev].slice(0, 50));
+    if (cmd === "clear-analytics") {
+      clearAnalytics();
+      window.location.reload();
+    }
+    if (cmd === "export-csv") {
+      // trigger export (reuse export below)
+      const rows = [
+        ["id", "name", "email", "location", "signupDate"],
+        ...users.map(u => [u.id, u.name, u.email || "", u.location || "", u.signupDate || ""]),
+      ];
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `users_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
 
   function exportCSV() {
     const rows = [
@@ -181,13 +231,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-primary/5 p-6">
-      <div className="max-w-[1300px] mx-auto bg-white rounded-2xl shadow-xl overflow-hidden flex">
+      <div className="max-w-[1400px] mx-auto bg-white rounded-2xl shadow-xl overflow-hidden flex">
         {/* Sidebar */}
         <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
           <div className="flex items-center mb-6">
             <img src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=800" alt="brand" className="w-10 h-10 mr-3" />
             <div>
-              <div className="text-lg font-bold">Trybe</div>
+              <div className="text-lg font-bold text-primary">Trybe</div>
               <div className="text-xs text-muted-foreground">Admin Studio</div>
             </div>
           </div>
@@ -202,8 +252,8 @@ export default function AdminDashboard() {
 
           <div className="mt-8 text-xs text-muted-foreground">
             <div className="font-semibold">Today</div>
-            <div className="mt-2">Active users: <strong>{totalUsers}</strong></div>
-            <div>Clicks: <strong>{totalClicks}</strong></div>
+            <div className="mt-2">Active users: <strong>{users.length}</strong></div>
+            <div>Clicks: <strong>{analytics.clicks.length}</strong></div>
           </div>
         </aside>
 
@@ -217,40 +267,52 @@ export default function AdminDashboard() {
 
             <div className="flex items-center space-x-2">
               <Input placeholder="Search users, events..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              <Button variant="ghost" onClick={() => { clearAnalytics(); window.location.reload(); }}>Clear</Button>
+              <Button variant="ghost" onClick={() => { runCommand('clear-analytics'); }}>Clear</Button>
               <Button onClick={() => window.location.reload()}>Refresh</Button>
               <Button variant="outline" onClick={exportCSV}>Export</Button>
             </div>
           </header>
 
-          {/* Top cards */}
-          <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
-              <div className="text-sm text-muted-foreground">Users</div>
-              <div className="text-2xl font-bold">{totalUsers}</div>
-              <div className="text-xs text-success mt-1">Last 30 days • +3.2%</div>
+          {/* Top KPI cards */}
+          <section className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Total Users</div>
+              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-xs text-muted-foreground">New: {newUsers.length} • Returning: {returningUsers.length}</div>
             </div>
 
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
-              <div className="text-sm text-muted-foreground">Subscriptions</div>
-              <div className="text-2xl font-bold">360</div>
-              <div className="text-xs text-destructive mt-1">Last 30 days • -1.2%</div>
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Trybe Created</div>
+              <div className="text-2xl font-bold">{totalTrybes}</div>
+              <div className="text-xs text-success">Active: {activeTrybes} • Finished: {finishedTrybes}</div>
             </div>
 
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
-              <div className="text-sm text-muted-foreground">Generated Images</div>
-              <div className="text-2xl font-bold">43,583</div>
-              <div className="text-xs text-success mt-1">Last 30 days • +2.6%</div>
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Avg Event Rating</div>
+              <div className="text-2xl font-bold">{eventRatings.length ? (eventRatings.reduce((a,b)=>a+b.rating,0)/eventRatings.length).toFixed(2) : '-'}</div>
+              <div className="text-xs text-muted-foreground">Host Avg: {ctxHostRatings.length ? (ctxHostRatings.reduce((a,b)=>a+b.rating,0)/ctxHostRatings.length).toFixed(2) : '-'}</div>
             </div>
 
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
-              <div className="text-sm text-muted-foreground">Generated Codes</div>
-              <div className="text-2xl font-bold">34,385</div>
-              <div className="text-xs text-success mt-1">Last 30 days • +3.2%</div>
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Total Ratings</div>
+              <div className="text-2xl font-bold">{eventRatings.length + ctxHostRatings.length}</div>
+              <div className="text-xs text-muted-foreground">Last 30 days</div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Latest Transactions</div>
+              <div className="text-2xl font-bold">{transactions.filter(t=>t.package.includes('Premium')).length}</div>
+              <div className="text-xs text-muted-foreground">Trybe Premium</div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm col-span-1">
+              <div className="text-sm text-muted-foreground">Click Events</div>
+              <div className="text-2xl font-bold">{analytics.clicks.length}</div>
+              <div className="text-xs text-muted-foreground">Tracking history length: {analytics.pageVisits.length}</div>
             </div>
           </section>
 
-          {/* Charts area */}
+          {/* Charts and visual query */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="lg:col-span-2 p-4 bg-white border rounded-xl shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -258,26 +320,38 @@ export default function AdminDashboard() {
                 <div className="text-sm text-muted-foreground">6 months</div>
               </div>
               <div className="h-56 flex items-center justify-center">
-                {/* Placeholder chart area */}
                 <div className="w-full h-full flex items-center justify-center">[Line chart placeholder]</div>
               </div>
             </div>
 
             <div className="p-4 bg-white border rounded-xl shadow-sm">
-              <h3 className="font-semibold mb-2">Total New Users</h3>
-              <div className="h-56 flex items-center justify-center">[Bar chart placeholder]</div>
+              <h3 className="font-semibold mb-2">Visual Query</h3>
+              <div className="space-y-2">
+                <select className="w-full rounded border px-2 py-1" value={vqMetric} onChange={(e)=>setVqMetric(e.target.value)}>
+                  <option value="users">Users</option>
+                  <option value="clicks">Clicks</option>
+                  <option value="ratings">Ratings</option>
+                </select>
+                <select className="w-full rounded border px-2 py-1" value={vqRange} onChange={(e)=>setVqRange(e.target.value)}>
+                  <option value="7d">7 days</option>
+                  <option value="30d">30 days</option>
+                  <option value="90d">90 days</option>
+                </select>
+                <Button onClick={runVisualQuery}>Run</Button>
+                {vqResult && <div className="mt-2 p-2 bg-gray-50 rounded">{vqResult}</div>}
+              </div>
             </div>
           </section>
 
           {/* Lists */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 bg-white border rounded-xl shadow-sm lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Latest Registrations</h4>
                 <div className="text-sm text-muted-foreground">Last 7 days</div>
               </div>
               <div className="space-y-2">
-                {users.slice(0,5).map(u => (
+                {users.slice().sort((a,b)=> (b.signupDate?new Date(b.signupDate).getTime():0) - (a.signupDate?new Date(a.signupDate).getTime():0)).slice(0,5).map(u => (
                   <div key={u.id} className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{u.name}</div>
@@ -291,21 +365,70 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="p-4 bg-white border rounded-xl shadow-sm">
+            <div className="p-4 bg-white border rounded-xl shadow-sm lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-semibold">Latest Transactions</h4>
                 <div className="text-sm text-muted-foreground">Last Month</div>
               </div>
               <div className="space-y-2">
-                {users.slice(0,5).map(u => (
-                  <div key={u.id} className="flex items-center justify-between">
+                {transactions.slice(0,5).map(t => (
+                  <div key={t.id} className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-xs text-muted-foreground">Package Starter • $11.99</div>
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.package} • ${t.price}</div>
                     </div>
-                    <div className="text-sm text-success">Active</div>
+                    <div className={`text-sm ${t.status==='Active' ? 'text-success' : 'text-destructive'}`}>{t.status}</div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm lg:col-span-1">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Trybe Events</h4>
+                <div className="text-sm text-muted-foreground">Active / Finished</div>
+              </div>
+              <div className="space-y-2">
+                <div className="font-medium">Total: {totalTrybes}</div>
+                <div className="text-xs text-muted-foreground">Active: {activeTrybes}</div>
+                <div className="text-xs text-muted-foreground">Finished: {finishedTrybes}</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Data tracking history & Command center */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 bg-white border rounded-xl shadow-sm lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Data Tracking History</h4>
+                <div className="text-sm text-muted-foreground">Recent activity</div>
+              </div>
+              <div className="max-h-56 overflow-auto">
+                {analytics.pageVisits.slice().reverse().map((v, i) => (
+                  <div key={i} className="p-2 border-b">
+                    <div className="font-medium">{v.path}</div>
+                    <div className="text-xs text-muted-foreground">Entered: {new Date(v.enter).toLocaleString()} • Duration: {v.duration ? Math.round(v.duration/1000) + 's' : '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-white border rounded-xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Command Center</h4>
+                <div className="text-sm text-muted-foreground">Run admin commands</div>
+              </div>
+
+              <div className="space-y-2">
+                <Button onClick={() => runCommand('clear-analytics')}>Clear Analytics</Button>
+                <Button onClick={() => runCommand('export-csv')}>Export Users CSV</Button>
+                <Button variant="ghost" onClick={() => runCommand('reindex-search')}>Reindex Search</Button>
+
+                <div className="mt-3 text-xs text-muted-foreground">Command Log</div>
+                <div className="max-h-40 overflow-auto bg-gray-50 p-2 rounded">
+                  {cmdLog.length === 0 && <div className="text-xs text-muted-foreground">No commands run yet</div>}
+                  {cmdLog.map((l, idx) => <div key={idx} className="text-xs">{l}</div>)}
+                </div>
               </div>
             </div>
           </section>
