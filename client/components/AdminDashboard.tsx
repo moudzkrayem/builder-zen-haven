@@ -257,12 +257,12 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-[1400px] mx-auto bg-card rounded-2xl shadow-xl overflow-hidden flex">
+    <div style={{ backgroundColor: "rgb(24, 24, 27)", fontWeight: 400, minHeight: "805px", padding: "24px" }}>
+      <div style={{ display: "flex", backgroundColor: "rgb(29, 29, 32)", borderRadius: "32px", boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px", fontWeight: 400, maxWidth: "1400px", overflowX: "hidden", overflowY: "hidden", margin: "0 auto" }}>
         {/* Sidebar */}
-        <aside className="w-64 bg-gradient-to-b from-primary/5 to-white border-r border-border p-6">
+        <aside style={{ borderColor: "rgb(39, 39, 42)", borderRightWidth: "1px", fontWeight: 400, width: "256px", padding: "24px" }}>
           <div className="flex items-center mb-6">
-            <img src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=800" alt="brand" className="w-10 h-10 mr-3" />
+            <img src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=800" alt="brand" style={{ display: "block", fontWeight: 400, height: "40px", marginRight: "12px", width: "40px" }} />
             <div>
               <div className="text-lg font-bold text-primary">Trybe</div>
               <div className="text-xs text-muted-foreground">Admin Studio</div>
