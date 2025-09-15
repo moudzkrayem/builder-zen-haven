@@ -3,6 +3,11 @@ export interface User {
   name: string;
   email?: string;
   social?: { twitter?: string; instagram?: string; linkedin?: string };
+  signupDate?: string;
+  lastActive?: string;
+  location?: string;
+  eventsJoined?: number;
+  messagesCount?: number;
 }
 
 export interface Rating {
@@ -16,11 +21,11 @@ export interface Rating {
 }
 
 const users: User[] = [
-  { id: "u1", name: "Alice", email: "alice@example.com", social: { twitter: "@alice" } },
-  { id: "u2", name: "Bob", email: "bob@example.com", social: { instagram: "@bobgram" } },
-  { id: "u3", name: "Carlos", email: "carlos@example.com", social: { linkedin: "carlos-link" } },
-  { id: "u4", name: "Dana", email: "dana@example.com" },
-  { id: "u5", name: "Eve", email: "eve@example.com", social: { twitter: "@eve" } },
+  { id: "u1", name: "Alice", email: "alice@example.com", social: { twitter: "@alice" }, signupDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 200).toISOString(), lastActive: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), location: "San Francisco, CA", eventsJoined: 12, messagesCount: 120 },
+  { id: "u2", name: "Bob", email: "bob@example.com", social: { instagram: "@bobgram" }, signupDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 150).toISOString(), lastActive: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), location: "New York, NY", eventsJoined: 5, messagesCount: 45 },
+  { id: "u3", name: "Carlos", email: "carlos@example.com", social: { linkedin: "carlos-link" }, signupDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 300).toISOString(), lastActive: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(), location: "Austin, TX", eventsJoined: 20, messagesCount: 230 },
+  { id: "u4", name: "Dana", email: "dana@example.com", signupDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(), lastActive: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(), location: "Los Angeles, CA", eventsJoined: 2, messagesCount: 5 },
+  { id: "u5", name: "Eve", email: "eve@example.com", social: { twitter: "@eve" }, signupDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90).toISOString(), lastActive: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), location: "Seattle, WA", eventsJoined: 8, messagesCount: 80 },
 ];
 
 const ratings: Rating[] = [
