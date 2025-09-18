@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getAnalytics, clearAnalytics } from "../lib/analytics";
 import { getUsers, getRatings, User, Rating } from "../lib/users";
 import { Button } from "@/components/ui/button";
@@ -71,16 +71,27 @@ function BarChart({ labels, values }: { labels: string[]; values: number[] }) {
   );
 }
 
+function extractUserIdFromPath(path: string) {
+  // try common patterns like /profile/:id or ?user= or /u/:id
+  const m1 = path.match(/\/profile\/(\w[-\w]*)/i);
+  if (m1) return m1[1];
+  const m2 = path.match(/[?&]user=([^&]+)/i);
+  if (m2) return m2[1];
+  const m3 = path.match(/\/u\/(\w[-\w]*)/i);
+  if (m3) return m3[1];
+  return path; // fallback to path string
+}
+
 export default function AdminDashboard() {
   const [analyticsState, setAnalyticsState] = useState(() => getAnalytics());
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (!e.key || e.key === 'trybe_analytics_v1') {
+      if (!e.key || e.key === "trybe_analytics_v1") {
         setAnalyticsState(getAnalytics());
       }
     }
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const analytics = analyticsState;
@@ -88,14 +99,12 @@ export default function AdminDashboard() {
   const staticRatings = useMemo(() => getRatings(), []);
   const { userRatings: ctxUserRatings, hostRatings: ctxHostRatings, events, isEventFinished, updateEvent } = useEvents();
 
-  const [activeTab, setActiveTab] = useState<'overview'|'users'|'events'|'analytics'|'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'events' | 'analytics' | 'settings'>('overview');
 
   const eventRatings = [...staticRatings.filter(r => typeof r.eventId !== 'undefined'), ...ctxUserRatings.map(r => ({ id: `ctx-${r.eventId}-${r.rating}`, fromUserId: 'current', toUserId: undefined, eventId: r.eventId, rating: r.rating, comment: undefined, createdAt: new Date().toISOString() }))];
 
-  // unified ratings array
   const allRatings = [...staticRatings.filter(r => typeof r.eventId === 'undefined'), ...eventRatings];
 
-  // UI state
   const [showEmail, setShowEmail] = useState(true);
   const [showSocial, setShowSocial] = useState(true);
   const [showTime, setShowTime] = useState(true);
@@ -105,18 +114,15 @@ export default function AdminDashboard() {
   const [sortField, setSortField] = useState<"name" | "avgReceived" | "eventsJoined">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  // user segmentation: new vs returning (30 days)
   const now = Date.now();
   const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
   const newUsers = users.filter(u => u.signupDate && now - new Date(u.signupDate).getTime() <= THIRTY_DAYS);
   const returningUsers = users.filter(u => !u.signupDate || now - new Date(u.signupDate).getTime() > THIRTY_DAYS);
 
-  // trybe events counts
   const totalTrybes = events.length;
   const activeTrybes = events.filter(e => !isEventFinished(e.id)).length;
   const finishedTrybes = events.filter(e => isEventFinished(e.id)).length;
 
-  // transactions - simulated from users for demo (Trybe Premium)
   const transactions = useMemo(() => {
     return users.map((u, i) => ({
       id: `tx-${i}`,
@@ -129,7 +135,6 @@ export default function AdminDashboard() {
     }));
   }, [users]);
 
-  // clicks by page
   const clicksByPage = analytics.clicks.reduce<Record<string, number>>((acc, c) => {
     acc[c.page] = (acc[c.page] || 0) + 1;
     return acc;
@@ -137,14 +142,12 @@ export default function AdminDashboard() {
   const pages = Object.keys(clicksByPage);
   const clicksValues = pages.map(p => clicksByPage[p]);
 
-  // ratings distribution (events)
   const ratingCounts = [0, 0, 0, 0, 0];
   eventRatings.forEach((r) => {
     const idx = Math.max(1, Math.min(5, Math.round(r.rating))) - 1;
     ratingCounts[idx]++;
   });
 
-  // users aggregates
   const userAggregates = users.map((u) => {
     const userClicks = analytics.clicks.filter((c) => c.page.includes(u.id)).length;
     const visits = analytics.pageVisits.filter((p) => p.path.includes(u.id));
@@ -176,7 +179,6 @@ export default function AdminDashboard() {
     return 0;
   });
 
-  // Visual Query state
   const [vqMetric, setVqMetric] = useState<string>("users");
   const [vqRange, setVqRange] = useState<string>("30d");
   const [vqResult, setVqResult] = useState<string | null>(null);
@@ -193,7 +195,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Command center
   const [cmdLog, setCmdLog] = useState<string[]>([]);
   function runCommand(cmd: string) {
     setCmdLog(prev => [`${new Date().toISOString()} - ${cmd}`, ...prev].slice(0, 50));
@@ -202,7 +203,6 @@ export default function AdminDashboard() {
       window.location.reload();
     }
     if (cmd === "export-csv") {
-      // trigger export (reuse export below)
       const rows = [
         ["id", "name", "email", "location", "signupDate"],
         ...users.map(u => [u.id, u.name, u.email || "", u.location || "", u.signupDate || ""]),
@@ -219,7 +219,7 @@ export default function AdminDashboard() {
   }
 
   function ThemeToggle() {
-    const { theme, setTheme, isDark } = useTheme();
+    const { setTheme, isDark } = useTheme();
     const toggle = () => setTheme(isDark ? "light" : "dark");
     return (
       <button onClick={toggle} className="p-2 rounded-md bg-transparent hover:bg-accent/10">
@@ -228,38 +228,133 @@ export default function AdminDashboard() {
     );
   }
 
-  // end ThemeToggle
+  function exportCSVType(type: "users" | "events" | "transactions" | "ratings") {
+    if (type === "users") {
+      const rows = [
+        ["id", "name", "email", "location", "signupDate", "lastActive"],
+        ...users.map(u => [u.id, u.name, u.email || "", u.location || "", u.signupDate || "", u.lastActive || ""]),
+      ];
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `users_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
 
-  function exportCSV() {
-    const rows = [
-      ["id", "name", "email", "location", "signupDate", "lastActive", "eventsJoined", "messagesCount", "avgReceived", "avgGiven"],
-      ...sorted.map((ua) => [
-        ua.user.id,
-        ua.user.name,
-        ua.user.email || "",
-        ua.user.location || "",
-        ua.user.signupDate || "",
-        ua.user.lastActive || "",
-        String(ua.user.eventsJoined || 0),
-        String(ua.user.messagesCount || 0),
-        ua.avgReceived ? ua.avgReceived.toFixed(2) : "",
-        ua.avgGiven ? ua.avgGiven.toFixed(2) : "",
-      ]),
-    ];
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `users_export_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (type === "events") {
+      const rows = [
+        ["id", "name", "location", "date", "isPopular", "isFinished"],
+        ...events.map(e => [e.id, e.eventName || e.name || "", e.location || "", e.date || "", String(!!e.isPopular), String(isEventFinished(e.id))]),
+      ];
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `events_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (type === "transactions") {
+      const rows = [
+        ["id", "userId", "name", "package", "price", "status", "date"],
+        ...transactions.map(t => [t.id, t.userId, t.name, t.package, String(t.price), t.status, t.date]),
+      ];
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `transactions_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (type === "ratings") {
+      const rows = [
+        ["id", "fromUserId", "toUserId", "eventId", "rating", "comment", "createdAt"],
+        ...allRatings.map((r: any) => [r.id || "", r.fromUserId || "", r.toUserId || "", r.eventId || "", String(r.rating || ""), r.comment || "", r.createdAt || ""]),
+      ];
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ratings_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
   }
+
+  // Analytics helpers
+  function hourlyHeatmap() {
+    const hours = new Array(24).fill(0);
+    analytics.pageVisits.forEach(v => {
+      const t = v.enter || 0;
+      const d = new Date(t);
+      const h = d.getHours();
+      hours[h] = (hours[h] || 0) + 1;
+    });
+    return hours;
+  }
+
+  function activeCountsByPeriod(days = 1) {
+    const cut = Date.now() - days * 24 * 60 * 60 * 1000;
+    const visits = analytics.pageVisits.filter(v => (v.enter || 0) >= cut);
+    const uniqueSet = new Set<string>();
+    visits.forEach(v => uniqueSet.add(extractUserIdFromPath(v.path)));
+    return uniqueSet.size;
+  }
+
+  function dau() {
+    return activeCountsByPeriod(1);
+  }
+  function wau() {
+    return activeCountsByPeriod(7);
+  }
+  function mau() {
+    return activeCountsByPeriod(30);
+  }
+
+  function retention30() {
+    // simple retention: percent of users who signed up >30 days ago that have recent activity in last 30 days
+    const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const activeIds = new Set(analytics.pageVisits.filter(v => (v.enter || 0) >= since).map(v => extractUserIdFromPath(v.path)));
+    const cohort = users.filter(u => u.signupDate && new Date(u.signupDate).getTime() >= since).map(u => u.id);
+    if (cohort.length === 0) return null;
+    const retained = cohort.filter(id => activeIds.has(id)).length;
+    return Math.round((retained / cohort.length) * 100);
+  }
+
+  function revenueSummary() {
+    const total = transactions.reduce((a, b) => a + (b.price || 0), 0);
+    const byPackage: Record<string, number> = {};
+    transactions.forEach(t => { byPackage[t.package] = (byPackage[t.package] || 0) + (t.price || 0); });
+    return { total, byPackage };
+  }
+
+  const heat = hourlyHeatmap();
+  const dauCount = dau();
+  const wauCount = wau();
+  const mauCount = mau();
+  const retention = retention30();
+  const revenue = revenueSummary();
+
+  const topRated = userAggregates.slice().filter(u => u.avgReceived).sort((a, b) => (b.avgReceived || 0) - (a.avgReceived || 0)).slice(0, 5);
+  const mostActivePages = pages.slice().sort((a, b) => (clicksByPage[b] || 0) - (clicksByPage[a] || 0)).slice(0, 5);
+  const usersWithSocial = users.filter(u => u.social && Object.values(u.social).some(Boolean));
 
   return (
     <div style={{ backgroundColor: "rgb(24, 24, 27)", fontWeight: 400, minHeight: "805px", padding: "24px" }}>
       <div style={{ display: "flex", backgroundColor: "rgb(29, 29, 32)", borderRadius: "32px", boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px", fontWeight: 400, maxWidth: "1400px", overflowX: "hidden", overflowY: "hidden", margin: "0 auto" }}>
-        {/* Sidebar */}
         <aside style={{ borderColor: "rgb(39, 39, 42)", borderRightWidth: "1px", fontWeight: 400, width: "256px", padding: "24px" }}>
           <div className="flex items-center mb-6">
             <img src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=800" alt="brand" style={{ display: "block", fontWeight: 400, height: "40px", marginRight: "12px", width: "40px" }} />
@@ -270,21 +365,20 @@ export default function AdminDashboard() {
           </div>
 
           <nav className="space-y-2">
-            <button onClick={()=>setActiveTab('overview')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='overview' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Overview</button>
-            <button onClick={()=>setActiveTab('users')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='users' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Users</button>
-            <button onClick={()=>setActiveTab('events')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='events' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Events</button>
-            <button onClick={()=>setActiveTab('analytics')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='analytics' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Analytics</button>
-            <button onClick={()=>setActiveTab('settings')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab==='settings' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Settings</button>
+            <button onClick={() => setActiveTab('overview')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab === 'overview' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Overview</button>
+            <button onClick={() => setActiveTab('users')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab === 'users' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Users</button>
+            <button onClick={() => setActiveTab('events')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab === 'events' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Events</button>
+            <button onClick={() => setActiveTab('analytics')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab === 'analytics' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Analytics</button>
+            <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-3 py-2 rounded-md ${activeTab === 'settings' ? 'bg-primary text-white font-semibold' : 'hover:bg-accent/10'}`}>Settings</button>
           </nav>
 
           <div className="mt-8 text-xs text-muted-foreground">
             <div className="font-semibold">Today</div>
-            <div className="mt-2">Active users: <strong>{users.length}</strong></div>
+            <div className="mt-2">Active users: <strong>{dauCount}</strong></div>
             <div>Clicks: <strong>{analytics.clicks.length}</strong></div>
           </div>
         </aside>
 
-        {/* Main content */}
         <main className="flex-1 p-6">
           <header className="flex items-center justify-between mb-6">
             <div>
@@ -296,14 +390,12 @@ export default function AdminDashboard() {
               <Input placeholder="Search users, events..." value={search} onChange={(e) => setSearch(e.target.value)} />
               <Button variant="ghost" onClick={() => { runCommand('clear-analytics'); }}>Clear</Button>
               <Button onClick={() => window.location.reload()}>Refresh</Button>
-              <Button variant="outline" onClick={exportCSV}>Export</Button>
+              <Button variant="outline" onClick={() => exportCSVType('users')}>Export Users</Button>
 
-              {/* Theme toggle */}
               <ThemeToggle />
             </div>
           </header>
 
-          {/* Top KPI cards */}
           <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
             <div className="p-4 bg-card  border rounded-xl shadow-sm  col-span-1">
               <div className="text-sm text-muted-foreground">Total Users</div>
@@ -331,7 +423,7 @@ export default function AdminDashboard() {
 
             <div className="p-4 bg-card  border rounded-xl shadow-sm  col-span-1">
               <div className="text-sm text-muted-foreground">Latest Transactions</div>
-              <div className="text-2xl font-bold">{transactions.filter(t=>t.package.includes('Premium')).length}</div>
+              <div className="text-2xl font-bold">{transactions.filter(t => t.package.includes('Premium')).length}</div>
               <div className="text-xs text-muted-foreground">Trybe Premium</div>
             </div>
 
@@ -342,7 +434,6 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Charts and visual query */}
           <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="lg:col-span-2 p-4 bg-card  border rounded-xl shadow-sm ">
               <div className="flex items-center justify-between mb-4">
@@ -357,12 +448,12 @@ export default function AdminDashboard() {
             <div className="p-4 bg-card  border rounded-xl shadow-sm ">
               <h3 className="font-semibold mb-2">Visual Query</h3>
               <div className="space-y-2">
-                <select className="w-full rounded border px-2 py-1" value={vqMetric} onChange={(e)=>setVqMetric(e.target.value)}>
+                <select className="w-full rounded border px-2 py-1" value={vqMetric} onChange={(e) => setVqMetric(e.target.value)}>
                   <option value="users">Users</option>
                   <option value="clicks">Clicks</option>
                   <option value="ratings">Ratings</option>
                 </select>
-                <select className="w-full rounded border px-2 py-1" value={vqRange} onChange={(e)=>setVqRange(e.target.value)}>
+                <select className="w-full rounded border px-2 py-1" value={vqRange} onChange={(e) => setVqRange(e.target.value)}>
                   <option value="7d">7 days</option>
                   <option value="30d">30 days</option>
                   <option value="90d">90 days</option>
@@ -373,7 +464,6 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Lists */}
           <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-card  border rounded-xl shadow-sm  lg:col-span-1">
               <div className="flex items-center justify-between mb-4">
@@ -381,7 +471,7 @@ export default function AdminDashboard() {
                 <div className="text-sm text-muted-foreground">Last 7 days</div>
               </div>
               <div className="space-y-2">
-                {users.slice().sort((a,b)=> (b.signupDate?new Date(b.signupDate).getTime():0) - (a.signupDate?new Date(a.signupDate).getTime():0)).slice(0,5).map(u => (
+                {users.slice().sort((a, b) => (b.signupDate ? new Date(b.signupDate).getTime() : 0) - (a.signupDate ? new Date(a.signupDate).getTime() : 0)).slice(0, 5).map(u => (
                   <div key={u.id} className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{u.name}</div>
@@ -401,13 +491,13 @@ export default function AdminDashboard() {
                 <div className="text-sm text-muted-foreground">Last Month</div>
               </div>
               <div className="space-y-2">
-                {transactions.slice(0,5).map(t => (
+                {transactions.slice(0, 5).map(t => (
                   <div key={t.id} className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{t.name}</div>
                       <div className="text-xs text-muted-foreground">{t.package} • ${t.price}</div>
                     </div>
-                    <div className={`text-sm ${t.status==='Active' ? 'text-green-500' : 'text-destructive'}`}>{t.status}</div>
+                    <div className={`text-sm ${t.status === 'Active' ? 'text-green-500' : 'text-destructive'}`}>{t.status}</div>
                   </div>
                 ))}
               </div>
@@ -426,7 +516,6 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Data tracking history & Command center */}
           <section style={{ display: activeTab === 'overview' ? undefined : 'none' }} className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-card  border rounded-xl shadow-sm  lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
@@ -437,7 +526,7 @@ export default function AdminDashboard() {
                 {analytics.pageVisits.slice().reverse().map((v, i) => (
                   <div key={i} className="p-2 border-b">
                     <div className="font-medium">{v.path}</div>
-                    <div className="text-xs text-muted-foreground">Entered: {new Date(v.enter).toLocaleString()} • Duration: {v.duration ? Math.round(v.duration/1000) + 's' : '—'}</div>
+                    <div className="text-xs text-muted-foreground">Entered: {new Date(v.enter).toLocaleString()} • Duration: {v.duration ? Math.round(v.duration / 1000) + 's' : '—'}</div>
                   </div>
                 ))}
               </div>
@@ -463,7 +552,6 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Users table */}
           <section style={{ display: (activeTab === 'overview' || activeTab === 'users') ? undefined : 'none' }} className="mt-6 bg-card  border rounded-xl p-4 shadow-sm ">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">Users</h4>
@@ -498,9 +586,14 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+
+            <div className="mt-4 flex items-center space-x-2">
+              <Button onClick={() => exportCSVType('users')}>Export users CSV</Button>
+              <Button variant="outline" onClick={() => exportCSVType('ratings')}>Export ratings</Button>
+              <div className="ml-auto text-xs text-muted-foreground">Columns: <label className="ml-2"><input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} /> Email</label> <label className="ml-2"><input type="checkbox" checked={showSocial} onChange={(e) => setShowSocial(e.target.checked)} /> Social</label></div>
+            </div>
           </section>
 
-          {/* Events tab content */}
           <section style={{ display: activeTab === 'events' ? undefined : 'none' }} className="mt-6 bg-card border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">Events</h4>
@@ -522,6 +615,105 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm">Average attendance: <strong>{events.length ? Math.round(events.reduce((a, b) => a + (b.attendance || 0), 0) / events.length) : 0}</strong></div>
+              <div>
+                <Button onClick={() => exportCSVType('events')}>Export events</Button>
+              </div>
+            </div>
+          </section>
+
+          <section style={{ display: activeTab === 'analytics' ? undefined : 'none' }} className="mt-6 bg-card border rounded-xl p-4 shadow-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+              <div className="p-4 bg-card border rounded">
+                <div className="text-sm text-muted-foreground">DAU / WAU / MAU</div>
+                <div className="text-2xl font-bold">{dauCount} / {wauCount} / {mauCount}</div>
+                {retention !== null && <div className="text-xs text-muted-foreground">30d retention: {retention}%</div>}
+              </div>
+
+              <div className="p-4 bg-card border rounded flex flex-col items-center">
+                <div className="text-sm text-muted-foreground">Hourly Activity Heatmap</div>
+                <div className="mt-2 w-full">
+                  <div className="grid grid-cols-24 gap-1">
+                    {/* simple horizontal bar display */}
+                    <BarChart labels={Array.from({ length: 24 }, (_, i) => String(i))} values={heat} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-card border rounded">
+                <div className="text-sm text-muted-foreground">Revenue</div>
+                <div className="text-2xl font-bold">${revenue.total.toFixed(2)}</div>
+                <div className="mt-2 text-xs text-muted-foreground">By package:</div>
+                <div className="mt-1">
+                  {Object.entries(revenue.byPackage).map(([k, v]) => <div key={k} className="text-xs">{k}: ${v.toFixed(2)}</div>)}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="p-4 border rounded">
+                <h5 className="font-semibold mb-2">Most active pages</h5>
+                <ul className="text-sm space-y-1">
+                  {mostActivePages.map(p => <li key={p}>{p} ({clicksByPage[p]})</li>)}
+                </ul>
+              </div>
+
+              <div className="p-4 border rounded">
+                <h5 className="font-semibold mb-2">Top rated users</h5>
+                <ul className="text-sm space-y-1">
+                  {topRated.map(t => <li key={t.user.id}>{t.user.name} — {t.avgReceived?.toFixed(2)}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <h5 className="font-semibold">Export & Reports</h5>
+                <div className="text-xs text-muted-foreground">Generate CSV reports for analytic datasets</div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={() => exportCSVType('users')}>Export Users</Button>
+                <Button onClick={() => exportCSVType('events')}>Export Events</Button>
+                <Button onClick={() => exportCSVType('transactions')}>Export Transactions</Button>
+                <Button onClick={() => exportCSVType('ratings')}>Export Ratings</Button>
+              </div>
+            </div>
+
+          </section>
+
+          <section style={{ display: activeTab === 'settings' ? undefined : 'none' }} className="mt-6 bg-card border rounded-xl p-4 shadow-sm">
+            <h4 className="font-semibold mb-2">Settings & Integrations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 border rounded">
+                <div className="text-sm font-medium">MCP Integrations</div>
+                <div className="text-xs text-muted-foreground mt-2">Suggested integrations for richer admin features:</div>
+                <ul className="text-xs mt-2 space-y-1">
+                  <li>Neon — Postgres database for storing analytics, users, ratings. [Connect to Neon](#open-mcp-popover)</li>
+                  <li>Netlify — Deploy and host your app. [Connect to Netlify](#open-mcp-popover)</li>
+                  <li>Zapier — Automate workflows and exports. [Connect to Zapier](#open-mcp-popover)</li>
+                  <li>Figma — Convert designs to code using Builder.io plugin. Get the plugin at: https://www.figma.com/community/plugin/747985167520967365/builder-io-ai-powered-figma-to-code-react-vue-tailwind-more</li>
+                  <li>Supabase — Realtime DB & Auth. [Connect to Supabase](#open-mcp-popover)</li>
+                  <li>Builder.io — CMS & content management. [Connect to Builder.io](#open-mcp-popover)</li>
+                  <li>Linear — Issue tracking. [Connect to Linear](#open-mcp-popover)</li>
+                  <li>Notion — Documentation sync. [Connect to Notion](#open-mcp-popover)</li>
+                  <li>Sentry — Error monitoring. [Connect to Sentry](#open-mcp-popover)</li>
+                  <li>Context7 — Up to date docs. [Connect to Context7](#open-mcp-popover)</li>
+                  <li>Semgrep — Security scanning. [Connect to Semgrep](#open-mcp-popover)</li>
+                  <li>Prisma Postgres — ORM and schema management. [Connect to Prisma](#open-mcp-popover)</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border rounded">
+                <div className="text-sm font-medium">Privacy & ACL</div>
+                <div className="text-xs text-muted-foreground mt-2">This admin dashboard is client-side only and should be protected by server-side ACLs in production. Connect a database MCP (Neon/Supabase/Prisma) to persist and secure analytics and admin access.</div>
+                <div className="mt-3">
+                  <Button onClick={() => runCommand('export-csv')}>Quick export users</Button>
+                </div>
+              </div>
+            </div>
+
           </section>
 
         </main>
