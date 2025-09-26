@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
-  const { events, joinedEvents, getUserRating, rateEvent, connections, addConnection, isConnected, canRateEvent, isEventFinished } = useEvents();
+  const { events, joinedEvents, getUserRating, rateEvent, connections, addConnection, isConnected, canRateEvent, isEventFinished, friends, getFriendsOf, setSharePreferenceForUser } = useEvents();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "events">("profile");
   const [showVisibilityModal, setShowVisibilityModal] = useState(false);
