@@ -611,6 +611,53 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [favoriteEvents, setFavoriteEvents] = useState<number[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  interface FriendEntry {
+    userId: string; // owner
+    friendId: string;
+    friendName: string;
+    friendImage?: string;
+    joinedEventIds: number[];
+    shareEvents?: boolean; // whether this friend allows sharing their joined events
+    connectedAt: string;
+  }
+
+  const [friends, setFriends] = useState<FriendEntry[]>([]);
+
+  function sampleJoinedEvents(): number[] {
+    // pick up to 3 random upcoming events
+    const ids = events.map(e => e.id);
+    const sample: number[] = [];
+    const count = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1));
+    for (let i = 0; i < count; i++) {
+      const id = ids[Math.floor(Math.random() * ids.length)];
+      if (!sample.includes(id)) sample.push(id);
+    }
+    return sample;
+  }
+
+  function addFriendRelation(userA: { id: string; name?: string; image?: string }, userB: { id: string; name?: string; image?: string }) {
+    const now = new Date().toISOString();
+    setFriends(prev => {
+      const next = [...prev];
+      // add A->B
+      if (!next.find(f => f.userId === userA.id && f.friendId === userB.id)) {
+        next.push({ userId: userA.id, friendId: userB.id, friendName: userB.name || '', friendImage: userB.image, joinedEventIds: sampleJoinedEvents(), shareEvents: true, connectedAt: now });
+      }
+      // add B->A
+      if (!next.find(f => f.userId === userB.id && f.friendId === userA.id)) {
+        next.push({ userId: userB.id, friendId: userA.id, friendName: userA.name || '', friendImage: userA.image, joinedEventIds: sampleJoinedEvents(), shareEvents: true, connectedAt: now });
+      }
+      return next;
+    });
+  }
+
+  function getFriendsOf(userId: string) {
+    return friends.filter(f => f.userId === userId);
+  }
+
+  function setSharePreferenceForUser(userId: string, allowed: boolean) {
+    setFriends(prev => prev.map(f => f.friendId === userId ? { ...f, shareEvents: allowed } : f));
+  }
 
   const addEvent = (eventData: any) => {
     const newEvent: Event = {
