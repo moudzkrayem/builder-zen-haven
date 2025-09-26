@@ -450,7 +450,91 @@ export default function Profile() {
                 </div>
               )}
             </div>
+
+            {/* Friends & share toggle in My Events */}
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold">Friends & Privacy</h3>
+              <div className="mt-3 grid gap-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <div className="font-medium">Share my joined events with friends</div>
+                    <div className="text-xs text-muted-foreground">Allow friends to view your upcoming joined events</div>
+                  </div>
+                  <div>
+                    <input
+                      type="checkbox"
+                      checked={!!(profile?.shareEventsWithFriends)}
+                      onChange={(e) => {
+                        try {
+                          const p = profile || {};
+                          p.shareEventsWithFriends = e.target.checked;
+                          localStorage.setItem('userProfile', JSON.stringify(p));
+                          setProfile(p);
+                          const currentId = p.id || p.userId || 'user-current';
+                          setSharePreferenceForUser(currentId, e.target.checked);
+                        } catch (err) {
+                          // ignore
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {(getFriendsOf(profile?.id || profile?.userId || 'user-current') || []).map((f) => (
+                  <div key={f.friendId} className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <img src={f.friendImage || '/placeholder.svg'} alt={f.friendName} className="w-10 h-10 rounded-full object-cover" />
+                        <div>
+                          <div className="font-medium">{f.friendName}</div>
+                          <div className="text-xs text-muted-foreground">Connected {new Date(f.connectedAt).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          const el = document.getElementById(`friend-events-${f.friendId}`);
+                          if (el) el.classList.toggle('hidden');
+                        }}>
+                          View upcoming events
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div id={`friend-events-${f.friendId}`} className={`mt-3 ${f.shareEvents ? '' : 'hidden'}`}>
+                      {f.shareEvents ? (
+                        <div className="space-y-2">
+                          {f.joinedEventIds.map(eid => {
+                            const ev = events.find(ev => ev.id === eid);
+                            if (!ev) return null;
+                            return (
+                              <div key={eid} className="flex items-center justify-between p-2 border rounded">
+                                <div className="flex items-center space-x-3">
+                                  <img src={ev.image} alt={ev.name} className="w-12 h-12 rounded object-cover" />
+                                  <div>
+                                    <div className="font-medium">{ev.eventName || ev.name}</div>
+                                    <div className="text-xs text-muted-foreground">{ev.date} • {ev.location}</div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{ev.attendees} attending</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 text-sm text-muted-foreground">This user has chosen to keep their upcoming events private.</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {(getFriendsOf(profile?.id || profile?.userId || 'user-current') || []).length === 0 && (
+                  <div className="text-sm text-muted-foreground">No friends yet — send friend requests to connect.</div>
+                )}
+              </div>
+            </div>
+
           </>
+
         )}
       </div>
 
