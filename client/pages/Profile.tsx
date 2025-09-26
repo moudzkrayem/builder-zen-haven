@@ -323,37 +323,6 @@ export default function Profile() {
                   Social Accounts
                 </Button>
 
-                {/* Share joined events toggle */}
-                <div className="flex items-center justify-between p-3 border rounded-lg mt-2">
-                  <div>
-                    <div className="font-medium">Share my joined events with friends</div>
-                    <div className="text-xs text-muted-foreground">Allow friends to view your upcoming joined events on your profile</div>
-                  </div>
-                  <div>
-                    <input
-                      type="checkbox"
-                      checked={(() => {
-                        try {
-                          const p = JSON.parse(localStorage.getItem('userProfile') || '{}');
-                          return !!p.shareEventsWithFriends;
-                        } catch { return false; }
-                      })()}
-                      onChange={(e) => {
-                        try {
-                          const p = JSON.parse(localStorage.getItem('userProfile') || '{}');
-                          p.shareEventsWithFriends = e.target.checked;
-                          localStorage.setItem('userProfile', JSON.stringify(p));
-                          setProfile(p);
-                          // update friends metadata so others see the change
-                          const currentId = p.id || p.userId || 'user-current';
-                          setSharePreferenceForUser(currentId, e.target.checked);
-                        } catch (err) {
-                          // ignore
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
