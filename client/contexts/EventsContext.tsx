@@ -420,9 +420,12 @@ const initialEvents: Event[] = [
     attendees: 12,
     maxCapacity: 20,
     fee: "$20",
-    image: "https://images.unsplash.com/photo-1504198458649-3128b932f49b?w=800&q=80&auto=format&fit=crop",
-    eventImages: ["https://images.unsplash.com/photo-1504198458649-3128b932f49b?w=800&q=80&auto=format&fit=crop"],
-    hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+    image: "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4?format=webp&width=1200",
+    eventImages: [
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4?format=webp&width=1200",
+      "https://images.unsplash.com/photo-1499084732479-de2c02d45fc4?w=1200&q=80&auto=format&fit=crop"
+    ],
+    hostImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
     category: "Photography",
     isPopular: false,
     host: "Shutterbugs",
@@ -538,8 +541,11 @@ const initialEvents: Event[] = [
     attendees: 35,
     maxCapacity: 60,
     fee: "Free",
-    image: "https://images.unsplash.com/photo-1495121605193-b116b5b09a6c?w=800&q=80&auto=format&fit=crop",
-    eventImages: ["https://images.unsplash.com/photo-1495121605193-b116b5b09a6c?w=800&q=80&auto=format&fit=crop"],
+    image: "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=1200",
+    eventImages: [
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F7160f5ce4d0f451fbbc6983b119c4dd6?format=webp&width=1200",
+      "https://images.unsplash.com/photo-1520975912694-8a2d6d6d0a6d?w=1200&q=80&auto=format&fit=crop"
+    ],
     hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
     category: "Fashion",
     isPopular: false,
@@ -639,8 +645,11 @@ const initialEvents: Event[] = [
     attendees: 15,
     maxCapacity: 25,
     fee: "$12",
-    image: "https://images.unsplash.com/photo-1515098380896-18db7ae9ed7c?w=800&q=80&auto=format&fit=crop",
-    eventImages: ["https://images.unsplash.com/photo-1515098380896-18db7ae9ed7c?w=800&q=80&auto=format&fit=crop"],
+    image: "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=1200",
+    eventImages: [
+      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=1200",
+      "https://images.unsplash.com/photo-1506806732259-39c2d0268443?w=1200&q=80&auto=format&fit=crop"
+    ],
     hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
     category: "Dance",
     isPopular: false,
