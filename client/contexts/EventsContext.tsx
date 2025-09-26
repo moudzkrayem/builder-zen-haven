@@ -634,7 +634,37 @@ const initialEvents: Event[] = [
 ];
 
 export function EventsProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<Event[]>(initialEvents);
+  const DEFAULT_IMAGES: Record<string, string> = {
+    "Food & Drink": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80&auto=format&fit=crop",
+    "Fitness": "https://images.unsplash.com/photo-1544161515-4ab0b4b4f1b6?w=800&q=80&auto=format&fit=crop",
+    "Professional": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&q=80&auto=format&fit=crop",
+    "Arts & Culture": "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=800&q=80&auto=format&fit=crop",
+    "Outdoors": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80&auto=format&fit=crop",
+    "Music": "https://images.unsplash.com/photo-1485579149621-3123dd979885?w=800&q=80&auto=format&fit=crop",
+    "Workshops": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80&auto=format&fit=crop",
+    "Volunteering": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80&auto=format&fit=crop",
+    "Family": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800&q=80&auto=format&fit=crop",
+    "Photography": "https://images.unsplash.com/photo-1504198458649-3128b932f49b?w=800&q=80&auto=format&fit=crop",
+    "Nightlife": "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?w=800&q=80&auto=format&fit=crop",
+    "Books": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&q=80&auto=format&fit=crop",
+    "Sports": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80&auto=format&fit=crop",
+    "Film": "https://images.unsplash.com/photo-1505686797002-d7a4850e0c5f?w=800&q=80&auto=format&fit=crop",
+    "Fashion": "https://images.unsplash.com/photo-1495121605193-b116b5b09a6c?w=800&q=80&auto=format&fit=crop",
+    "Gaming": "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800&q=80&auto=format&fit=crop",
+    "Social": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80&auto=format&fit=crop",
+    "Dance": "https://images.unsplash.com/photo-1515098380896-18db7ae9ed7c?w=800&q=80&auto=format&fit=crop",
+    "Wellness": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800&q=80&auto=format&fit=crop",
+    "default": "https://images.unsplash.com/photo-1523206489230-fed1a3dfc9e0?w=800&q=80&auto=format&fit=crop",
+  };
+
+  function normalizeEvent(ev: Event): Event {
+    const img = ev.image && ev.image.trim() ? ev.image : (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
+    const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
+    const hostImage = ev.hostImage && ev.hostImage.trim() ? ev.hostImage : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop";
+    return { ...ev, image: img, eventImages, hostImage };
+  }
+
+  const [events, setEvents] = useState<Event[]>(() => initialEvents.map(normalizeEvent));
   const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
@@ -688,7 +718,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       repeatOption: eventData.repeatOption,
     };
 
-    setEvents((prevEvents) => [newEvent, ...prevEvents]);
+    const normalized = normalizeEvent(newEvent);
+
+    setEvents((prevEvents) => [normalized, ...prevEvents]);
   };
 
   const updateEvent = (eventId: number, updates: Partial<Event>, notify: boolean) => {
