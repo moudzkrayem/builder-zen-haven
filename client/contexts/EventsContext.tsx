@@ -114,6 +114,11 @@ interface EventsContextType {
   declineFriendRequest: (requestId: string) => void;
   getFriendRequestStatus: (toUserId: string, eventId: number) => 'none' | 'pending' | 'accepted' | 'declined';
   canSendMessage: (toUserId: string, eventId: number) => boolean;
+  // Friends
+  friends: any[];
+  addFriendRelation: (a: { id: string; name?: string; image?: string }, b: { id: string; name?: string; image?: string }) => void;
+  getFriendsOf: (userId: string) => any[];
+  setSharePreferenceForUser: (userId: string, allowed: boolean) => void;
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
