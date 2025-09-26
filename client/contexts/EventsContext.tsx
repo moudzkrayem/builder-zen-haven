@@ -1176,6 +1176,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         declineFriendRequest,
         getFriendRequestStatus,
         canSendMessage,
+        friends,
+        addFriendRelation,
+        getFriendsOf,
+        setSharePreferenceForUser,
       }}
     >
       {children}
