@@ -1101,13 +1101,23 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   };
 
   const acceptFriendRequest = (requestId: string) => {
+    const req = friendRequests.find(r => r.id === requestId);
+
     setFriendRequests(prev =>
-      prev.map(req =>
-        req.id === requestId
-          ? { ...req, status: 'accepted' as const, respondedAt: new Date().toISOString() }
-          : req
+      prev.map(r =>
+        r.id === requestId
+          ? { ...r, status: 'accepted' as const, respondedAt: new Date().toISOString() }
+          : r
       )
     );
+
+    if (req) {
+      // create friend relations both ways
+      addFriendRelation(
+        { id: req.fromUserId, name: req.fromUserName, image: req.fromUserImage },
+        { id: req.toUserId, name: req.toUserName, image: undefined }
+      );
+    }
   };
 
   const declineFriendRequest = (requestId: string) => {
