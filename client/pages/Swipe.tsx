@@ -101,7 +101,7 @@ export default function Swipe() {
     setIsDragging(true);
   };
 
-  const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleDragMove = (e: any) => {
     if (!isDragging) return;
 
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
