@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import React, { useEffect, useState } from "react";
 import { Heart, Sparkles, Users, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Button as UiButton } from "@/components/ui/button";
 
 export default function Welcome() {
   const navigate = useNavigate();
