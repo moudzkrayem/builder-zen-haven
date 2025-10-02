@@ -97,9 +97,13 @@ type CreateStep =
   | 'eventName'
   | 'location'
   | 'time'
+  | 'duration'
   | 'maxCapacity'
   | 'fee'
   | 'description'
+  | 'ageRange'
+  | 'repeatOption'
+  | 'photos'
   | 'isPremium'
   | 'confirm';
 
