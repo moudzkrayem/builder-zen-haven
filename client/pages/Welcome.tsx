@@ -1,13 +1,37 @@
 import { Button } from "@/components/ui/button";
+import React, { useEffect, useState } from "react";
 import { Heart, Sparkles, Users, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setShowSplash(false), 6000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  if (showSplash) {
+    return (
+      <div className="h-screen-safe flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/20">
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="mb-4 animate-fade-in">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F2ddd6c77a8df4501aa9e8730dda91175?format=webp&width=800"
+              alt="Trybe Logo"
+              className="w-36 h-20 object-contain"
+            />
+          </div>
+          <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-screen-safe bg-gradient-to-br from-primary/10 via-background to-accent/20 overflow-hidden">
-      {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute top-1/3 -left-16 w-32 h-32 bg-accent/20 rounded-full blur-2xl" />
@@ -15,9 +39,7 @@ export default function Welcome() {
       </div>
 
       <div className="relative z-10 flex flex-col items-center justify-between h-full px-6 py-12">
-        {/* Header with logo */}
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          {/* Logo */}
           <div className="mb-8 animate-bounce-in">
             <div className="relative">
               <img
@@ -31,14 +53,10 @@ export default function Welcome() {
             </div>
           </div>
 
-          {/* Tagline */}
           <p className="text-xl text-muted-foreground mb-12 max-w-sm leading-relaxed">
-            <span className="text-primary font-medium">
-              Try new. Belong more.
-            </span>
+            <span className="text-primary font-medium">Try new. Belong more.</span>
           </p>
 
-          {/* Feature highlights */}
           <div className="flex flex-col space-y-4 mb-16">
             <div className="flex items-center space-x-3 text-foreground/80">
               <Users className="w-5 h-5 text-primary" />
@@ -55,7 +73,6 @@ export default function Welcome() {
           </div>
         </div>
 
-        {/* Action buttons */}
         <div className="w-full max-w-sm space-y-4">
           <Button
             onClick={() => navigate("/create-profile")}
