@@ -617,7 +617,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm">Average attendance: <strong>{events.length ? Math.round(events.reduce((a, b) => a + (b.attendance || 0), 0) / events.length) : 0}</strong></div>
+              <div className="text-sm">Average attendance: <strong>{events.length ? Math.round(events.reduce((a, b) => a + (b.attendees || 0), 0) / events.length) : 0}</strong></div>
               <div>
                 <Button onClick={() => exportCSVType('events')}>Export events</Button>
               </div>
