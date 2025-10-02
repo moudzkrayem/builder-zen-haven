@@ -437,7 +437,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
       <div className="p-4 border-t border-border bg-card">
         <div className="flex items-end space-x-2">
           <div className="flex-1">
-            <Input
+            <Textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               onKeyPress={handleKeyPress}
