@@ -75,7 +75,7 @@ export default function Welcome() {
 
         <div className="w-full max-w-sm space-y-4">
           <UiButton
-            onClick={() => navigate("/create-profile")}
+            onClick={() => navigate("/login")}
             className="w-full h-14 text-lg font-semibold rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             Get Started
