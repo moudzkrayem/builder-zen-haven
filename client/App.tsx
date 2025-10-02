@@ -11,6 +11,8 @@ import { EventsProvider } from "./contexts/EventsContext";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
 import ProfileCreation from "./pages/ProfileCreation";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
 import Home from "./pages/Home";
 import Swipe from "./pages/Swipe";
 import Chats from "./pages/Chats";
