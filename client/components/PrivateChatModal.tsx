@@ -176,7 +176,7 @@ export default function PrivateChatModal({ isOpen, onClose, user }: PrivateChatM
       <div className="p-4 border-t border-border bg-card">
         <div className="flex items-end space-x-2">
           <div className="flex-1">
-            <Input
+            <Textarea
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               onKeyPress={handleKeyPress}
