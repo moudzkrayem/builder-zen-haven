@@ -18,6 +18,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChatModalProps {
   isOpen: boolean;
