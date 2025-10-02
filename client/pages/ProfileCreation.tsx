@@ -41,7 +41,7 @@ import {
   Mountain,
   Waves,
   TreePine,
-  GameController2,
+  Gamepad,
   Utensils,
   Car,
   Plane,
