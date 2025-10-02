@@ -96,7 +96,7 @@ export default function Welcome() {
             <UiButton
               variant="outline"
               className="h-12 rounded-xl border-2 hover:border-primary/50 transition-all duration-200"
-              onClick={() => navigate("/home")}
+              onClick={() => navigate("/login")}
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
@@ -122,7 +122,7 @@ export default function Welcome() {
             <UiButton
               variant="outline"
               className="h-12 rounded-xl border-2 hover:border-primary/50 transition-all duration-200"
-              onClick={() => navigate("/home")}
+              onClick={() => navigate("/login")}
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -139,7 +139,7 @@ export default function Welcome() {
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <button
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/login")}
                 className="text-primary font-medium hover:underline transition-all duration-200"
               >
                 Sign In
