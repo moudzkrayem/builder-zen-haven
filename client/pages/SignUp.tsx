@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { auth } from "../firebase"; // ✅ firebase.ts file
+import { auth } from "../firebase";
 import {
   GoogleAuthProvider,
   signInWithPopup,
   createUserWithEmailAndPassword,
-  sendEmailVerification,   // 🔹 added
+  sendEmailVerification,
 } from "firebase/auth";
 
 export default function SignUp() {
@@ -19,7 +19,7 @@ export default function SignUp() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 Handle Email/Password Sign Up + Verification
+  // 🔹 Handle Email/Password Sign Up
   const handleSignUp = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError(null);
@@ -40,25 +40,25 @@ export default function SignUp() {
     try {
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 🔹 Send verification email
-      if (userCred.user) {
-        await sendEmailVerification(userCred.user);
-        alert("Verification email sent! Please check your inbox before logging in.");
-      }
+      // Send Firebase verification email (directs into your app)
+      await sendEmailVerification(userCred.user, {
+        url: "http://localhost:5173/verify-email", // change for prod
+        handleCodeInApp: true,
+      });
 
-      // Instead of letting them in, redirect to verify-email page
-      navigate("/verify-email"); 
+      // Redirect user to verify-email page
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Unexpected error");
     }
   };
 
-  // 🔹 Handle Google Sign In (Google accounts are already verified)
+  // 🔹 Handle Google Sign In
   const handleGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      navigate("/create-profile");
+      navigate("/create-profile"); // Google accounts don’t need verification
     } catch (err: any) {
       setError(err.message || "Google login failed");
     }
@@ -68,8 +68,7 @@ export default function SignUp() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/20 p-6">
       <div className="w-full max-w-md bg-card rounded-2xl p-6 shadow-lg">
         <h2 className="text-2xl font-bold mb-4">Create an account</h2>
-        
-        {/* Email signup form */}
+
         <form onSubmit={handleSignUp} className="space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
@@ -110,7 +109,9 @@ export default function SignUp() {
         {/* Divider */}
         <div className="my-4 flex items-center">
           <div className="flex-1 h-px bg-border" />
-          <div className="px-3 text-sm text-muted-foreground">Or continue with</div>
+          <div className="px-3 text-sm text-muted-foreground">
+            Or continue with
+          </div>
           <div className="flex-1 h-px bg-border" />
         </div>
 

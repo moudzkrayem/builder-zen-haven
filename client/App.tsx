@@ -11,6 +11,7 @@ import { EventsProvider } from "./contexts/EventsContext";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
 import ProfileCreation from "./pages/ProfileCreation";
+import VerifyEmail from "./pages/VerifyEmail";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Home from "./pages/Home";
@@ -35,6 +36,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Welcome />} />
                 <Route path="/create-profile" element={<ProfileCreation />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/home" element={<Home />} />
