@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent } from "@/components/ui/card";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import {
   Camera,
   Plus,
@@ -258,37 +260,44 @@ export default function ProfileCreation() {
     }
   };
 
-  const handleComplete = () => {
-    // Safely store profile data (avoid quota by limiting photos size/count)
-    const safeProfile = { ...profileData } as typeof profileData;
-    safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
-    try {
-      const json = JSON.stringify(safeProfile);
-      if (json.length > 4_500_000) {
-        safeProfile.photos = [];
-      }
-      localStorage.setItem('userProfile', JSON.stringify(safeProfile));
-      try {
-        sessionStorage.setItem('userProfilePhotos', JSON.stringify(safeProfile.photos));
-      } catch {}
-    } catch {
-      try {
-        const { photos, ...rest } = safeProfile as any;
-        localStorage.setItem('userProfile', JSON.stringify(rest));
-      } catch {}
-    }
+const handleComplete = async () => {
+  if (!auth.currentUser) {
+    alert("You must be logged in to save your profile.");
+    return;
+  }
 
-    // Create celebration animation
-    const confetti = document.createElement('div');
-    confetti.innerHTML = '🎉';
-    confetti.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl animate-bounce z-50';
+  // Safely trim photos & prepare data
+  const safeProfile = { ...profileData } as typeof profileData;
+  safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
+
+  try {
+    // Save to Firestore (each user = one document)
+    const userId = auth.currentUser.uid;
+    const userRef = doc(db, "users", userId);
+
+    await setDoc(userRef, {
+      ...safeProfile,
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log("✅ Profile saved to Firestore!");
+
+    // 🎉 Celebration animation (keep your existing confetti)
+    const confetti = document.createElement("div");
+    confetti.innerHTML = "🎉";
+    confetti.className =
+      "fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl animate-bounce z-50";
     document.body.appendChild(confetti);
-    
+
     setTimeout(() => {
       document.body.removeChild(confetti);
-      navigate('/home');
+      navigate("/home");
     }, 1500);
-  };
+  } catch (error) {
+    console.error("❌ Error saving profile:", error);
+    alert("Failed to save profile. Please try again.");
+  }
+};
 
   const addInterest = (interest: string, type: 'great' | 'try') => {
     if (type === 'great') {
