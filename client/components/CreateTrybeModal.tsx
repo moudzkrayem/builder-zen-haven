@@ -5,6 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db, app } from "../firebase"; // ✅ make sure you export db and app in firebase.ts
+import { auth } from "../firebase"; // to get current user
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   X,
   Calendar,
@@ -34,10 +38,11 @@ interface TrybeData {
   description: string;
   maxCapacity: number;
   fee: string;
-  photos: string[];
+  photos: Array<string | File>;
   ageRange: [number, number];
   repeatOption: string;
   isPremium: boolean;
+  category: string;
 }
 
 export default function CreateTrybeModal({
@@ -53,19 +58,87 @@ export default function CreateTrybeModal({
     description: "",
     maxCapacity: 10,
     fee: "Free",
-    photos: [],
+  photos: [],
     ageRange: [18, 65],
     repeatOption: "none",
     isPremium: false,
+    category:"",
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onCreateTrybe(formData);
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    setIsSubmitting(true);
+    // Ensure user is logged in
+    const user = auth.currentUser;
+    if (!user) {
+      setIsSubmitting(false);
+      alert("You must be logged in to create a Trybe.");
+      return;
+    }
+
+    // If photos contain large data URLs, upload them to Firebase Storage first
+    const storage = getStorage(app);
+    const photosToSave: string[] = [];
+
+    for (let i = 0; i < (formData.photos || []).length; i++) {
+      const p = formData.photos[i];
+      try {
+        if (p instanceof File) {
+          const path = `trybePhotos/${user.uid}/${Date.now()}-${i}-${p.name}`;
+          const ref = storageRef(storage, path);
+          const uploadTask = uploadBytesResumable(ref, p);
+
+          // wait for completion
+          await new Promise<void>((resolve, reject) => {
+            uploadTask.on('state_changed',
+              () => {},
+              (error) => reject(error),
+              async () => {
+                try {
+                  const url = await getDownloadURL(ref);
+                  photosToSave.push(url);
+                  resolve();
+                } catch (err) {
+                  reject(err);
+                }
+              }
+            );
+          });
+        } else if (typeof p === 'string') {
+          photosToSave.push(p);
+        }
+      } catch (err) {
+        console.warn('Photo upload failed, keeping original value', err);
+        photosToSave.push(typeof p === 'string' ? p : '');
+      }
+    }
+
+    // Prepare Trybe data (use resolved photo URLs)
+    const trybeDataToSave = {
+      ...formData,
+      photos: photosToSave,
+      createdBy: user.uid,
+      createdAt: serverTimestamp(),
+    };
+
+    // Debug: show what will be saved (helps diagnose Firestore errors)
+    console.debug('Creating Trybe with data:', trybeDataToSave);
+
+    // Save in Firestore
+    const docRef = await addDoc(collection(db, "trybes"), trybeDataToSave);
+    console.log("✅ Trybe created with ID:", docRef.id);
+
+    // Optionally: Show success alert or toast
+    alert("🎉 Trybe created successfully!");
+
+    // Close modal and reset form
     onClose();
-    // Reset form
     setFormData({
       eventName: "",
       location: "",
@@ -78,8 +151,17 @@ export default function CreateTrybeModal({
       ageRange: [18, 65],
       repeatOption: "none",
       isPremium: false,
+      category: "", // don’t forget to reset this too
     });
-  };
+    setIsSubmitting(false);
+  } catch (err: any) {
+    console.error("❌ Error creating Trybe:", err);
+    // Surface the server/error message to the user to aid debugging
+    const msg = err?.message || String(err) || 'Unknown error';
+    alert(`Failed to create Trybe: ${msg}`);
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -256,7 +338,31 @@ export default function CreateTrybeModal({
               {formData.description.length}/500 characters
             </div>
           </div>
-
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Category *</Label>
+            <select
+              id="category"
+              value={formData.category}
+              onChange={(e) =>
+                setFormData({ ...formData, category: e.target.value })
+              }
+              required
+              className="w-full rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent p-2"
+            >
+              <option value="">Select a category</option>
+              <option value="fitness">🏋️ Fitness</option>
+              <option value="music">🎶 Music</option>
+              <option value="social">👥 Social</option>
+              <option value="tech">💻 Tech</option>
+              <option value="outdoors">🌳 Outdoors</option>
+              <option value="food">🍴 Food</option>
+              <option value="art">🎨 Art</option>
+              <option value="travel">✈️ Travel</option>
+              <option value="education">📚 Education</option>
+              <option value="gaming">🎮 Gaming</option>
+            </select>
+          </div>
           {/* Capacity */}
           <div className="space-y-2">
             <Label htmlFor="maxCapacity">Capacity *</Label>
@@ -367,7 +473,7 @@ export default function CreateTrybeModal({
                     className="relative aspect-square rounded-lg overflow-hidden"
                   >
                     <img
-                      src={photo}
+                      src={photo instanceof File ? URL.createObjectURL(photo) : photo}
                       alt={`Event photo ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -400,17 +506,12 @@ export default function CreateTrybeModal({
                 accept="image/*"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
-                  files.forEach((file) => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      const imageUrl = event.target?.result as string;
-                      setFormData((prev) => ({
-                        ...prev,
-                        photos: [...prev.photos, imageUrl],
-                      }));
-                    };
-                    reader.readAsDataURL(file);
-                  });
+                  if (files.length === 0) return;
+                  setFormData((prev) => ({
+                    ...prev,
+                    photos: [...prev.photos, ...files],
+                  }));
+                  console.debug('Files added:', files.map(f => ({ name: f.name, size: f.size })));
                   // Reset input
                   e.target.value = "";
                 }}
@@ -441,18 +542,20 @@ export default function CreateTrybeModal({
             </Button>
             <Button
               type="submit"
+              disabled={isSubmitting}
               className={cn(
                 "flex-1 rounded-xl",
-                formData.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+                formData.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90",
+                isSubmitting && "opacity-60 pointer-events-none"
               )}
             >
               {formData.isPremium ? (
                 <>
                   <Crown className="w-4 h-4 mr-2" />
-                  Create Premium Trybe
+                  {isSubmitting ? 'Creating...' : 'Create Premium Trybe'}
                 </>
               ) : (
-                "Create Trybe"
+                isSubmitting ? 'Creating...' : 'Create Trybe'
               )}
             </Button>
           </div>

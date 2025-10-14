@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -57,8 +58,16 @@ export default function SignUp() {
   const handleGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      navigate("/create-profile"); // Google accounts don’t need verification
+      const result = await signInWithPopup(auth, provider);
+      try {
+        const uid = result.user.uid;
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) navigate('/home');
+        else navigate('/create-profile');
+      } catch (err) {
+        console.error('Error checking user profile after Google sign-in', err);
+        navigate('/create-profile');
+      }
     } catch (err: any) {
       setError(err.message || "Google login failed");
     }

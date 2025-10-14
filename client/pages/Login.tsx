@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { auth } from "../firebase"; // ✅ Firebase instance
+import { auth, db } from "../firebase"; // ✅ your firebase.ts
+import { doc, getDoc } from "firebase/firestore";
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -17,7 +18,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 Handle Email/Password login
+  // 🔹 Handle Email/Password Login
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError(null);
@@ -26,23 +27,44 @@ export default function Login() {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
 
       if (!userCred.user.emailVerified) {
-        setError("Please verify your email before logging in.");
+        setError("Please verify your email before signing in.");
         return;
       }
 
-      // ✅ Verified → proceed
-      navigate("/create-profile");
+      // Check if user already has a profile in Firestore
+      try {
+        const uid = userCred.user.uid;
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) {
+          navigate("/home");
+        } else {
+          navigate("/create-profile");
+        }
+      } catch (err) {
+        // if anything goes wrong, fall back to create-profile
+        console.error('Error checking user profile:', err);
+        navigate('/create-profile');
+      }
     } catch (err: any) {
-      setError(err.message || "Invalid email or password");
+      setError(err.message || "Unexpected error");
     }
   };
 
-  // 🔹 Handle Google login
+  // 🔹 Handle Google Login
   const handleGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      navigate("/create-profile");
+      const result = await signInWithPopup(auth, provider);
+      // After Google sign-in, route depending on whether user doc exists
+      try {
+        const uid = result.user.uid;
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) navigate('/home');
+        else navigate('/create-profile');
+      } catch (err) {
+        console.error('Error checking user profile after Google sign-in', err);
+        navigate('/create-profile');
+      }
     } catch (err: any) {
       setError(err.message || "Google login failed");
     }
@@ -52,8 +74,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/20 p-6">
       <div className="w-full max-w-md bg-card rounded-2xl p-6 shadow-lg">
         <h2 className="text-2xl font-bold mb-4">Sign in to your account</h2>
-
-        {/* Email Login Form */}
+        
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
@@ -76,28 +97,18 @@ export default function Login() {
             />
           </div>
           {error && <div className="text-sm text-destructive">{error}</div>}
-          <Button type="submit" className="w-full">
-            Sign In
-          </Button>
+          <Button type="submit" className="w-full">Sign In</Button>
         </form>
 
-        {/* Divider */}
         <div className="my-4 flex items-center">
           <div className="flex-1 h-px bg-border" />
-          <div className="px-3 text-sm text-muted-foreground">
-            Or continue with
-          </div>
+          <div className="px-3 text-sm text-muted-foreground">Or continue with</div>
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        {/* Social buttons */}
         <div className="grid grid-cols-2 gap-3">
-          <Button variant="outline" onClick={handleGoogle}>
-            Google
-          </Button>
-          <Button variant="outline" disabled>
-            Apple
-          </Button>
+          <Button variant="outline" onClick={handleGoogle}>Google</Button>
+          <Button variant="outline" disabled>Apple</Button>
         </div>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">

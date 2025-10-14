@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React, { useEffect, useState } from "react";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
@@ -44,6 +46,28 @@ export default function Profile() {
       const stored = localStorage.getItem('userProfile');
       if (stored) setProfile(JSON.parse(stored));
     } catch {}
+  }, []);
+
+  // If no local profile, try loading from Firestore (useful for fresh installs / cleared storage)
+  useEffect(() => {
+    const tryLoad = async () => {
+      try {
+        const stored = localStorage.getItem('userProfile');
+        if (stored) return; // already loaded
+        const user = auth.currentUser;
+        if (!user) return;
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          localStorage.setItem('userProfile', JSON.stringify(data));
+          setProfile(data);
+        }
+      } catch (err) {
+        console.error('Error loading profile from Firestore', err);
+      }
+    };
+
+    tryLoad();
   }, []);
 
   const profileName = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : "";

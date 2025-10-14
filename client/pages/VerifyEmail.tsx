@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { sendEmailVerification, reload } from "firebase/auth";
 
 export default function VerifyEmail() {
@@ -21,7 +22,18 @@ export default function VerifyEmail() {
         if (auth.currentUser.emailVerified) {
           setMessage("✅ Email verified successfully! Redirecting…");
           clearInterval(interval);
-          setTimeout(() => navigate("/create-profile"), 1500);
+          // If the user already has a profile document, go to home, otherwise create-profile
+          try {
+            const uid = auth.currentUser.uid;
+            const userDoc = await getDoc(doc(db, 'users', uid));
+            setTimeout(() => {
+              if (userDoc.exists()) navigate('/home');
+              else navigate('/create-profile');
+            }, 1500);
+          } catch (err) {
+            console.error('Error checking user profile after verification', err);
+            setTimeout(() => navigate('/create-profile'), 1500);
+          }
         }
       }
     }, 3000);

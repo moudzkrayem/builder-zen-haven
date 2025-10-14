@@ -11,8 +11,9 @@ const firebaseConfig = {
   storageBucket: "trybe-2d135.firebasestorage.app",
   messagingSenderId: "123986006157",
   appId: "1:123986006157:web:7ad3d39d7cee5ae7afd2c4",
-  measurementId: "G-R59MYQ1VCS",
+  measurementId: "G-R59MYQ1VCS"
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

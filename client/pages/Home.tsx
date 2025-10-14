@@ -10,6 +10,9 @@ import EventDetailModal from "@/components/EventDetailModal";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import AIBotModal from "@/components/AIBotModal";
 import { useEvents } from "@/contexts/EventsContext";
+import { collection, getDocs } from "firebase/firestore";
+import { db, app } from "../firebase";
+import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
 import {
   Search,
   Filter,
@@ -27,7 +30,7 @@ import {
   Share,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+// Local state to hold Trybes fetched from Firestore will be created inside the Home component
 const categories = [
   { name: "All", color: "bg-primary" },
   { name: "Food & Drink", color: "bg-orange-500" },
@@ -49,6 +52,7 @@ const defaultTrendingSearches = [
 export default function Home() {
   const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
+  const [firestoreTrybes, setFirestoreTrybes] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -181,6 +185,41 @@ export default function Home() {
   // Use personalized events instead of all events, but exclude joined events so scheduled items move to My Schedule
   const featuredTrybes = getPersonalizedEvents().filter(e => !joinedEvents.includes(e.id));
 
+  // If we have firestoreTrybes available, map them to the Event shape
+  const mappedFirestoreTrybes = firestoreTrybes.map((doc) => {
+    // Firestore Trybe shape comes from CreateTrybeModal.tsx
+    // TrybeData fields: eventName, location, time, duration, description, maxCapacity, fee, photos, ageRange, repeatOption, isPremium, category
+    const data = doc;
+    const id = doc.id || Date.now();
+    const image = (data.photos && data.photos.length > 0) ? data.photos[0] : undefined;
+
+    return {
+      id,
+      name: data.eventName || data.name || "Untitled Trybe",
+      eventName: data.eventName || data.name || "Untitled Trybe",
+      hostName: data.hostName || data.createdBy || "Unknown",
+      location: data.location || "",
+      date: data.time ? new Date(data.time).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : data.date || "",
+      time: data.time,
+      duration: data.duration,
+      attendees: data.attendees ?? 1,
+      maxCapacity: data.maxCapacity ?? 10,
+      fee: data.fee ?? "Free",
+      image: image || data.image || undefined,
+      eventImages: data.photos || data.eventImages || [],
+      hostImage: data.hostImage || undefined,
+      category: data.category || (data.category === '' ? 'Social' : data.category),
+      isPopular: Boolean(data.isPopular),
+      host: data.host || data.createdBy || "",
+      rating: data.rating ?? 5,
+      interests: data.interests || [],
+      description: data.description || "",
+      isPremium: Boolean(data.isPremium),
+      ageRange: data.ageRange || [18, 65],
+      repeatOption: data.repeatOption || 'none',
+    };
+  });
+
   // Generate personalized trending searches
   const getTrendingSearches = () => {
     if (!userProfile) return defaultTrendingSearches;
@@ -209,6 +248,69 @@ export default function Home() {
   };
 
   const trendingSearches = getTrendingSearches();
+
+  // Fetch trybes from Firestore on mount
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTrybes() {
+      try {
+        const q = collection(db, "trybes");
+        const snap = await getDocs(q);
+        const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Optimistic: show results immediately (use placeholder or stored image),
+        // then asynchronously resolve storage download URLs in background per item
+        if (mounted) {
+          // store initial docs so UI can render quickly
+          setFirestoreTrybes(rawDocs as any[]);
+          console.debug('Loaded trybes (optimistic):', rawDocs.map(d => ({ id: (d as any).id, photos: (d as any).photos, image: (d as any).image })));
+        }
+
+        // Background resolution of storage paths (non-blocking)
+        (async () => {
+          const storage = getStorage(app);
+
+          for (const doc of rawDocs) {
+            const data: any = doc;
+            const candidate = Array.isArray(data.photos) && data.photos.length > 0 ? data.photos[0] : data.image;
+
+            if (!candidate || candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/')) {
+              // nothing to resolve
+              continue;
+            }
+
+            // resolve storage path in a best-effort manner
+            let refPath = candidate;
+            if (candidate.startsWith('gs://')) {
+              const parts = candidate.replace('gs://', '').split('/');
+              parts.shift(); // remove bucket name
+              refPath = parts.join('/');
+            }
+
+            try {
+              const ref = storageRef(storage, refPath);
+              const url = await getDownloadURL(ref);
+
+              // Patch the specific trybe in state with the resolved URL
+              setFirestoreTrybes(prev => (prev || []).map((p: any) => p.id === doc.id ? { ...p, _resolvedImage: url } : p));
+              console.debug('Resolved storage image for', doc.id, url);
+            } catch (err) {
+              console.warn('Failed to resolve storage image url for', candidate, err);
+            }
+          }
+        })();
+      } catch (err) {
+        console.error("Failed to load trybes from Firestore:", err);
+      }
+    }
+
+    loadTrybes();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <>
@@ -349,7 +451,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              {featuredTrybes.map((trybe) => (
+              {(mappedFirestoreTrybes && mappedFirestoreTrybes.length > 0 ? mappedFirestoreTrybes : featuredTrybes).map((trybe) => (
                 <div
                   key={trybe.id}
                   onClick={() => handleEventClick(trybe.id)}
@@ -363,8 +465,13 @@ export default function Home() {
                   <div className="flex">
                     <div className="relative w-24 h-24">
                       <img
-                        src={trybe.image}
+                        src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
                         alt={trybe.name}
+                        onError={(e) => {
+                          // Fallback to local placeholder when remote image fails
+                          const target = e.currentTarget as HTMLImageElement;
+                          if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
+                        }}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute top-2 left-2 flex flex-col space-y-1">
@@ -535,8 +642,12 @@ export default function Home() {
                     >
                       <div className="relative aspect-[4/3]">
                         <img
-                          src={trybe.image}
+                          src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
                           alt={trybe.name}
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
+                          }}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
@@ -677,8 +788,12 @@ export default function Home() {
                 >
                   <div className="relative aspect-[4/3]">
                     <img
-                      src={trybe.image}
+                      src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
                       alt={trybe.name}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
+                      }}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
@@ -803,8 +918,12 @@ export default function Home() {
                       className="bg-card rounded-xl p-4 border border-border flex items-center space-x-4 hover:shadow-md transition-shadow text-left w-full"
                     >
                       <img
-                        src={trybe.image}
+                        src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
                         alt={trybe.name}
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
+                        }}
                         className="w-12 h-12 rounded-lg object-cover"
                       />
                       <div className="flex-1">
