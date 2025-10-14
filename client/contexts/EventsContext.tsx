@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { onUserChanged, auth } from "@/auth";
 
 interface Event {
   id: number;
@@ -605,10 +606,18 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   };
 
   function normalizeEvent(ev: Event): Event {
-    const img = ev.image && ev.image.trim() ? ev.image : (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
+    // Prefer explicit image, then first eventImages entry, then default by category
+    const imgCandidate = ev.image && String(ev.image).trim()
+      ? String(ev.image)
+      : (ev.eventImages && ev.eventImages.length ? String(ev.eventImages[0]) : undefined);
+    const img = imgCandidate || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
     const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
     const hostImage = ev.hostImage && ev.hostImage.trim() ? ev.hostImage : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop";
-    return { ...ev, image: img, eventImages, hostImage };
+    // Ensure numeric fields are numbers and have sensible defaults
+    const attendees = typeof (ev as any).attendees === 'number' ? (ev as any).attendees : Number((ev as any).attendees) || 1;
+    const maxCapacity = typeof (ev as any).maxCapacity === 'number' ? (ev as any).maxCapacity : Number((ev as any).maxCapacity) || 10;
+
+    return { ...ev, image: img, eventImages, hostImage, attendees, maxCapacity };
   }
 
   const [events, setEvents] = useState<Event[]>(() => initialEvents.map(normalizeEvent));
@@ -895,6 +904,49 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       // Create or update group chat for the event
       createChatForEvent(eventId);
+      // Persist in background
+      void persistJoin(eventId);
+    }
+  };
+
+  // Persist join to Firestore and user's profile when possible
+  const persistJoin = async (eventId: number) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      // Attempt to resolve the Firestore doc id from the in-memory events list.
+      const ev = events.find((e) => String(e.id) === String(eventId) || e.id === eventId);
+      if (ev) {
+        const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
+        try {
+          await updateDoc(trybeRef, {
+            attendees: increment(1),
+            attendeeIds: arrayUnion(user.uid),
+          });
+        } catch (err) {
+          console.debug('persistJoin: failed to update trybe doc', err);
+        }
+      } else {
+        // Fallback: try updating by the passed id (may be string id)
+        try {
+          const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
+          await updateDoc(trybeRef, {
+            attendees: increment(1),
+            attendeeIds: arrayUnion(user.uid),
+          });
+        } catch (err) {
+          console.debug('persistJoin: fallback failed to update trybe doc', err);
+        }
+      }
+
+      const userRef = firestoreDoc(db, 'users', user.uid);
+      try {
+        await updateDoc(userRef, { joinedEvents: arrayUnion(eventId) });
+      } catch (err) {
+        console.debug('persistJoin: failed to update user joinedEvents', err);
+      }
+    } catch (err) {
+      console.debug('persistJoin: unexpected error', err);
     }
   };
 
@@ -914,7 +966,99 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     setChats((prevChats) =>
       prevChats.filter((chat) => chat.eventId !== eventId),
     );
+    // Persist in background
+    void persistLeave(eventId);
   };
+
+  // Persist leave to Firestore when possible
+  const persistLeave = async (eventId: number) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const ev = events.find((e) => String(e.id) === String(eventId) || e.id === eventId);
+      if (ev) {
+        try {
+          const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
+          await updateDoc(trybeRef, {
+            attendees: increment(-1),
+            attendeeIds: arrayRemove(user.uid),
+          });
+        } catch (err) {
+          console.debug('persistLeave: failed to update trybe doc', err);
+        }
+      } else {
+        try {
+          const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
+          await updateDoc(trybeRef, {
+            attendees: increment(-1),
+            attendeeIds: arrayRemove(user.uid),
+          });
+        } catch (err) {
+          console.debug('persistLeave: fallback failed to update trybe doc', err);
+        }
+      }
+
+      const userRef = firestoreDoc(db, 'users', user.uid);
+      try {
+        await updateDoc(userRef, { joinedEvents: arrayRemove(eventId) });
+      } catch (err) {
+        console.debug('persistLeave: failed to update user joinedEvents', err);
+      }
+    } catch (err) {
+      console.debug('persistLeave: unexpected error', err);
+    }
+  };
+
+  // Load user's joinedEvents from Firestore when auth changes
+  useEffect(() => {
+    const unsub = onUserChanged(async (u) => {
+      if (!u) {
+        setJoinedEvents([]);
+        return;
+      }
+
+      try {
+        const userRef = firestoreDoc(db, 'users', u.uid);
+        const snapshot = await getDoc(userRef);
+        if (snapshot.exists()) {
+          const data: any = snapshot.data();
+          if (Array.isArray(data.joinedEvents)) {
+            const joined = data.joinedEvents as Array<string | number>;
+            setJoinedEvents(joined as number[]);
+
+            // Fetch the trybe docs for these joined ids so provider has full data (images, etc.)
+            const fetchedTrybes: any[] = [];
+            for (const id of joined) {
+              try {
+                const td = await getDoc(firestoreDoc(db, 'trybes', String(id)));
+                if (td.exists()) {
+                  const d = { id: td.id, ...(td.data() || {}) };
+                  fetchedTrybes.push(d as any);
+                }
+              } catch (err) {
+                console.debug('Failed to fetch joined trybe doc', id, err);
+              }
+            }
+
+            if (fetchedTrybes.length > 0) {
+              // Normalize and merge at the front so user's joined trybes appear in events
+              const normalized = fetchedTrybes.map((t) => normalizeEvent(t as any));
+              setEvents((prev) => {
+                // Deduplicate by id
+                const existingIds = new Set(prev.map((p) => String(p.id)));
+                const toAdd = normalized.filter((n) => !existingIds.has(String(n.id)));
+                return [...toAdd, ...prev];
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.debug('Failed to load user joinedEvents', err);
+      }
+    });
+
+    return () => unsub();
+  }, []);
 
   const createChatForEvent = (eventId: number) => {
     const event = events.find((e) => e.id === eventId);

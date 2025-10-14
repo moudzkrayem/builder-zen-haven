@@ -32,9 +32,9 @@ export default function ScheduleModal({
 
   if (!isOpen) return null;
 
-  const joinedEventsList = events.filter((event) =>
-    joinedEvents.includes(event.id),
-  );
+  // Normalize comparison to strings so IDs match whether stored as numbers or Firestore string ids
+  const joinedSet = new Set((joinedEvents || []).map((id) => String(id)));
+  const joinedEventsList = events.filter((event) => joinedSet.has(String(event.id)));
 
   const handleCancelEvent = async (eventId: number) => {
     setCancellingEvent(eventId);
@@ -102,7 +102,7 @@ export default function ScheduleModal({
                   <div className="flex items-start space-x-4">
                     {/* Event Image */}
                     <img
-                      src={event.image}
+                      src={(event as any)._resolvedImage || event.image}
                       alt={event.name}
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                     />

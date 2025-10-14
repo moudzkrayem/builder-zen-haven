@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc } from "firebase/firestore";
 import { db, app } from "../firebase"; // ✅ make sure you export db and app in firebase.ts
 import { auth } from "../firebase"; // to get current user
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -133,6 +133,30 @@ export default function CreateTrybeModal({
     // Save in Firestore
     const docRef = await addDoc(collection(db, "trybes"), trybeDataToSave);
     console.log("✅ Trybe created with ID:", docRef.id);
+
+    // Ensure the trybe doc records its own id field for easier matching later
+    try {
+      await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { id: docRef.id });
+    } catch (err) {
+      console.debug('Failed to set id field on created trybe doc', err);
+    }
+
+    // Build a created trybe object to pass to the parent/provider so UI can update immediately
+    const createdTrybe = {
+      id: docRef.id,
+      ...trybeDataToSave,
+      photos: photosToSave,
+      createdAt: new Date().toISOString(),
+    } as any;
+
+    // Call parent's handler if provided so provider can add the trybe locally (helps images show immediately)
+    try {
+      if (typeof onCreateTrybe === 'function') {
+        onCreateTrybe(createdTrybe);
+      }
+    } catch (err) {
+      console.debug('onCreateTrybe handler threw', err);
+    }
 
     // Optionally: Show success alert or toast
     alert("🎉 Trybe created successfully!");
