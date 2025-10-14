@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import React, { useEffect, useState } from "react";
+import { useEvents } from "@/contexts/EventsContext";
+import { onUserChanged } from "@/auth";
 import { Heart, Sparkles, Users, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button as UiButton } from "@/components/ui/button";
@@ -7,11 +9,59 @@ import { Button as UiButton } from "@/components/ui/button";
 export default function Welcome() {
   const navigate = useNavigate();
   const [showSplash, setShowSplash] = useState(true);
+  const { trybesLoaded, events } = useEvents() as any;
+  const [userUid, setUserUid] = useState<string | null>(null);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setShowSplash(false), 6000);
-    return () => clearTimeout(timeout);
+    // Subscribe to auth state so we can detect trybes owned by the signed-in user
+    const unsub = onUserChanged((u) => {
+      setUserUid(u ? u.uid : null);
+    });
+
+    return () => unsub();
   }, []);
+
+  // Minimum visible time for the splash (ms)
+  useEffect(() => {
+    const MIN_VISIBLE = 2000; // ensure splash is visible briefly
+    const fallbackDelay = 8000; // safety fallback
+
+    // Helper to determine if user-created trybes are present
+    const hasUserTrybe = () => {
+      try {
+        if (!events || !Array.isArray(events)) return false;
+        if (userUid) {
+          return events.some((e: any) =>
+            e.createdBy === userUid || e.hostId === userUid || e.host === "You" || e.createdBy === "You"
+          );
+        }
+        return events.some((e: any) => e.host === "You" || e.createdBy === "You");
+      } catch (err) {
+        return false;
+      }
+    };
+
+    const minTimer = setTimeout(() => {
+      // After min visible time, decide where to go
+      if (hasUserTrybe() && userUid) {
+        console.debug("[Welcome] navigating to /home after min visible");
+        navigate("/home");
+      } else {
+        console.debug("[Welcome] showing Get Started after min visible");
+        setShowSplash(false);
+      }
+    }, MIN_VISIBLE);
+
+    const fallback = setTimeout(() => {
+      console.debug("[Welcome] fallback: hiding splash after timeout");
+      setShowSplash(false);
+    }, fallbackDelay);
+
+    return () => {
+      clearTimeout(minTimer);
+      clearTimeout(fallback);
+    };
+  }, [trybesLoaded, events, userUid]);
 
   if (showSplash) {
     return (

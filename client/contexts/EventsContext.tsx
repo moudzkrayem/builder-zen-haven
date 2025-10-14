@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface Event {
   id: number;
@@ -86,6 +88,7 @@ interface FriendRequest {
 
 interface EventsContextType {
   events: Event[];
+  trybesLoaded?: boolean;
   addEvent: (eventData: any) => void;
   updateEvent: (eventId: number, updates: Partial<Event>, notify: boolean) => void;
   joinEvent: (eventId: number) => void;
@@ -609,6 +612,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }
 
   const [events, setEvents] = useState<Event[]>(() => initialEvents.map(normalizeEvent));
+  const [trybesLoaded, setTrybesLoaded] = useState<boolean>(false);
   const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
@@ -711,8 +715,75 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
     const normalized = normalizeEvent(newEvent);
 
-    setEvents((prevEvents) => [normalized, ...prevEvents]);
+    setEvents((prevEvents) => {
+      const next = [normalized, ...prevEvents];
+
+      try {
+        // Persist to local cache with TTL (1 hour)
+        const payload = { ts: Date.now(), items: next };
+        localStorage.setItem('trybes_cache_v1', JSON.stringify(payload));
+      } catch (e) {
+        // ignore localStorage errors
+      }
+
+      return next;
+    });
   };
+
+  // On mount, attempt to read cached trybes and prefetch first images
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('trybes_cache_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // TTL 1 hour
+        if (parsed && parsed.ts && Date.now() - parsed.ts < 1000 * 60 * 60 && Array.isArray(parsed.items)) {
+          setEvents(parsed.items.map((e: Event) => normalizeEvent(e)));
+          // Prefetch first few images to speed up initial paint
+          const toPrefetch = (parsed.items as Event[]).slice(0, 6).map((e) => e.image).filter(Boolean) as string[];
+          toPrefetch.forEach((src) => {
+            try {
+              const img = new Image();
+              img.src = src;
+            } catch (err) {}
+          });
+          setTrybesLoaded(true);
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse/localStorage errors
+    }
+
+    // If no cache or expired, attempt to fetch trybes from Firestore so the app
+    // has real user-created trybes available at startup (avoid splash hiding too early).
+    (async () => {
+      try {
+        const q = collection(db, 'trybes');
+        const snap = await getDocs(q);
+        const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (Array.isArray(rawDocs) && rawDocs.length > 0) {
+          const normalized = rawDocs.map((d: any) => normalizeEvent(d));
+          setEvents(normalized);
+
+          // Prefetch a few images for faster paint
+          const toPrefetch = normalized.slice(0, 6).map((e) => e.image).filter(Boolean) as string[];
+          toPrefetch.forEach((src) => {
+            try {
+              const img = new Image();
+              img.src = src;
+            } catch (err) {}
+          });
+        }
+      } catch (err) {
+        // If fetch fails, we keep initialEvents (no-op)
+        console.debug('EventsProvider: failed to fetch trybes from Firestore at startup', err);
+      } finally {
+        setTrybesLoaded(true);
+      }
+    })();
+  }, []);
 
   const updateEvent = (eventId: number, updates: Partial<Event>, notify: boolean) => {
     setEvents(prev => {
@@ -1153,6 +1224,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     <EventsContext.Provider
       value={{
         events,
+        trybesLoaded,
         addEvent,
         updateEvent,
         joinEvent,

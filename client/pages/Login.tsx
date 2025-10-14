@@ -55,14 +55,24 @@ export default function Login() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      // After Google sign-in, route depending on whether user doc exists
+      // Use Firebase additionalUserInfo to detect newly created accounts.
+  const isNew = (result as any).additionalUserInfo?.isNewUser;
+      const uid = result.user.uid;
+
+      if (isNew) {
+        // Truly new user — send to profile creation
+        navigate('/create-profile');
+        return;
+      }
+
+      // Returning user: ensure they have a users/{uid} doc, otherwise fall back to create-profile
       try {
-        const uid = result.user.uid;
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) navigate('/home');
         else navigate('/create-profile');
       } catch (err) {
         console.error('Error checking user profile after Google sign-in', err);
+        // fallback conservative behavior
         navigate('/create-profile');
       }
     } catch (err: any) {

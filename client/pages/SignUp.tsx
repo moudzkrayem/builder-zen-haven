@@ -59,8 +59,15 @@ export default function SignUp() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      const isNew = (result as any).additionalUserInfo?.isNewUser;
+      const uid = result.user.uid;
+
+      if (isNew) {
+        navigate('/create-profile');
+        return;
+      }
+
       try {
-        const uid = result.user.uid;
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) navigate('/home');
         else navigate('/create-profile');

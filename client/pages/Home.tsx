@@ -68,6 +68,22 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [hasShownAIWelcome, setHasShownAIWelcome] = useState(false);
 
+  // Preload first 2 event images to improve perceived first-paint speed
+  useEffect(() => {
+    try {
+      const imgs = (events || []).slice(0, 2).map((e: any) => (e._resolvedImage || e.image)).filter(Boolean) as string[];
+      imgs.forEach((src) => {
+        try {
+          const link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.href = src;
+          document.head.appendChild(link);
+        } catch (err) {}
+      });
+    } catch (err) {}
+  }, [events]);
+
   const handleCreateTrybe = (trybeData: any) => {
     addEvent(trybeData);
     console.log("New Trybe created:", trybeData);
@@ -473,6 +489,8 @@ export default function Home() {
                           if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
                         }}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                       <div className="absolute top-2 left-2 flex flex-col space-y-1">
                         {trybe.isPopular && (
@@ -925,6 +943,8 @@ export default function Home() {
                           if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
                         }}
                         className="w-12 h-12 rounded-lg object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                       <div className="flex-1">
                         <h3 className="font-semibold text-sm">{trybe.name}</h3>
