@@ -45,19 +45,37 @@ export default function ScheduleModal({
     }, 500);
   };
 
-  const formatEventDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateStr;
+  const formatEventDate = (event: any) => {
+    // Prefer ISO time if available (set by provider.normalizeEvent as ISO string)
+    const tryParse = (value: any) => {
+      if (!value) return null;
+      try {
+        // If this is a Firestore Timestamp, handle toDate
+        if (typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) return d;
+      } catch (err) {}
+      return null;
+    };
+
+    const candidates = [event.time, event.date, event];
+    for (const c of candidates) {
+      const d = tryParse(c);
+      if (d) {
+        return d.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
     }
+
+    // Fallback: return any string-ish value
+    if (event && typeof event === 'string') return event;
+    if (event && event.date) return String(event.date);
+    return '';
   };
 
   return (
@@ -102,8 +120,16 @@ export default function ScheduleModal({
                   <div className="flex items-start space-x-4">
                     {/* Event Image */}
                     <img
-                      src={(event as any)._resolvedImage || event.image}
+                      src={
+                        (event as any)._resolvedImage ||
+                        event.image ||
+                        (event as any).eventImages?.[0] ||
+                        (event as any).photos?.[0] ||
+                        ''
+                      }
                       alt={event.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                     />
 

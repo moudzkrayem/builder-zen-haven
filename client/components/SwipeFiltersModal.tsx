@@ -12,23 +12,9 @@ interface SwipeFiltersModalProps {
   onClose: () => void;
 }
 
-const availableInterests = [
-  "Food & Drink",
-  "Fitness",
-  "Professional",
-  "Arts & Culture",
-  "Outdoors",
-  "Tech",
-  "Music",
-  "Sports",
-  "Travel",
-  "Education",
-  "Gaming",
-  "Photography",
-  "Books",
-  "Fashion",
-  "Wellness",
-];
+import { CATEGORIES } from '@/config/categories';
+
+const availableInterests = CATEGORIES.map(c => c.label).filter(l => l !== 'All');
 
 const activityTypes = [
   { name: "Free Events", icon: Heart },

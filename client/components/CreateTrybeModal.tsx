@@ -23,6 +23,7 @@ import {
   Clock,
   Repeat,
 } from "lucide-react";
+import { CATEGORIES } from '@/config/categories';
 
 interface CreateTrybeModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export default function CreateTrybeModal({
     ageRange: [18, 65],
     repeatOption: "none",
     isPremium: false,
-    category:"",
+    category: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,6 +126,8 @@ export default function CreateTrybeModal({
       photos: photosToSave,
       createdBy: user.uid,
       createdAt: serverTimestamp(),
+      createdByName: (user.displayName) || undefined,
+      createdByImage: (user.photoURL) || undefined,
     };
 
     // Debug: show what will be saved (helps diagnose Firestore errors)
@@ -147,6 +150,8 @@ export default function CreateTrybeModal({
       ...trybeDataToSave,
       photos: photosToSave,
       createdAt: new Date().toISOString(),
+      createdByName: trybeDataToSave.createdByName,
+      createdByImage: trybeDataToSave.createdByImage,
     } as any;
 
     // Call parent's handler if provided so provider can add the trybe locally (helps images show immediately)
@@ -247,17 +252,10 @@ export default function CreateTrybeModal({
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Enhanced privacy controls and settings</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Curated high-quality member community</span>
-                  </div>
-                </div>
-                <div className="mt-4 p-3 bg-card rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Premium Cost:</span>
-                    <span className="text-lg font-bold text-primary">$9.99</span>
+                    <option value="">Select a category</option>
+                    {CATEGORIES.filter(c => c.id !== 'all').map(c => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     One-time fee for this event

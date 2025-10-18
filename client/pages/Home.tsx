@@ -30,15 +30,9 @@ import {
   Share,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import EventsDebugOverlay from '@/components/EventsDebugOverlay';
+import { CATEGORIES, CATEGORY_BY_ID } from '@/config/categories';
 // Local state to hold Trybes fetched from Firestore will be created inside the Home component
-const categories = [
-  { name: "All", color: "bg-primary" },
-  { name: "Food & Drink", color: "bg-orange-500" },
-  { name: "Fitness", color: "bg-green-500" },
-  { name: "Professional", color: "bg-blue-500" },
-  { name: "Arts & Culture", color: "bg-purple-500" },
-  { name: "Outdoors", color: "bg-emerald-500" },
-];
 
 const defaultTrendingSearches = [
   "Coffee meetups",
@@ -53,7 +47,7 @@ export default function Home() {
   const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [firestoreTrybes, setFirestoreTrybes] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [showSimilar, setShowSimilar] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -72,13 +66,11 @@ export default function Home() {
   useEffect(() => {
     try {
       const imgs = (events || []).slice(0, 2).map((e: any) => (e._resolvedImage || e.image)).filter(Boolean) as string[];
+      // Use Image() preloads (low-risk) instead of link rel=preload to avoid "preloaded but not used" warnings
       imgs.forEach((src) => {
         try {
-          const link = document.createElement('link');
-          link.rel = 'preload';
-          link.as = 'image';
-          link.href = src;
-          document.head.appendChild(link);
+          const img = new Image();
+          img.src = src;
         } catch (err) {}
       });
     } catch (err) {}
@@ -163,33 +155,47 @@ export default function Home() {
   // Filter and sort events based on user interests
   const getPersonalizedEvents = () => {
     if (!userProfile) return events;
-
-    const userInterests = [
+    // Build a robust set of user interest tokens and phrases
+    const rawUserInterests = [
       ...(userProfile.thingsYouDoGreat || []),
       ...(userProfile.thingsYouWantToTry || [])
-    ].map(interest => interest.toLowerCase());
+    ].map((s: any) => (s || '').toString().trim()).filter(Boolean);
 
-    // Score events based on interest match
+    const userInterests: string[] = [];
+    rawUserInterests.forEach(u => {
+      const lower = u.toLowerCase();
+      userInterests.push(lower);
+      // also add simple tokens to increase match chance (split on non-word)
+      lower.split(/[^a-z0-9]+/).filter(Boolean).forEach(tok => userInterests.push(tok));
+    });
+
+    // Score events based on richer matching across interests, category label, name and description
     const scoredEvents = events.map(event => {
       let score = 0;
-      const eventInterests = (event.interests || []).map(i => i.toLowerCase());
-      const eventCategory = event.category.toLowerCase();
 
-      // Check for direct interest matches
-      eventInterests.forEach(eventInterest => {
-        userInterests.forEach(userInterest => {
-          if (eventInterest.includes(userInterest) || userInterest.includes(eventInterest)) {
-            score += 2;
-          }
-        });
-      });
+      // Gather candidate strings from the event
+      const eventInterests = ((event.interests || []) as string[]).map(i => (i || '').toString().toLowerCase());
+      const categoryLabel = (CATEGORY_BY_ID[(event.category || '')]?.label || '').toString().toLowerCase();
+      const title = (event.eventName || event.name || '').toString().toLowerCase();
+      const desc = (event.description || '').toString().toLowerCase();
 
-      // Check category matches
-      userInterests.forEach(userInterest => {
-        if (eventCategory.includes(userInterest) || userInterest.includes(eventCategory)) {
-          score += 1;
+      // Direct phrase matches (strong)
+      userInterests.forEach(ui => {
+        if (eventInterests.some(ei => ei === ui) || title.includes(ui) || desc.includes(ui) || categoryLabel === ui) {
+          score += 3;
         }
       });
+
+      // Partial/token matches (weaker)
+      userInterests.forEach(ui => {
+        if (eventInterests.some(ei => ei.includes(ui) || ui.includes(ei))) score += 2;
+        if (title.includes(ui) || desc.includes(ui)) score += 1;
+        if (categoryLabel.includes(ui) || ui.includes(categoryLabel)) score += 1;
+      });
+
+      // Bonus if category id matches exactly one of user's interests tokens
+      const catId = (event.category || '').toString().toLowerCase();
+      if (userInterests.includes(catId)) score += 2;
 
       return { ...event, personalityScore: score };
     });
@@ -198,8 +204,21 @@ export default function Home() {
     return scoredEvents.sort((a, b) => b.personalityScore - a.personalityScore);
   };
 
+  // Helper to check category match (selectedCategory 'all' means match all)
+  const categoryMatches = (eventCategoryId?: string) => {
+    if (!selectedCategory || selectedCategory === 'all') return true;
+    return (eventCategoryId || '').toString() === selectedCategory;
+  };
+
   // Use personalized events instead of all events, but exclude joined events so scheduled items move to My Schedule
-  const featuredTrybes = getPersonalizedEvents().filter(e => !joinedEvents.includes(e.id));
+  const featuredTrybes = getPersonalizedEvents().filter(e => !joinedEvents.includes(e.id) && categoryMatches(e.category));
+
+  // Personalized matches with positive score only (used for the "Similar events" section)
+  const personalizedMatches = getPersonalizedEvents()
+    .filter(e => (e.personalityScore || 0) > 0)
+    .filter(e => !joinedEvents.includes(e.id) && categoryMatches(e.category));
+
+  
 
   // If we have firestoreTrybes available, map them to the Event shape
   const mappedFirestoreTrybes = firestoreTrybes.map((doc) => {
@@ -207,15 +226,56 @@ export default function Home() {
     // TrybeData fields: eventName, location, time, duration, description, maxCapacity, fee, photos, ageRange, repeatOption, isPremium, category
     const data = doc;
     const id = doc.id || Date.now();
-    const image = (data.photos && data.photos.length > 0) ? data.photos[0] : undefined;
+    const image = (data._resolvedImage as string) || (data.photos && data.photos.length > 0 ? data.photos[0] : undefined) || data.image;
+
+    // Ensure date string is safe
+    let dateStr = '';
+    try {
+      if (data.time) {
+        const d = typeof data.time === 'object' && typeof data.time.toDate === 'function' ? data.time.toDate() : new Date(data.time);
+        if (!isNaN(d.getTime())) dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      }
+      if (!dateStr) dateStr = data.date || '';
+    } catch (err) {
+      dateStr = data.date || '';
+    }
+
+    // Normalize category to canonical id
+    let normalizedCategory = 'social';
+    try {
+      const rawCat = (data.category || '').toString();
+      if (!rawCat) {
+        normalizedCategory = 'social';
+      } else {
+        // Try direct id match first
+        if (CATEGORY_BY_ID[rawCat]) normalizedCategory = rawCat;
+        else {
+          // Try to match by label (case-insensitive)
+          const match = Object.values(CATEGORY_BY_ID).find(c => c.label.toLowerCase() === rawCat.toLowerCase());
+          if (match) normalizedCategory = match.id;
+          else {
+            // Last resort: map common legacy labels
+            const legacy = rawCat.toLowerCase();
+            if (legacy.includes('food')) normalizedCategory = 'culinary';
+            else if (legacy.includes('fitness') || legacy.includes('sport')) normalizedCategory = 'sports';
+            else if (legacy.includes('tech')) normalizedCategory = 'tech';
+            else if (legacy.includes('art') || legacy.includes('creative')) normalizedCategory = 'creative';
+            else if (legacy.includes('outdoor')) normalizedCategory = 'outdoor';
+            else normalizedCategory = 'social';
+          }
+        }
+      }
+    } catch (err) {
+      normalizedCategory = 'social';
+    }
 
     return {
       id,
       name: data.eventName || data.name || "Untitled Trybe",
       eventName: data.eventName || data.name || "Untitled Trybe",
-      hostName: data.hostName || data.createdBy || "Unknown",
+  hostName: data.createdByName || data.hostName || data.createdBy || "Unknown",
       location: data.location || "",
-      date: data.time ? new Date(data.time).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : data.date || "",
+      date: dateStr,
       time: data.time,
       duration: data.duration,
   attendees: typeof data.attendees === 'number' ? data.attendees : Number(data.attendees) || 1,
@@ -223,8 +283,8 @@ export default function Home() {
   fee: data.fee ?? "Free",
   image: (data._resolvedImage as string) || image || data.image || undefined,
       eventImages: data.photos || data.eventImages || [],
-      hostImage: data.hostImage || undefined,
-      category: data.category || (data.category === '' ? 'Social' : data.category),
+  hostImage: data.createdByImage || data.hostImage || undefined,
+  category: normalizedCategory,
       isPopular: Boolean(data.isPopular),
       host: data.host || data.createdBy || "",
       rating: data.rating ?? 5,
@@ -264,6 +324,23 @@ export default function Home() {
   };
 
   const trendingSearches = getTrendingSearches();
+
+  // Derive displayed trybes (Firestore-backed results preferred; otherwise featured list)
+  const displayedTrybes = (mappedFirestoreTrybes && mappedFirestoreTrybes.length > 0 ? mappedFirestoreTrybes : featuredTrybes)
+    .filter((t: any) => {
+      // Category filter
+      if (!categoryMatches(t.category)) return false;
+      // Search filter (simple name search)
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const q = searchQuery.trim().toLowerCase();
+        const name = (t.eventName || t.name || '').toString().toLowerCase();
+        const loc = (t.location || '').toString().toLowerCase();
+        return name.includes(q) || loc.includes(q);
+      }
+      return true;
+    });
+
+  const finalDisplayedTrybes = displayedTrybes;
 
   // Fetch trybes from Firestore on mount
   useEffect(() => {
@@ -330,6 +407,7 @@ export default function Home() {
 
   return (
     <>
+      {localStorage.getItem('showDebugEvents') === '1' && <EventsDebugOverlay />}
       {showMap && <Map onClose={() => setShowMap(false)} />}
       <div className="h-full bg-background overflow-y-auto">
         {/* Header with T logo */}
@@ -397,21 +475,21 @@ export default function Home() {
 
           {/* Categories */}
           <div className="flex space-x-2 overflow-x-auto hide-scrollbar">
-            {categories.map((category) => {
-              const isSelected = selectedCategory === category.name;
+            {CATEGORIES.map((category) => {
+              const isSelected = selectedCategory === category.id;
 
               return (
                 <Button
-                  key={category.name}
+                  key={category.id}
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
                   className={cn(
                     "flex-shrink-0 rounded-full h-9 px-4",
                     isSelected && "bg-primary text-primary-foreground",
                   )}
-                  onClick={() => setSelectedCategory(category.name)}
+                  onClick={() => setSelectedCategory(category.id)}
                 >
-                  {category.name}
+                  {category.label}
                 </Button>
               );
             })}
@@ -461,13 +539,15 @@ export default function Home() {
                   </p>
                 )}
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setShowSimilar(true)}>
-                See All
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowSimilar(true)}>
+                  See All
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-4">
-              {(mappedFirestoreTrybes && mappedFirestoreTrybes.length > 0 ? mappedFirestoreTrybes : featuredTrybes).map((trybe) => (
+              {finalDisplayedTrybes.map((trybe) => (
                 <div
                   key={trybe.id}
                   onClick={() => handleEventClick(trybe.id)}
@@ -647,7 +727,7 @@ export default function Home() {
                   Based on your interests
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {featuredTrybes.slice(0, 4).map((trybe) => (
+                  {displayedTrybes.slice(0, 4).map((trybe) => (
                     <button
                       key={`similar-${trybe.id}`}
                       onClick={() => handleEventClick(trybe.id)}
@@ -793,7 +873,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {featuredTrybes.slice(0, 4).map((trybe) => (
+              {displayedTrybes.slice(0, 4).map((trybe) => (
                 <div
                   key={`nearby-${trybe.id}`}
                   onClick={() => handleEventClick(trybe.id)}
@@ -927,7 +1007,7 @@ export default function Home() {
             <div className="mb-6">
               <h2 className="text-lg font-semibold mb-4">My Schedule</h2>
               <div className="space-y-3">
-                {featuredTrybes
+                {displayedTrybes
                   .filter((trybe) => joinedEvents.includes(trybe.id))
                   .map((trybe) => (
                     <button
@@ -963,7 +1043,7 @@ export default function Home() {
 
 
           {/* Empty state */}
-          {searchQuery && featuredTrybes.length === 0 && (
+          {searchQuery && displayedTrybes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <Search className="w-8 h-8 text-muted-foreground" />

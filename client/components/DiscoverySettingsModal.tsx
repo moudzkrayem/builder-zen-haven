@@ -11,10 +11,9 @@ interface DiscoverySettingsModalProps {
   onClose: () => void;
 }
 
-const interests = [
-  "Food & Drink", "Fitness", "Professional", "Arts & Culture", "Outdoors",
-  "Tech", "Music", "Sports", "Travel", "Education", "Gaming", "Photography"
-];
+import { CATEGORIES } from '@/config/categories';
+
+const interests = CATEGORIES.map(c => c.label).filter(l => l !== 'All');
 
 const showMeOptions = [
   { value: "everyone", label: "Everyone" },

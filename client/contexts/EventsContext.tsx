@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, app } from "../firebase";
+import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { onUserChanged, auth } from "@/auth";
 
 interface Event {
@@ -605,19 +606,81 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     "default": "https://images.unsplash.com/photo-1523206489230-fed1a3dfc9e0?w=800&q=80&auto=format&fit=crop",
   };
 
-  function normalizeEvent(ev: Event): Event {
-    // Prefer explicit image, then first eventImages entry, then default by category
-    const imgCandidate = ev.image && String(ev.image).trim()
-      ? String(ev.image)
-      : (ev.eventImages && ev.eventImages.length ? String(ev.eventImages[0]) : undefined);
+  function normalizeEvent(ev: any): Event {
+    // Parse time which may be a Firestore Timestamp, ISO string or number
+    let dateObj: Date | null = null;
+    try {
+      const t = ev.time;
+      if (t) {
+        if (typeof t === 'object' && typeof t.toDate === 'function') {
+          dateObj = t.toDate();
+        } else if (typeof t === 'string' || typeof t === 'number') {
+          const parsed = new Date(t as any);
+          if (!isNaN(parsed.getTime())) dateObj = parsed;
+        }
+      }
+    } catch (err) {
+      dateObj = null;
+    }
+
+    const dateStr = dateObj
+      ? dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : (ev.date || '');
+
+    const timeStr = dateObj ? dateObj.toISOString() : ev.time;
+
+    // Prefer explicit resolved image, then explicit image, then first eventImages entry, then default by category
+    const imgCandidate = (ev._resolvedImage && String(ev._resolvedImage).trim())
+      ? String(ev._resolvedImage)
+      : (ev.image && String(ev.image).trim()
+        ? String(ev.image)
+        : (ev.eventImages && ev.eventImages.length ? String(ev.eventImages[0]) : undefined));
+
     const img = imgCandidate || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
     const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
-    const hostImage = ev.hostImage && ev.hostImage.trim() ? ev.hostImage : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop";
+  // Prefer explicit creator fields if present
+  const hostName = ev.createdByName || ev.hostName || ev.host || 'You';
+  const hostImage = (ev.createdByImage && String(ev.createdByImage).trim()) ? String(ev.createdByImage) : (ev.hostImage && String(ev.hostImage).trim() ? String(ev.hostImage) : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop");
     // Ensure numeric fields are numbers and have sensible defaults
-    const attendees = typeof (ev as any).attendees === 'number' ? (ev as any).attendees : Number((ev as any).attendees) || 1;
-    const maxCapacity = typeof (ev as any).maxCapacity === 'number' ? (ev as any).maxCapacity : Number((ev as any).maxCapacity) || 10;
+    const attendees = typeof ev.attendees === 'number' ? ev.attendees : Number(ev.attendees) || 1;
+    const maxCapacity = typeof ev.maxCapacity === 'number' ? ev.maxCapacity : Number(ev.maxCapacity) || 10;
 
-    return { ...ev, image: img, eventImages, hostImage, attendees, maxCapacity };
+    return { ...ev, image: img, eventImages, hostImage, hostName, attendees, maxCapacity, date: dateStr, time: timeStr } as Event;
+  }
+
+  // Resolve Storage references (gs://, storage paths) into public download URLs and patch events state
+  async function resolveStorageImages(trybeDocs: any[]) {
+    try {
+      const storage = getStorage(app);
+      for (const doc of trybeDocs) {
+        const candidate = (doc._resolvedImage) || (Array.isArray(doc.photos) && doc.photos.length ? doc.photos[0] : doc.image);
+        if (!candidate) continue;
+        if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
+          // already usable
+          continue;
+        }
+
+        let refPath = String(candidate);
+        if (refPath.startsWith('gs://')) {
+          const parts = refPath.replace('gs://', '').split('/');
+          // If bucket included, remove it
+          if (parts.length > 1) parts.shift();
+          refPath = parts.join('/');
+        }
+
+        try {
+          const ref = storageRef(storage, refPath);
+          const url = await getDownloadURL(ref);
+          // Patch the event in the provider state so UIs render immediately
+          setEvents((prev) => (prev || []).map((p: any) => (String(p.id) === String(doc.id) ? { ...p, _resolvedImage: url, image: url } : p)));
+          console.debug('EventsContext: resolved storage image for', doc.id, url);
+        } catch (err) {
+          console.debug('EventsContext: failed to resolve storage image for', doc.id, candidate, err);
+        }
+      }
+    } catch (err) {
+      console.debug('EventsContext: resolveStorageImages unexpected error', err);
+    }
   }
 
   const [events, setEvents] = useState<Event[]>(() => initialEvents.map(normalizeEvent));
@@ -678,12 +741,40 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }
 
   const addEvent = (eventData: any) => {
-    const newEvent: Event = {
+    // Determine host info: prefer eventData.createdBy (uid) -> fetch user profile, else use auth.currentUser
+    const determineHostInfo = async () => {
+      try {
+        const uid = eventData.createdBy || auth.currentUser?.uid;
+        if (uid) {
+          try {
+            const ud = await getDoc(firestoreDoc(db, 'users', String(uid)));
+            if (ud.exists()) {
+              const udv: any = ud.data();
+              return { name: (udv.firstName || udv.displayName || udv.name || 'You') + (udv.lastName ? ` ${udv.lastName}` : ''), image: udv.avatar || udv.photoURL || udv.profilePicture || undefined };
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      } catch (err) {}
+      // Fallback to auth.currentUser
+      const au = auth.currentUser as any | null;
+      if (au) return { name: au.displayName || au.email || 'You', image: au.photoURL || undefined };
+      return { name: 'You', image: undefined };
+    };
+
+    // Build event after resolving host info
+    (async () => {
+      const hostInfo = await determineHostInfo();
+
+      const newEvent: Event = {
       id: eventData.id ?? Date.now(), // Allow caller to provide id, fallback to timestamp
       name: eventData.eventName,
       eventName: eventData.eventName,
-      hostName: "You", // Current user as host
+      hostName: hostInfo?.name || 'You',
       hostAge: 25, // Default age
+      hostImage: hostInfo?.image || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+      host: eventData.createdBy || auth.currentUser?.uid || 'you',
       location: eventData.location,
       date: new Date(eventData.time).toLocaleDateString("en-US", {
         weekday: "short",
@@ -707,11 +798,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop",
               "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop",
             ],
-      hostImage:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
       category: eventData.category || "Social", // Default category
       isPopular: false,
-      host: "You",
       rating: 5.0,
       interests: eventData.interests || ["New Event"],
       description: eventData.description && eventData.description.trim().length > 0
@@ -721,22 +809,26 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       ageRange: eventData.ageRange,
       repeatOption: eventData.repeatOption,
     };
+      // Apply host info
+      newEvent.hostName = hostInfo.name;
+      newEvent.hostImage = hostInfo.image || newEvent.hostImage;
 
-    const normalized = normalizeEvent(newEvent);
+      const normalized = normalizeEvent(newEvent);
 
-    setEvents((prevEvents) => {
-      const next = [normalized, ...prevEvents];
+      setEvents((prevEvents) => {
+        const next = [normalized, ...prevEvents];
 
-      try {
-        // Persist to local cache with TTL (1 hour)
-        const payload = { ts: Date.now(), items: next };
-        localStorage.setItem('trybes_cache_v1', JSON.stringify(payload));
-      } catch (e) {
-        // ignore localStorage errors
-      }
+        try {
+          // Persist to local cache with TTL (1 hour)
+          const payload = { ts: Date.now(), items: next };
+          localStorage.setItem('trybes_cache_v1', JSON.stringify(payload));
+        } catch (e) {
+          // ignore localStorage errors
+        }
 
-      return next;
-    });
+        return next;
+      });
+    })();
   };
 
   // On mount, attempt to read cached trybes and prefetch first images
@@ -771,10 +863,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         const q = collection(db, 'trybes');
         const snap = await getDocs(q);
         const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
         if (Array.isArray(rawDocs) && rawDocs.length > 0) {
+          // Add raw docs into provider (normalized) so UI can render quickly
           const normalized = rawDocs.map((d: any) => normalizeEvent(d));
           setEvents(normalized);
+
+          // Attempt to resolve any storage references to download URLs and patch provider state
+          void resolveStorageImages(rawDocs as any[]);
 
           // Prefetch a few images for faster paint
           const toPrefetch = normalized.slice(0, 6).map((e) => e.image).filter(Boolean) as string[];
@@ -896,11 +991,60 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       // Update attendee count
       setEvents((prevEvents) =>
         prevEvents.map((event) =>
-          event.id === eventId
+          String(event.id) === String(eventId)
             ? { ...event, attendees: event.attendees + 1 }
             : event,
         ),
       );
+
+      // If the joined event isn't present in provider.events (e.g., user joined from a link), fetch it
+      const exists = events.some((e) => String(e.id) === String(eventId));
+      if (!exists) {
+        (async () => {
+          try {
+            const td = await getDoc(firestoreDoc(db, 'trybes', String(eventId)));
+            if (td.exists()) {
+              const d = { id: td.id, ...(td.data() || {}) } as any;
+              // Try to resolve the primary photo synchronously so schedule shows image immediately
+              try {
+                const candidate = (d._resolvedImage) || (Array.isArray(d.photos) && d.photos.length ? d.photos[0] : d.image);
+                if (candidate && typeof candidate === 'string' && !candidate.startsWith('http') && !candidate.startsWith('data:') && !candidate.startsWith('/')) {
+                  let refPath = String(candidate);
+                  if (refPath.startsWith('gs://')) {
+                    const parts = refPath.replace('gs://', '').split('/');
+                    if (parts.length > 1) parts.shift();
+                    refPath = parts.join('/');
+                  }
+                  try {
+                    const storage = getStorage(app);
+                    const url = await getDownloadURL(storageRef(storage, refPath));
+                    d._resolvedImage = url;
+                    d.image = url;
+                    console.debug('joinEvent: resolved image synchronously for', d.id, url);
+                  } catch (err) {
+                    console.debug('joinEvent: failed to resolve image synchronously', d.id, err);
+                  }
+                }
+              } catch (err) {
+                console.debug('joinEvent: unexpected error resolving image', err);
+              }
+
+              const normalized = normalizeEvent(d);
+              // Add to provider events (dedupe)
+              setEvents((prev) => {
+                const existingIds = new Set(prev.map((p) => String(p.id)));
+                if (existingIds.has(String(normalized.id))) return prev;
+                return [ { ...normalized, attendees: (normalized.attendees || 0) + 1 }, ...prev ];
+              });
+
+              // Also run background resolver for any remaining refs
+              void resolveStorageImages([d]);
+            }
+          } catch (err) {
+            console.debug('joinEvent: failed to fetch trybe after join', eventId, err);
+          }
+        })();
+      }
 
       // Create or update group chat for the event
       createChatForEvent(eventId);
@@ -941,7 +1085,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       const userRef = firestoreDoc(db, 'users', user.uid);
       try {
-        await updateDoc(userRef, { joinedEvents: arrayUnion(eventId) });
+        await updateDoc(userRef, { joinedEvents: arrayUnion(String(eventId)) });
       } catch (err) {
         console.debug('persistJoin: failed to update user joinedEvents', err);
       }
@@ -1000,7 +1144,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       const userRef = firestoreDoc(db, 'users', user.uid);
       try {
-        await updateDoc(userRef, { joinedEvents: arrayRemove(eventId) });
+        await updateDoc(userRef, { joinedEvents: arrayRemove(String(eventId)) });
       } catch (err) {
         console.debug('persistLeave: failed to update user joinedEvents', err);
       }
@@ -1049,6 +1193,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
                 const toAdd = normalized.filter((n) => !existingIds.has(String(n.id)));
                 return [...toAdd, ...prev];
               });
+              // Resolve storage images for the fetched joined trybes so schedule thumbnails show
+              void resolveStorageImages(fetchedTrybes as any[]);
             }
           }
         }
