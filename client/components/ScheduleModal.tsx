@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
@@ -29,12 +30,57 @@ export default function ScheduleModal({
 }: ScheduleModalProps) {
   const { events, joinedEvents, leaveEvent } = useEvents();
   const [cancellingEvent, setCancellingEvent] = useState<number | null>(null);
+  // Map of resolved images for joined events to avoid re-resolving repeatedly
+  const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({});
+
+  // Resolve storage-based paths to download URLs for each joined event image
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const joinedSetLocal = new Set((joinedEvents || []).map((id) => String(id)));
+        const joinedEventsListLocal = events.filter((event) => joinedSetLocal.has(String(event.id)));
+        const toResolve = joinedEventsListLocal.map((e) => ({ id: String(e.id), src: (e as any)._resolvedImage || e.image || (e as any).eventImages?.[0] || (e as any).photos?.[0] }));
+        const storage = getStorage();
+        for (const item of toResolve) {
+          if (!mounted) break;
+          if (!item.src) continue;
+          if (item.src.startsWith('http')) {
+            setResolvedImages(prev => ({ ...prev, [item.id]: item.src }));
+            continue;
+          }
+
+          let path = String(item.src);
+          const match = path.match(/\/o\/(.*?)\?/);
+          if (match && match[1]) path = decodeURIComponent(match[1]);
+          if (path.startsWith('gs://')) {
+            path = path.replace('gs://', '');
+            const parts = path.split('/');
+            if (parts.length > 1) parts.shift();
+            path = parts.join('/');
+          }
+
+          try {
+            const url = await getDownloadURL(storageRef(storage, path));
+            if (!mounted) break;
+            setResolvedImages(prev => ({ ...prev, [item.id]: url }));
+          } catch (err) {
+            console.debug('ScheduleModal: failed to resolve image for', item.id, err);
+          }
+        }
+      } catch (err) {
+        console.debug('ScheduleModal: unexpected error resolving images', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [events, joinedEvents]);
 
   if (!isOpen) return null;
 
   // Normalize comparison to strings so IDs match whether stored as numbers or Firestore string ids
   const joinedSet = new Set((joinedEvents || []).map((id) => String(id)));
   const joinedEventsList = events.filter((event) => joinedSet.has(String(event.id)));
+ 
 
   const handleCancelEvent = async (eventId: number) => {
     setCancellingEvent(eventId);
@@ -110,7 +156,7 @@ export default function ScheduleModal({
               {joinedEventsList.map((event) => (
                 <div
                   key={event.id}
-                  onClick={() => onEventClick?.(event.id)}
+                  onClick={() => onEventClick?.(Number(event.id))}
                   className={cn(
                     "bg-muted/30 rounded-2xl p-4 border border-border transition-all duration-300 hover:bg-muted/50 cursor-pointer",
                     cancellingEvent === event.id &&
@@ -120,17 +166,12 @@ export default function ScheduleModal({
                   <div className="flex items-start space-x-4">
                     {/* Event Image */}
                     <img
-                      src={
-                        (event as any)._resolvedImage ||
-                        event.image ||
-                        (event as any).eventImages?.[0] ||
-                        (event as any).photos?.[0] ||
-                        ''
-                      }
+                      src={resolvedImages[String(event.id)] || (event as any)._resolvedImage || event.image || (event as any).eventImages?.[0] || (event as any).photos?.[0] || '/placeholder.svg'}
                       alt={event.name}
                       loading="lazy"
                       decoding="async"
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
                     />
 
                     {/* Event Details */}
@@ -178,10 +219,10 @@ export default function ScheduleModal({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={(e) => {
+                        onClick={(e) => {
                         e.stopPropagation();
                         onOpenChat(
-                          event.id,
+                          Number(event.id),
                           event.hostName || event.host || "Host",
                         );
                       }}
@@ -204,9 +245,9 @@ export default function ScheduleModal({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => {
+                          onClick={(e) => {
                           e.stopPropagation();
-                          handleCancelEvent(event.id);
+                          handleCancelEvent(Number(event.id));
                         }}
                         disabled={cancellingEvent === event.id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"

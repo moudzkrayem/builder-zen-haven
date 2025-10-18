@@ -13,13 +13,13 @@ export default function Chats() {
   const { chats } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [showChatModal, setShowChatModal] = useState(false);
-  const [activeChatId, setActiveChatId] = useState<number | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | number | null>(null);
 
   const filteredChats = chats.filter((chat) =>
     chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const handleOpenChat = (chatId: number) => {
+  const handleOpenChat = (chatId: string | number) => {
     setActiveChatId(chatId);
     setShowChatModal(true);
   };

@@ -1,11 +1,11 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc } from "firebase/firestore";
+import { createContext, useContext, useState, ReactNode, useEffect, useRef } from "react";
+import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc, setDoc, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { onUserChanged, auth } from "@/auth";
 
 interface Event {
-  id: number;
+  id: string | number;
   name: string;
   eventName?: string; // For new events
   hostName?: string; // For swipe format
@@ -32,8 +32,8 @@ interface Event {
 }
 
 interface Chat {
-  id: number;
-  eventId: number;
+  id: string | number;
+  eventId: string | number;
   eventName: string;
   eventImage: string;
   participants: number;
@@ -44,12 +44,15 @@ interface Chat {
 }
 
 interface Message {
-  id: number;
+  id: string | number;
   senderId: string;
   senderName: string;
+  senderImage?: string;
   content: string;
+  attachmentUrl?: string | null;
   timestamp: string;
   isCurrentUser: boolean;
+  clientId?: string;
 }
 
 interface UserRating {
@@ -97,7 +100,7 @@ interface EventsContextType {
   leaveEvent: (eventId: number) => void;
   joinedEvents: number[];
   chats: Chat[];
-  addMessage: (chatId: number, content: string) => void;
+  addMessage: (chatId: string | number, content: string, attachmentUrl?: string | null) => void;
   createChatForEvent: (eventId: number) => void;
   userRatings: UserRating[];
   hostRatings: HostRating[];
@@ -683,7 +686,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const [events, setEvents] = useState<Event[]>(() => initialEvents.map(normalizeEvent));
+  // Start with an empty list so the UI doesn't flash seeded placeholder events.
+  // Real trybes will be loaded from cache or Firestore in the startup effect below.
+  const [events, setEvents] = useState<Event[]>([]);
   const [trybesLoaded, setTrybesLoaded] = useState<boolean>(false);
   const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -704,16 +709,20 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   const [friends, setFriends] = useState<FriendEntry[]>([]);
 
+  // Keep track of realtime listeners for chats so we can unsubscribe when leaving
+  const chatListenersRef = useRef<Record<string, () => void>>({});
+
   function sampleJoinedEvents(): number[] {
     // pick up to 3 random upcoming events
-    const ids = events.map(e => e.id);
-    const sample: number[] = [];
+    const ids: Array<string | number> = events.map(e => e.id);
+    const sample: Array<string | number> = [];
     const count = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1));
     for (let i = 0; i < count; i++) {
       const id = ids[Math.floor(Math.random() * ids.length)];
       if (!sample.includes(id)) sample.push(id);
     }
-    return sample;
+    // Return numbers where possible to keep original contract
+    return sample.map(s => (typeof s === 'number' ? s : (isNaN(Number(s)) ? s : Number(s)))) as any;
   }
 
   function addFriendRelation(userA: { id: string; name?: string; image?: string }, userB: { id: string; name?: string; image?: string }) {
@@ -750,7 +759,29 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             const ud = await getDoc(firestoreDoc(db, 'users', String(uid)));
             if (ud.exists()) {
               const udv: any = ud.data();
-              return { name: (udv.firstName || udv.displayName || udv.name || 'You') + (udv.lastName ? ` ${udv.lastName}` : ''), image: udv.avatar || udv.photoURL || udv.profilePicture || undefined };
+              // If the stored avatar/profile picture is a Storage path (gs:// or path), try to resolve it to a download URL
+              let imageUrl = udv.avatar || udv.photoURL || udv.profilePicture || undefined;
+              try {
+                if (imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:') && !imageUrl.startsWith('/')) {
+                  const storage = getStorage(app);
+                  let refPath = String(imageUrl);
+                  if (refPath.startsWith('gs://')) {
+                    const parts = refPath.replace('gs://', '').split('/');
+                    if (parts.length > 1) parts.shift();
+                    refPath = parts.join('/');
+                  }
+                  try {
+                    imageUrl = await getDownloadURL(storageRef(storage, refPath));
+                  } catch (err) {
+                    // leave imageUrl as-is (may be invalid) and continue
+                    console.debug('determineHostInfo: failed to resolve user avatar from storage', refPath, err);
+                  }
+                }
+              } catch (err) {
+                console.debug('determineHostInfo: unexpected error resolving avatar', err);
+              }
+
+              return { name: (udv.firstName || udv.displayName || udv.name || 'You') + (udv.lastName ? ` ${udv.lastName}` : ''), image: imageUrl };
             }
           } catch (e) {
             // ignore
@@ -828,6 +859,46 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
         return next;
       });
+      // Mark creator as joined locally so UI reflects correct participant counts
+      try {
+        const uid = auth.currentUser?.uid;
+        if (uid) setJoinedEvents((prev) => {
+          if (prev.map(String).includes(String(normalized.id))) return prev;
+          return [...prev, normalized.id as any];
+        });
+      } catch (e) {}
+      // Ensure a chat exists for newly created trybe so creator sees it in Chats
+      try {
+        setTimeout(() => {
+          try {
+            // createChatForEvent is defined later; schedule to avoid temporal ordering issues
+            // create persistent chat doc and subscribe creator
+            // @ts-ignore
+            if (typeof createChatForEvent === 'function') createChatForEvent(newEvent.id);
+            // Also create persistent Firestore chat doc for this trybe so it exists for participants
+            (async () => {
+              try {
+                const uid = auth.currentUser?.uid || String(newEvent.host || '');
+                const chatRef = firestoreDoc(db, 'chats', `trybe-${String(newEvent.id)}`);
+                const payload: any = {
+                  eventId: String(newEvent.id),
+                  eventName: newEvent.eventName || newEvent.name || '',
+                  createdAt: serverTimestamp(),
+                };
+                if (uid) payload.participantsMap = { [uid]: true };
+                await setDoc(chatRef, payload, { merge: true });
+              } catch (err) {
+                console.debug('addEvent: failed to create persistent chat doc', err);
+              }
+            })();
+            // Also subscribe the current user to the chat so it appears in their Chats view
+            // @ts-ignore
+            if (typeof subscribeToChat === 'function') subscribeToChat(newEvent.id);
+          } catch (e) {
+            // ignore
+          }
+        }, 0);
+      } catch (err) {}
     })();
   };
 
@@ -837,8 +908,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem('trybes_cache_v1');
       if (raw) {
         const parsed = JSON.parse(raw);
-        // TTL 1 hour
-        if (parsed && parsed.ts && Date.now() - parsed.ts < 1000 * 60 * 60 && Array.isArray(parsed.items)) {
+  // TTL 5 minutes
+  if (parsed && parsed.ts && Date.now() - parsed.ts < 1000 * 60 * 5 && Array.isArray(parsed.items)) {
           setEvents(parsed.items.map((e: Event) => normalizeEvent(e)));
           // Prefetch first few images to speed up initial paint
           const toPrefetch = (parsed.items as Event[]).slice(0, 6).map((e) => e.image).filter(Boolean) as string[];
@@ -879,6 +950,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               img.src = src;
             } catch (err) {}
           });
+        } else {
+          // No trybes in Firestore: remove any local cache and ensure provider has no events
+          try { localStorage.removeItem('trybes_cache_v1'); } catch (e) {}
+          setEvents([]);
         }
       } catch (err) {
         // If fetch fails, we keep initialEvents (no-op)
@@ -984,9 +1059,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const joinEvent = (eventId: number) => {
-    if (!joinedEvents.includes(eventId)) {
-      setJoinedEvents((prev) => [...prev, eventId]);
+  const joinEvent = (eventId: string | number) => {
+    const idKey = String(eventId);
+    if (!joinedEvents.map(String).includes(idKey)) {
+      setJoinedEvents((prev) => [...prev, eventId as any]);
 
       // Update attendee count
       setEvents((prevEvents) =>
@@ -998,7 +1074,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       );
 
       // If the joined event isn't present in provider.events (e.g., user joined from a link), fetch it
-      const exists = events.some((e) => String(e.id) === String(eventId));
+  const exists = events.some((e) => String(e.id) === idKey);
       if (!exists) {
         (async () => {
           try {
@@ -1047,39 +1123,123 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }
 
       // Create or update group chat for the event
-      createChatForEvent(eventId);
+      // Ensure persistent chat exists and subscribe the current user to it
+  createChatForEvent(eventId as any);
+  subscribeToChat(eventId as any);
       // Persist in background
       void persistJoin(eventId);
     }
   };
 
   // Persist join to Firestore and user's profile when possible
-  const persistJoin = async (eventId: number) => {
+  const persistJoin = async (eventId: string | number) => {
     try {
       const user = auth.currentUser;
       if (!user) return;
       // Attempt to resolve the Firestore doc id from the in-memory events list.
-      const ev = events.find((e) => String(e.id) === String(eventId) || e.id === eventId);
+  const ev = events.find((e) => String(e.id) === String(eventId) || String(e.id) === String(eventId));
       if (ev) {
-        const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
+  const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
         try {
-          await updateDoc(trybeRef, {
-            attendees: increment(1),
-            attendeeIds: arrayUnion(user.uid),
-          });
+          // Read current attendeeIds to avoid double-counting when creator is already present
+          try {
+            const snap = await getDoc(trybeRef);
+            const data: any = snap.exists() ? snap.data() : {};
+            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+            if (!existingIds.map(String).includes(String(user.uid))) {
+              await updateDoc(trybeRef, {
+                attendees: increment(1),
+                attendeeIds: arrayUnion(user.uid),
+              });
+            } else {
+              // Ensure attendees numeric field is at least 1 (in case it was left undefined)
+              if (!data || typeof data.attendees !== 'number' || Number(data.attendees) < 1) {
+                try { await updateDoc(trybeRef, { attendees: 1 }); } catch (e) {}
+              }
+            }
+          } catch (readErr) {
+            // If we can't read the doc, fall back to attempting the update (best-effort)
+            await updateDoc(trybeRef, {
+              attendees: increment(1),
+              attendeeIds: arrayUnion(user.uid),
+            });
+          }
         } catch (err) {
           console.debug('persistJoin: failed to update trybe doc', err);
+        }
+        // Also ensure chat doc exists and participants includes this user so they can read messages
+        try {
+          const chatRef = firestoreDoc(db, 'chats', `trybe-${String(ev.id)}`);
+          const chatSnap = await getDoc(chatRef);
+          if (!chatSnap.exists()) {
+            const payload: any = {
+              eventId: String(ev.id),
+              eventName: ev.eventName || ev.name || '',
+              createdAt: serverTimestamp(),
+              participants: [user.uid],
+              participantsMap: { [user.uid]: true },
+            };
+            await setDoc(chatRef, payload, { merge: true });
+          } else {
+            try {
+              // Keep both shapes in sync: array union and map update
+              await updateDoc(chatRef, {
+                participants: arrayUnion(user.uid),
+                [`participantsMap.${user.uid}`]: true,
+              } as any);
+            } catch (e) { console.debug('persistJoin: failed to update participantsMap', e); }
+          }
+        } catch (err) {
+          // ignore if permission denied
+          console.debug('persistJoin: failed to ensure chat participants', err);
         }
       } else {
         // Fallback: try updating by the passed id (may be string id)
         try {
           const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
-          await updateDoc(trybeRef, {
-            attendees: increment(1),
-            attendeeIds: arrayUnion(user.uid),
-          });
+          // Same guard: avoid double increment if user already in attendeeIds
+          try {
+            const snap = await getDoc(trybeRef);
+            const data: any = snap.exists() ? snap.data() : {};
+            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+            if (!existingIds.map(String).includes(String(user.uid))) {
+              await updateDoc(trybeRef, {
+                attendees: increment(1),
+                attendeeIds: arrayUnion(user.uid),
+              });
+            }
+          } catch (readErr) {
+            await updateDoc(trybeRef, {
+              attendees: increment(1),
+              attendeeIds: arrayUnion(user.uid),
+            });
+          }
         } catch (err) {
           console.debug('persistJoin: fallback failed to update trybe doc', err);
+        }
+        // Also attempt to create/update the chat doc and add participant
+        try {
+          const chatRef = firestoreDoc(db, 'chats', `trybe-${String(eventId)}`);
+          const chatSnap = await getDoc(chatRef);
+          if (!chatSnap.exists()) {
+            const payload: any = {
+              eventId: String(eventId),
+              eventName: '',
+              createdAt: serverTimestamp(),
+              participants: [user.uid],
+              participantsMap: { [user.uid]: true },
+            };
+            await setDoc(chatRef, payload, { merge: true });
+          } else {
+            try {
+              await updateDoc(chatRef, {
+                participants: arrayUnion(user.uid),
+                [`participantsMap.${user.uid}`]: true,
+              } as any);
+            } catch (e) { console.debug('persistJoin: failed to update participantsMap fallback', e); }
+          }
+        } catch (err) {
+          console.debug('persistJoin: failed to ensure chat doc by id', err);
         }
       }
 
@@ -1094,32 +1254,41 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const leaveEvent = (eventId: number) => {
-    setJoinedEvents((prev) => prev.filter((id) => id !== eventId));
+  const leaveEvent = (eventId: string | number) => {
+    const idKey = String(eventId);
+    setJoinedEvents((prev) => prev.filter((id) => String(id) !== idKey));
 
     // Update attendee count
     setEvents((prevEvents) =>
       prevEvents.map((event) =>
-        event.id === eventId
+        String(event.id) === idKey
           ? { ...event, attendees: Math.max(1, event.attendees - 1) }
           : event,
       ),
     );
 
-    // Remove associated chat
-    setChats((prevChats) =>
-      prevChats.filter((chat) => chat.eventId !== eventId),
-    );
+    // Unsubscribe realtime listener for this chat (if any)
+    try {
+  const key = `trybe-${idKey}`;
+  const unsub = chatListenersRef.current[key];
+      if (unsub) {
+        try { unsub(); } catch (e) {}
+        try { delete chatListenersRef.current[key]; } catch (e) {}
+      }
+    } catch (err) {}
+
+    // Remove associated chat from local state
+    setChats((prevChats) => prevChats.filter((chat) => chat.eventId !== eventId));
     // Persist in background
     void persistLeave(eventId);
   };
 
   // Persist leave to Firestore when possible
-  const persistLeave = async (eventId: number) => {
+  const persistLeave = async (eventId: string | number) => {
     try {
       const user = auth.currentUser;
       if (!user) return;
-      const ev = events.find((e) => String(e.id) === String(eventId) || e.id === eventId);
+  const ev = events.find((e) => String(e.id) === String(eventId) || String(e.id) === String(eventId));
       if (ev) {
         try {
           const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
@@ -1195,6 +1364,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               });
               // Resolve storage images for the fetched joined trybes so schedule thumbnails show
               void resolveStorageImages(fetchedTrybes as any[]);
+              // Subscribe to chats for joined trybes so they appear in Chats (realtime)
+              try {
+                fetchedTrybes.forEach((t: any) => {
+                  try {
+                    // @ts-ignore - subscribeToChat may be defined below
+                    if (typeof subscribeToChat === 'function') subscribeToChat(String(t.id));
+                    else if (typeof createChatForEvent === 'function') createChatForEvent(String(t.id) as any);
+                  } catch (e) {}
+                });
+              } catch (err) {}
             }
           }
         }
@@ -1248,79 +1427,265 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     setChats((prev) => [newChat, ...prev]);
   };
 
-  const addMessage = (chatId: number, content: string) => {
-    const newMessage: Message = {
-      id: Date.now(),
-      senderId: "current-user",
-      senderName: "You",
-      content: content,
-      timestamp: new Date().toISOString(),
-      isCurrentUser: true,
-    };
+  // Subscribe to a Firestore-backed chat for the given event so messages sync in real-time
+  const subscribeToChat = async (eventId: string | number) => {
+    try {
+      const idKey = String(eventId);
+      if (!idKey || idKey === 'NaN' || idKey === 'undefined') {
+        console.debug('subscribeToChat: invalid eventId', eventId);
+        return;
+      }
+      const chatDocRef = firestoreDoc(db, 'chats', `trybe-${idKey}`);
 
-    setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.id === chatId
-          ? {
-              ...chat,
-              messages: [...chat.messages, newMessage],
-              lastMessage: content,
-              time: "now",
+      const currentUid = auth.currentUser?.uid;
+      if (!currentUid) {
+        // If no signed-in user is available yet, don't attempt to create/subscribe — auth must be present for rules
+        console.debug('subscribeToChat: no authenticated user available yet, will retry after auth change', eventId);
+        return;
+      }
+
+      // Ensure chat doc exists and includes this user as a participant. Use setDoc with merge so creation passes rules when participants includes uid.
+      let chatMeta: any = {};
+      try {
+        const chatSnap = await getDoc(chatDocRef);
+        if (!chatSnap.exists()) {
+          const initialName = events.find(e => String(e.id) === idKey)?.eventName || events.find(e => String(e.id) === idKey)?.name || '';
+          await setDoc(chatDocRef, {
+            eventId: idKey,
+            createdAt: serverTimestamp(),
+            eventName: initialName,
+            participants: [currentUid],
+          }, { merge: true });
+          // read back
+          const fresh = await getDoc(chatDocRef);
+          chatMeta = fresh.exists() ? fresh.data() : {};
+        } else {
+          chatMeta = chatSnap.data() || {};
+          // If exists but doesn't include current user, add them to participantsMap
+          const has = chatMeta && chatMeta.participantsMap && chatMeta.participantsMap[currentUid];
+          if (!has) {
+            try {
+              await updateDoc(chatDocRef, {
+                participants: arrayUnion(currentUid),
+                [`participantsMap.${currentUid}`]: true,
+              } as any);
+            } catch (e) { console.debug('subscribeToChat: failed to update participantsMap', e); }
+          }
+        }
+      } catch (err) {
+        console.debug('subscribeToChat: create/update chat doc failed', err);
+        // If we can't ensure the chat doc exists, bail out to avoid onSnapshot permission errors
+        return;
+      }
+
+      // If chatMeta doesn't include eventImage or eventName, try to source it from the trybe doc and resolve storage refs
+      try {
+        const needImage = !chatMeta?.eventImage;
+        const needName = !chatMeta?.eventName;
+        if (needImage || needName) {
+          try {
+            const trybeRef = firestoreDoc(db, 'trybes', idKey);
+            const trybeSnap = await getDoc(trybeRef);
+            if (trybeSnap.exists()) {
+              const td: any = trybeSnap.data();
+              const candidate = td._resolvedImage || (Array.isArray(td.photos) && td.photos.length ? td.photos[0] : td.image);
+              let resolvedImage = candidate;
+              if (resolvedImage && typeof resolvedImage === 'string' && !resolvedImage.startsWith('http') && !resolvedImage.startsWith('data:') && !resolvedImage.startsWith('/')) {
+                try {
+                  const storage = getStorage(app);
+                  let refPath = String(resolvedImage);
+                  if (refPath.startsWith('gs://')) {
+                    const parts = refPath.replace('gs://', '').split('/');
+                    if (parts.length > 1) parts.shift();
+                    refPath = parts.join('/');
+                  }
+                  resolvedImage = await getDownloadURL(storageRef(storage, refPath));
+                } catch (err) {
+                  console.debug('subscribeToChat: failed to resolve trybe image', err);
+                }
+              }
+
+              const updatePayload: any = {};
+              if (needName && (td.eventName || td.name)) updatePayload.eventName = td.eventName || td.name;
+              if (needImage && resolvedImage) updatePayload.eventImage = resolvedImage;
+              if (Object.keys(updatePayload).length > 0) {
+                try {
+                  await setDoc(chatDocRef, updatePayload, { merge: true });
+                  // also merge into local chatMeta so onSnapshot uses it
+                  chatMeta = { ...chatMeta, ...updatePayload };
+                } catch (err) {
+                  console.debug('subscribeToChat: failed to merge event metadata into chat doc', err);
+                }
+              }
             }
-          : chat,
-      ),
-    );
+          } catch (err) {
+            console.debug('subscribeToChat: error while sourcing trybe doc for chat metadata', err);
+          }
+        }
+      } catch (err) {
+        console.debug('subscribeToChat: unexpected error while preparing chat metadata', err);
+      }
 
-    // Simulate group chat responses after a short delay
-    setTimeout(() => {
-      const groupResponses = [
-        {
-          sender: "event_host",
-          name: "Event Host",
-          message: "Thanks for joining everyone! Looking forward to meeting all of you."
-        },
-        {
-          sender: "participant_1",
-          name: "Alex M.",
-          message: "Excited to be part of this! Can't wait to meet everyone."
-        },
-        {
-          sender: "participant_2",
-          name: "Sarah K.",
-          message: "This is going to be amazing! Anyone else coming from downtown?"
-        },
-        {
-          sender: "event_host",
-          name: "Event Host",
-          message: "Great to see the enthusiasm! Feel free to ask any questions about the event."
-        },
-      ];
+  // If a listener is already registered, skip
+  if (chatListenersRef.current[`trybe-${idKey}`]) return;
 
-      const randomResponse = groupResponses[Math.floor(Math.random() * groupResponses.length)];
+  // Listen for messages subcollection in order
+  const msgsQuery = query(collection(db, `chats/trybe-${idKey}/messages`), orderBy('createdAt'));
+      const unsub = onSnapshot(msgsQuery, (snap) => {
+        const serverMsgs: Message[] = snap.docs.map(d => {
+          const data: any = d.data();
+          return {
+            id: d.id,
+            clientId: data.clientId,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            senderImage: data.senderImage || undefined,
+            content: data.content,
+            attachmentUrl: data.attachmentUrl || null,
+            timestamp: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date(data.createdAt).toISOString()) : new Date().toISOString(),
+            isCurrentUser: data.senderId === auth.currentUser?.uid,
+          } as Message;
+        });
 
-      const groupMessage: Message = {
-        id: Date.now() + 1,
-        senderId: randomResponse.sender,
-        senderName: randomResponse.name,
-        content: randomResponse.message,
+        // Upsert chat into local state, merging optimistic local messages that haven't been replaced by server messages
+        setChats(prev => {
+          const existing = prev.find(c => c.eventId === eventId);
+          const metaFromChat = chatMeta || {};
+          const eventFromEvents = events.find(e => String(e.id) === String(eventId));
+          const participants = eventFromEvents?.attendees || (existing ? existing.participants : 1);
+
+          // Build set of clientIds present in server messages
+          const serverClientIds = new Set(serverMsgs.map(m => m.clientId).filter(Boolean) as string[]);
+
+          // Keep any existing local-only optimistic messages that were not acknowledged by server (no clientId clash)
+          const leftoverLocal = (existing ? existing.messages : []).filter(m => {
+            // if message has a clientId and server has it, drop the optimistic one (server is authoritative)
+            if ((m as any).clientId) {
+              return !serverClientIds.has((m as any).clientId as string);
+            }
+            // If message came from server (has numeric id or not local), keep it only if server didn't already include it
+            return !(typeof m.id === 'string' && String(m.id).startsWith('local-'));
+          });
+
+          // Merge server messages and leftover local optimistic messages, sort by timestamp
+          const mergedMessages = [...serverMsgs, ...leftoverLocal].sort((a, b) => {
+            const ta = new Date(a.timestamp).getTime();
+            const tb = new Date(b.timestamp).getTime();
+            return ta - tb;
+          });
+
+          const chatObj: Chat = {
+            id: `trybe-${idKey}` as any,
+            eventId,
+            eventName: metaFromChat.eventName || eventFromEvents?.eventName || eventFromEvents?.name || (existing ? existing.eventName : '') || '',
+            eventImage: metaFromChat.eventImage || eventFromEvents?.image || (existing ? existing.eventImage : '') || '',
+            participants,
+            lastMessage: mergedMessages.length ? mergedMessages[mergedMessages.length - 1].content : existing?.lastMessage || '',
+            time: 'now',
+            unreadCount: 0,
+            messages: mergedMessages,
+          };
+
+          if (existing) {
+            return prev.map(p => p.eventId === eventId ? { ...p, ...chatObj } : p);
+          }
+          return [chatObj, ...prev];
+        });
+      }, (err) => {
+        // Handle permission or other snapshot errors gracefully so they don't bubble to the global handler
+        console.error('subscribeToChat:onSnapshot error for', `trybe-${idKey}`, { uid: auth.currentUser?.uid, err });
+        // Ensure we remove any dangling listener ref
+        try { delete chatListenersRef.current[`trybe-${idKey}`]; } catch (e) {}
+      });
+
+          chatListenersRef.current[`trybe-${idKey}`] = unsub;
+    } catch (err) {
+      console.debug('subscribeToChat: failed', err);
+    }
+  };
+
+  const addMessage = (chatId: string | number, content: string, attachmentUrl?: string | null) => {
+    // Optimistic local update with clientId to avoid duplication under concurrent writes
+    (async () => {
+      // Determine a safe idKey for the chat doc. Allow non-numeric ids too.
+      let idKey = '';
+      const localChat = chats.find(c => String(c.id) === String(chatId));
+      if (localChat) {
+        idKey = String(localChat.eventId);
+      } else {
+        idKey = String(chatId).startsWith('trybe-') ? String(chatId).replace('trybe-', '') : String(chatId);
+      }
+
+      if (!idKey) {
+        console.debug('addMessage: unable to determine eventId for chat', chatId);
+        return;
+      }
+
+      const chatDocId = `trybe-${idKey}`;
+      const messagesColRef = collection(db, 'chats', chatDocId, 'messages');
+      const user = auth.currentUser;
+
+      // Resolve senderName from users/{uid} for accuracy
+      let senderName = user?.displayName || user?.email || 'You';
+      try {
+        if (user?.uid) {
+          const udoc = await getDoc(firestoreDoc(db, 'users', user.uid));
+          if (udoc.exists()) {
+            const ud = udoc.data() as any;
+            senderName = ud.displayName || ud.firstName || ud.name || senderName;
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Generate a clientId for optimistic deduping
+      const clientId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      const optimisticMessage: Message = {
+        id: clientId,
+        clientId,
+        senderId: user?.uid || 'anon',
+        senderName,
+        senderImage: (user as any)?.photoURL || null,
+        content,
+        attachmentUrl: attachmentUrl || null,
         timestamp: new Date().toISOString(),
-        isCurrentUser: false,
+        isCurrentUser: true,
       };
 
+      // Add optimistic message locally
       setChats((prevChats) =>
         prevChats.map((chat) =>
-          chat.id === chatId
+          String(chat.id) === String(chatId)
             ? {
                 ...chat,
-                messages: [...chat.messages, groupMessage],
-                lastMessage: randomResponse.message,
-                time: "now",
-                unreadCount: chat.unreadCount + 1,
+                messages: [...chat.messages, optimisticMessage],
+                lastMessage: content,
+                time: 'now',
               }
             : chat,
         ),
       );
-    }, 2000);
+
+      try {
+        const payload: any = {
+          clientId,
+          senderId: user?.uid || 'anon',
+          senderName,
+          senderImage: (user as any)?.photoURL || null,
+          content,
+          attachmentUrl: attachmentUrl || null,
+          createdAt: serverTimestamp(),
+        };
+
+        await addDoc(messagesColRef, payload);
+        // server onSnapshot will reconcile optimistic messages via clientId
+      } catch (err) {
+        console.debug('addMessage: firestore write failed, optimistic message kept locally', err);
+        // leave optimistic message in place; UI will show it. Optionally we could mark it failed.
+      }
+    })();
   };
 
   const isEventFinished = (eventId: number): boolean => {

@@ -325,8 +325,15 @@ export default function Home() {
 
   const trendingSearches = getTrendingSearches();
 
-  // Derive displayed trybes (Firestore-backed results preferred; otherwise featured list)
-  const displayedTrybes = (mappedFirestoreTrybes && mappedFirestoreTrybes.length > 0 ? mappedFirestoreTrybes : featuredTrybes)
+  // Derive displayed trybes by merging Firestore results with provider events (featuredTrybes)
+  // This ensures newly-created trybes added via the provider (addEvent) appear immediately
+  const mergedTrybes = [
+    ...(mappedFirestoreTrybes || []),
+    // add provider events that aren't present in Firestore results yet
+    ...(featuredTrybes || []).filter((f: any) => !(mappedFirestoreTrybes || []).some((m: any) => String(m.id) === String(f.id)))
+  ];
+
+  const displayedTrybes = (mergedTrybes || [])
     .filter((t: any) => {
       // Category filter
       if (!categoryMatches(t.category)) return false;
@@ -1002,44 +1009,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* My Schedule */}
-          {joinedEvents.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold mb-4">My Schedule</h2>
-              <div className="space-y-3">
-                {displayedTrybes
-                  .filter((trybe) => joinedEvents.includes(trybe.id))
-                  .map((trybe) => (
-                    <button
-                      key={`schedule-${trybe.id}`}
-                      onClick={() => handleEventClick(trybe.id)}
-                      className="bg-card rounded-xl p-4 border border-border flex items-center space-x-4 hover:shadow-md transition-shadow text-left w-full"
-                    >
-                      <img
-                        src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
-                        alt={trybe.name}
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
-                        }}
-                        className="w-12 h-12 rounded-lg object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-sm">{trybe.name}</h3>
-                        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                          <span>{trybe.date}</span>
-                          <span>•</span>
-                          <span>{trybe.location}</span>
-                        </div>
-                      </div>
-                      <Badge className="bg-green-500 text-white">Joined</Badge>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
+          {/* My Schedule removed from Home — a dedicated My Schedule tab exists instead */}
 
 
           {/* Empty state */}

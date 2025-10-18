@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc, setDoc, arrayUnion } from "firebase/firestore";
 import { db, app } from "../firebase"; // ✅ make sure you export db and app in firebase.ts
 import { auth } from "../firebase"; // to get current user
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -112,7 +112,52 @@ export default function CreateTrybeModal({
             );
           });
         } else if (typeof p === 'string') {
-          photosToSave.push(p);
+          // If string is a data URL (base64), convert to a Blob and upload it so Firestore stores an HTTP URL
+          if (p.startsWith('data:')) {
+            try {
+              const resp = await fetch(p);
+              const blob = await resp.blob();
+              const path = `trybePhotos/${user.uid}/${Date.now()}-${i}-inline.jpg`;
+              const ref = storageRef(storage, path);
+              const uploadTask = uploadBytesResumable(ref, blob);
+              await new Promise<void>((resolve, reject) => {
+                uploadTask.on('state_changed', () => {}, (error) => reject(error), async () => {
+                  try {
+                    const url = await getDownloadURL(ref);
+                    photosToSave.push(url);
+                    resolve();
+                  } catch (err) { reject(err); }
+                });
+              });
+            } catch (err) {
+              console.debug('Failed to convert data URL to blob/upload, storing original string', err);
+              photosToSave.push(p);
+            }
+          } else if (p.startsWith('http') || p.startsWith('gs://')) {
+            // Already a URL or storage path — keep it; provider will try to resolve gs:// later
+            photosToSave.push(p);
+          } else {
+            // Try fetching the resource and uploading as a fallback
+            try {
+              const resp = await fetch(p);
+              const blob = await resp.blob();
+              const path = `trybePhotos/${user.uid}/${Date.now()}-${i}-fetched.jpg`;
+              const ref = storageRef(storage, path);
+              const uploadTask = uploadBytesResumable(ref, blob);
+              await new Promise<void>((resolve, reject) => {
+                uploadTask.on('state_changed', () => {}, (error) => reject(error), async () => {
+                  try {
+                    const url = await getDownloadURL(ref);
+                    photosToSave.push(url);
+                    resolve();
+                  } catch (err) { reject(err); }
+                });
+              });
+            } catch (err) {
+              console.warn('Photo string upload failed, keeping original value', err);
+              photosToSave.push(p);
+            }
+          }
         }
       } catch (err) {
         console.warn('Photo upload failed, keeping original value', err);
@@ -124,6 +169,8 @@ export default function CreateTrybeModal({
     const trybeDataToSave = {
       ...formData,
       photos: photosToSave,
+      attendees: 1,
+      attendeeIds: [user.uid],
       createdBy: user.uid,
       createdAt: serverTimestamp(),
       createdByName: (user.displayName) || undefined,
@@ -161,6 +208,112 @@ export default function CreateTrybeModal({
       }
     } catch (err) {
       console.debug('onCreateTrybe handler threw', err);
+    }
+
+    // Create a persistent chat doc for this trybe so participants can join immediately
+    // Improve robustness: ensure auth token is available, include identifying fields that rules might expect,
+    // and retry a couple times with backoff for transient failures. Surface richer error info for debugging.
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        console.debug('CreateTrybeModal: no authenticated user at chat creation time, skipping chat doc creation');
+      } else {
+        const chatRef = firestoreDoc(db, 'chats', `trybe-${docRef.id}`);
+        const chatPayloadBase: any = {
+          eventId: docRef.id,
+          eventName: trybeDataToSave.eventName || '',
+          eventImage: photosToSave && photosToSave.length ? photosToSave[0] : (trybeDataToSave.createdByImage || null),
+          createdAt: serverTimestamp(),
+          // Include creator metadata which Firestore rules commonly require
+          createdBy: uid,
+          createdByName: trybeDataToSave.createdByName || null,
+          createdByImage: trybeDataToSave.createdByImage || null,
+        };
+
+        // Ensure we have a fresh token before attempting sensitive writes (helps avoid some auth timing races)
+        try {
+          // Force refresh token; if this fails it's non-fatal but helpful for diagnostics
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const currentUser: any = auth.currentUser;
+          if (currentUser?.getIdToken) {
+            await currentUser.getIdToken(true);
+          }
+        } catch (tokenErr) {
+          console.debug('CreateTrybeModal: getIdToken refresh failed (continuing):', tokenErr);
+        }
+
+        // Retry loop with exponential backoff for transient failures
+        const maxAttempts = 3;
+        let lastErr: any = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            // Include both forms: an array for rules expecting `participants` and a map for efficient membership checks
+            const payload = {
+              ...chatPayloadBase,
+              participants: [uid],
+              participantsMap: { [uid]: true },
+            };
+            await setDoc(chatRef, payload, { merge: true });
+
+            // Read back to confirm creation and surface debug info
+            try {
+              const { getDoc } = await import('firebase/firestore');
+              const snap = await getDoc(chatRef as any);
+              console.debug('CreateTrybeModal: chat doc readback', snap.exists(), snap.exists() ? snap.data() : null);
+            } catch (readErr) {
+              console.debug('CreateTrybeModal: created chat doc but failed to read back', readErr);
+            }
+
+            console.debug(`CreateTrybeModal: created chat doc trybe-${docRef.id} (attempt ${attempt})`);
+            lastErr = null;
+            break; // success
+          } catch (writeErr: any) {
+            lastErr = writeErr;
+            // If this is clearly a permission error, stop retrying and surface immediate diagnostic
+            if (writeErr?.code === 'permission-denied' || /permission/i.test(writeErr?.message || '')) {
+              console.error('CreateTrybeModal: permission-denied when creating chat doc', writeErr);
+              // Surface an alert with code to make it easy to copy into bug report
+              try {
+                alert(`Failed to create chat doc: ${writeErr?.code || writeErr?.message || String(writeErr)}`);
+              } catch (_) {}
+              break;
+            }
+
+            // For other errors, log and backoff then retry
+            console.warn(`CreateTrybeModal: chat doc create attempt ${attempt} failed`, writeErr);
+            if (attempt < maxAttempts) {
+              // Exponential backoff (ms)
+              const backoff = 250 * Math.pow(2, attempt - 1);
+              await new Promise((res) => setTimeout(res, backoff));
+            }
+          }
+        }
+
+        if (lastErr) {
+          // If after retries we still failed, log full error and surface alert for capture
+          console.error('CreateTrybeModal: failed to create chat doc after retries', lastErr);
+          try {
+            alert('Failed to create chat doc: ' + (lastErr?.code ? `${lastErr.code} — ${lastErr.message}` : (lastErr?.message || String(lastErr))));
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      // Unexpected error while attempting chat creation flow
+      console.error('CreateTrybeModal: unexpected error during chat creation', err);
+      try {
+        alert('Failed to create chat doc: ' + (err?.message || String(err)));
+      } catch (_) {}
+    }
+
+    // Persist creator's joinedEvents so the chat shows after refresh
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const userRef = firestoreDoc(db, 'users', uid);
+        await updateDoc(userRef, { joinedEvents: arrayUnion(docRef.id) });
+      }
+    } catch (err) {
+      console.debug('CreateTrybeModal: failed to add trybe to user.joinedEvents', err);
     }
 
     // Optionally: Show success alert or toast

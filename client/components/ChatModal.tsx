@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { app } from "../firebase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface ChatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  chatId: number | null;
+  chatId: string | number | null;
 }
 
 export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
@@ -40,6 +42,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     leaveEvent,
   } = useEvents();
   const [messageText, setMessageText] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -48,8 +51,9 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const [showOptions, setShowOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const chat = chats.find((c) => c.id === chatId);
-  const event = chat ? events.find(e => e.id === chat.eventId) : null;
+  const chat = chats.find((c) => String(c.id) === String(chatId));
+  const event = chat ? events.find(e => String(e.id) === String(chat.eventId)) : null;
+  const [resolvedEventImage, setResolvedEventImage] = useState<string | undefined>(chat?.eventImage || event?.image || undefined);
 
   // Generate group members based on the event's actual attendees and joined users
   const groupMembers = React.useMemo(() => {
@@ -65,7 +69,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         isHost: true,
       },
       // Current user (if joined)
-      ...(joinedEvents.includes(event.id) ? [{
+  ...(joinedEvents.map(String).includes(String(event.id)) ? [{
         id: "current-user",
         name: "You",
         image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
@@ -74,7 +78,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         isCurrentUser: true,
       }] : []),
       // Other mock attendees based on event capacity
-      ...Array.from({ length: Math.min(event.attendees - (joinedEvents.includes(event.id) ? 2 : 1), 6) }, (_, index) => {
+  ...Array.from({ length: Math.min(event.attendees - (joinedEvents.map(String).includes(String(event.id)) ? 2 : 1), 6) }, (_, index) => {
         const mockUsers = [
           { name: "Sarah Chen", image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop" },
           { name: "Mike Johnson", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
@@ -103,10 +107,52 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     }
   }, [chat?.messages]);
 
+  // Try to resolve storage-based or encoded event image URLs into a usable https URL
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const src = chat?.eventImage || event?.image;
+        if (!src) return;
+        // If already an http URL and loads correctly, use it. Otherwise, attempt to resolve a storage path.
+        if (typeof src === 'string' && src.startsWith('http')) {
+          setResolvedEventImage(src);
+          return;
+        }
+
+        let path = String(src);
+        if (path.startsWith('gs://')) {
+          path = path.replace('gs://', '');
+          const parts = path.split('/');
+          if (parts.length > 1) parts.shift();
+          path = parts.join('/');
+        }
+
+        // If the string looks like a full storage download URL, extract the '/o/<path>' portion
+        const match = String(path).match(/\/o\/(.*?)\?/);
+        if (match && match[1]) {
+          path = decodeURIComponent(match[1]);
+        }
+
+        try {
+          const storage = getStorage(app);
+          const url = await getDownloadURL(storageRef(storage, path));
+          if (mounted) setResolvedEventImage(url);
+        } catch (err) {
+          // Could not resolve; leave resolvedEventImage as-is
+          console.debug('ChatModal: failed to resolve event image from storage path', path, err);
+        }
+      } catch (err) {
+        console.debug('ChatModal: unexpected error resolving event image', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [chat?.eventImage, event?.image]);
+
   if (!isOpen || !chat) return null;
 
   const handleStartPrivateChat = (member: any) => {
-    if (canSendMessage(member.id, event?.id || 0)) {
+    if (canSendMessage(member.id, Number(event?.id || 0))) {
       setSelectedMember(member);
       setShowPrivateChatModal(true);
     }
@@ -114,7 +160,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
 
   const handleSendFriendRequest = (member: any) => {
     if (event && !member.isCurrentUser && !member.isHost) {
-      sendFriendRequest(member.id, member.name, event.id);
+      sendFriendRequest(member.id, member.name, Number(event.id));
     }
   };
 
@@ -126,7 +172,33 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const handleSendMessage = () => {
     if (!messageText.trim() || !chatId) return;
 
-    addMessage(chatId, messageText.trim());
+    // If there is an attachment selected, upload it first and include attachmentUrl
+    const send = async () => {
+      if (attachmentFile) {
+        try {
+          const storage = getStorage(app);
+          const uid = (window as any).firebaseAuth?.currentUser?.uid || 'anon';
+          const path = `chatAttachments/${chatId}/${Date.now()}-${attachmentFile.name}`;
+          const ref = storageRef(storage, path);
+          const task = uploadBytesResumable(ref, attachmentFile);
+          await new Promise<void>((resolve, reject) => {
+            task.on('state_changed', () => {}, (err) => reject(err), () => resolve());
+          });
+          const url = await getDownloadURL(storageRef(storage, path));
+          await addMessage(chatId, messageText.trim() || '', url);
+        } catch (err) {
+          console.error('Attachment upload failed', err);
+          // fallback to sending text only
+          addMessage(chatId, messageText.trim());
+        } finally {
+          setAttachmentFile(null);
+        }
+      } else {
+        addMessage(chatId, messageText.trim());
+      }
+    };
+
+    void send();
     setMessageText("");
 
     // Show typing indicator
@@ -161,9 +233,31 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <img
-            src={chat.eventImage}
-            alt={chat.eventName}
+            src={resolvedEventImage || '/placeholder.svg'}
+            alt={chat.eventName || 'Trybe'}
             className="w-10 h-10 rounded-xl object-cover"
+            onError={async (e) => {
+              try {
+                const el = e.currentTarget as HTMLImageElement;
+                const src = chat?.eventImage || event?.image;
+                if (!src) { el.src = '/placeholder.svg'; return; }
+                // Attempt to extract storage path and re-resolve
+                let path = String(src);
+                const match = path.match(/\/o\/(.*?)\?/);
+                if (match && match[1]) path = decodeURIComponent(match[1]);
+                if (path.startsWith('gs://')) {
+                  path = path.replace('gs://', '');
+                  const parts = path.split('/');
+                  if (parts.length > 1) parts.shift();
+                  path = parts.join('/');
+                }
+                const storage = getStorage(app);
+                const url = await getDownloadURL(storageRef(storage, path));
+                el.src = url;
+              } catch (err) {
+                (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
+              }
+            }}
           />
           <div>
             <h3 className="font-semibold">{chat.eventName}</h3>
@@ -203,7 +297,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               <button
                 onClick={() => {
                   if (event) {
-                    leaveEvent(event.id);
+                      leaveEvent(Number(event.id));
                   }
                   setShowOptions(false);
                   onClose();
@@ -272,8 +366,8 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                       <Users className="w-4 h-4" />
                     </Button>
                     {(() => {
-                      const requestStatus = getFriendRequestStatus(member.id, event?.id || 0);
-                      const canChat = canSendMessage(member.id, event?.id || 0);
+                      const requestStatus = getFriendRequestStatus(member.id, Number(event?.id || 0));
+                      const canChat = canSendMessage(member.id, Number(event?.id || 0));
 
                       if (member.isHost) {
                         // Host can always be messaged
@@ -404,6 +498,11 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                 <p className="text-xs opacity-70 mb-1">{message.senderName}</p>
               )}
               <p>{message.content}</p>
+              {message.attachmentUrl && (
+                <div className="mt-2">
+                  <img src={message.attachmentUrl} alt="attachment" className="w-48 h-auto rounded-md object-cover" />
+                </div>
+              )}
               <p
                 className={cn(
                   "text-xs mt-1 opacity-70",
