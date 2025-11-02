@@ -152,7 +152,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   if (!isOpen || !chat) return null;
 
   const handleStartPrivateChat = (member: any) => {
-    if (canSendMessage(member.id, Number(event?.id || 0))) {
+    if (canSendMessage(member.id, event?.id as any)) {
       setSelectedMember(member);
       setShowPrivateChatModal(true);
     }
@@ -160,7 +160,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
 
   const handleSendFriendRequest = (member: any) => {
     if (event && !member.isCurrentUser && !member.isHost) {
-      sendFriendRequest(member.id, member.name, Number(event.id));
+      sendFriendRequest(member.id, member.name, event.id as any);
     }
   };
 
@@ -297,7 +297,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               <button
                 onClick={() => {
                   if (event) {
-                      leaveEvent(Number(event.id));
+                      leaveEvent(event.id as any);
                   }
                   setShowOptions(false);
                   onClose();
@@ -494,7 +494,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                   "bg-accent/50 text-accent-foreground text-center text-sm italic max-w-[90%] mx-auto",
               )}
             >
-              {message.senderId !== "system" && !message.isCurrentUser && (
+              {message.senderId !== "system" && (
                 <p className="text-xs opacity-70 mb-1">{message.senderName}</p>
               )}
               <p>{message.content}</p>

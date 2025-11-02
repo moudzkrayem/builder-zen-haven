@@ -13,6 +13,7 @@ import {
   Calendar,
   Eye,
 } from "lucide-react";
+import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean;
@@ -28,6 +29,30 @@ export default function PremiumUpgradeModal({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   if (!isOpen) return null;
+
+  // If premium is disabled via feature flag, show a lightweight stub and do not render payment flows
+  if (!PREMIUM_ENABLED) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="bg-card rounded-3xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Premium temporarily disabled</h3>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            The premium upgrade and related flows are disabled for this release. We will restore them in a future update.
+          </p>
+          <div className="flex">
+            <Button onClick={onClose} className="w-full">
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleUpgrade = () => {
     setShowPaymentModal(true);

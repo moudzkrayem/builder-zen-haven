@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import EventsDebugOverlay from '@/components/EventsDebugOverlay';
 import { CATEGORIES, CATEGORY_BY_ID } from '@/config/categories';
+import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 // Local state to hold Trybes fetched from Firestore will be created inside the Home component
 
 const defaultTrendingSearches = [
@@ -44,7 +45,7 @@ const defaultTrendingSearches = [
 ];
 
 export default function Home() {
-  const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected } = useEvents();
+  const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected, createChatForEvent } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [firestoreTrybes, setFirestoreTrybes] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -61,6 +62,9 @@ export default function Home() {
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
   const [hasShownAIWelcome, setHasShownAIWelcome] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [showAllNearby, setShowAllNearby] = useState(false);
 
   // Preload first 2 event images to improve perceived first-paint speed
   useEffect(() => {
@@ -87,9 +91,24 @@ export default function Home() {
   };
 
   const handleOpenChat = (eventId: number, hostName: string) => {
-    const chat = chats.find((c) => c.eventId === eventId);
+    console.debug('Home: handleOpenChat called for', String(eventId));
+    // Accept numeric or string eventId types — compare as strings for robustness
+    let chat = chats.find((c) => String(c.eventId) === String(eventId));
+    if (!chat) {
+      try {
+        createChatForEvent?.(eventId as any);
+        const chatDocId = `trybe-${String(eventId)}`;
+        setActiveChatId(chatDocId as any);
+        setShowChatModal(true);
+        setShowScheduleModal(false);
+        return;
+      } catch (e) {
+        // ignore and fallthrough
+      }
+    }
+
     if (chat) {
-      setActiveChatId(chat.id);
+      setActiveChatId(chat.id as any);
       setShowChatModal(true);
       setShowScheduleModal(false);
     }
@@ -97,7 +116,7 @@ export default function Home() {
 
   const handleEventClick = (eventId: number) => {
     const event = events.find(e => e.id === eventId);
-    if (event?.isPremium) {
+    if (event?.isPremium && PREMIUM_ENABLED) {
       setPremiumEventName(event.eventName || event.name);
       setShowPremiumUpgradeModal(true);
     } else {
@@ -348,6 +367,53 @@ export default function Home() {
     });
 
   const finalDisplayedTrybes = displayedTrybes;
+
+  // Nearby filtering helpers (kept local for now). Use only when user grants location.
+  const nearbyRadiusKm = 50; // default radius
+  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const R = 6371; // km
+    const dLat = toRad(b.lat - a.lat);
+    const dLon = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const sinDLat = Math.sin(dLat / 2);
+    const sinDLon = Math.sin(dLon / 2);
+    const aa = sinDLat * sinDLat + sinDLon * sinDLon * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+    return R * c;
+  };
+
+  const locateMe = () => {
+    if (!navigator.geolocation) {
+      setLocationPermissionDenied(true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationPermissionDenied(false);
+        setShowAllNearby(false);
+      },
+      (err) => {
+        console.warn('Geolocation denied or failed', err);
+        setLocationPermissionDenied(true);
+        setUserLocation(null);
+      },
+      { enableHighAccuracy: true, maximumAge: 60 * 1000 }
+    );
+  };
+
+  // Compute nearby trybes when we have a userLocation and showAllNearby is false
+  const nearbyTrybes = (finalDisplayedTrybes || []).filter((t: any) => {
+    // trybe may have precise coords as locationCoords or fallback to null
+    const coords = (t as any).locationCoords || (t as any).coords || null;
+    if (!userLocation) return false;
+    if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') return false;
+    const d = haversineKm(userLocation, coords);
+    return d <= nearbyRadiusKm;
+  });
 
   // Fetch trybes from Firestore on mount
   useEffect(() => {
@@ -629,7 +695,7 @@ export default function Home() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (trybe.isPremium) {
+                              if (trybe.isPremium && PREMIUM_ENABLED) {
                                 setPremiumEventName(trybe.eventName || trybe.name);
                                 setShowPremiumUpgradeModal(true);
                               } else {
@@ -652,7 +718,7 @@ export default function Home() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (trybe.isPremium) {
+                              if (trybe.isPremium && PREMIUM_ENABLED) {
                                 setPremiumEventName(trybe.eventName || trybe.name);
                                 setShowPremiumUpgradeModal(true);
                               } else {
@@ -792,7 +858,7 @@ export default function Home() {
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (trybe.isPremium) {
+                                if (trybe.isPremium && PREMIUM_ENABLED) {
                                   setPremiumEventName(trybe.eventName || trybe.name);
                                   setShowPremiumUpgradeModal(true);
                                 } else {
@@ -816,7 +882,7 @@ export default function Home() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (trybe.isPremium) {
+                              if (trybe.isPremium && PREMIUM_ENABLED) {
                                 setPremiumEventName(trybe.eventName || trybe.name);
                                 setShowPremiumUpgradeModal(true);
                               } else {
@@ -869,18 +935,37 @@ export default function Home() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Nearby Trybes</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowMap(true)}
-              >
-                <MapPin className="w-4 h-4 mr-2" />
-                View Map
-              </Button>
+              <div className="flex items-center space-x-2">
+                {!userLocation && (
+                  <Button variant="outline" size="sm" onClick={locateMe}>
+                    Use my location
+                  </Button>
+                )}
+                {locationPermissionDenied && (
+                  <div className="text-xs text-muted-foreground">Location denied</div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMap(true)}
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  View Map
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {displayedTrybes.slice(0, 4).map((trybe) => (
+            {userLocation && !showAllNearby && nearbyTrybes.length === 0 ? (
+              <div className="bg-card/50 p-4 rounded-lg border border-border text-center">
+                <div className="font-medium mb-2">No nearby Trybes found</div>
+                <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {nearbyRadiusKm} km of your location.</div>
+                <div className="flex justify-center">
+                  <Button size="sm" onClick={() => setShowAllNearby(true)}>Show all Trybes</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {((userLocation && !showAllNearby) ? nearbyTrybes : finalDisplayedTrybes).slice(0, 4).map((trybe) => (
                 <div
                   key={`nearby-${trybe.id}`}
                   onClick={() => handleEventClick(trybe.id)}
@@ -933,12 +1018,12 @@ export default function Home() {
                         >
                           <Share className="w-3 h-3" />
                         </Button>
-                        <Button
+                          <Button
                           variant="ghost"
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (trybe.isPremium) {
+                            if (trybe.isPremium && PREMIUM_ENABLED) {
                               setPremiumEventName(trybe.eventName || trybe.name);
                               setShowPremiumUpgradeModal(true);
                             } else {
@@ -962,7 +1047,7 @@ export default function Home() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (trybe.isPremium) {
+                          if (trybe.isPremium && PREMIUM_ENABLED) {
                             setPremiumEventName(trybe.eventName || trybe.name);
                             setShowPremiumUpgradeModal(true);
                           } else {
@@ -1006,8 +1091,9 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+                </div>
+              )}
             </div>
-          </div>
 
           {/* My Schedule removed from Home — a dedicated My Schedule tab exists instead */}
 

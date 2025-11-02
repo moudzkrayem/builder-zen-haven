@@ -42,8 +42,11 @@ export default function SignUp() {
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
       // Send Firebase verification email (directs into your app)
+      // Build action URL from Vite env (falls back to current origin)
+      const site = (import.meta as any).env?.VITE_SITE_URL || window.location.origin;
+      const actionUrl = `${site.replace(/\/$/, '')}/verify-email`;
       await sendEmailVerification(userCred.user, {
-        url: "http://localhost:5173/verify-email", // change for prod
+        url: actionUrl,
         handleCodeInApp: true,
       });
 

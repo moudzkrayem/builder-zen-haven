@@ -39,7 +39,7 @@ interface AIMessage {
   content: string;
   isBot: boolean;
   timestamp: Date;
-  recommendations?: number[];
+  recommendations?: Array<string | number>;
   type: 'text' | 'recommendations' | 'notification';
   actions?: { label: string; value: string; style?: 'primary' | 'secondary' }[];
   control?: 'datetime' | 'age' | 'upload';
@@ -117,6 +117,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const [draft, setDraft] = useState<TrybeDraft | null>(null);
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
   const [ageInputs, setAgeInputs] = useState<Record<string, { min: number; max: number }>>({});
+  const [isPersisting, setIsPersisting] = useState(false);
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
@@ -498,20 +499,274 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           }
           break;
         }
-        const id = Date.now();
-        const payload = { ...draft, id };
-        addEvent(payload);
-        setCreateStep('idle');
-        setDraft(null);
-        const createdMsg: AIMessage = {
-          id: `ai-${Date.now()}`,
-          content: "Your Trybe is live! 🎉 Tap to view details.",
-          isBot: true,
-          timestamp: new Date(),
-          recommendations: [id],
-          type: 'recommendations'
-        };
-        setMessages(prev => [...prev, createdMsg]);
+        // Prevent duplicate persists when user clicks confirm multiple times
+        if (isPersisting) {
+          setMessages(prev => [...prev, { id: `ai-${Date.now()}`, content: 'Still saving your Trybe — please wait...', isBot: true, timestamp: new Date(), type: 'notification' }]);
+          setIsTyping(false);
+          break;
+        }
+
+        setIsPersisting(true);
+
+        // Persist the draft to Firestore (upload photos like CreateTrybeModal does) and then add to provider
+        (async () => {
+          try {
+            console.debug('AIBotModal: starting persist flow for draft', draft);
+            const user = (window as any).firebaseAuth?.currentUser || null;
+            // fallback to auth import if available
+            let uid: string | null = null;
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-var-requires
+              const { auth } = await import('../firebase');
+              uid = auth.currentUser?.uid || null;
+            } catch (e) { uid = user?.uid || null; }
+
+            // Upload photos to Storage if they're data URLs or File objects
+            const photosToSave: string[] = [];
+            try {
+              const { getStorage, ref: storageRef, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+              const { app } = await import('../firebase');
+              const storage = getStorage(app);
+              for (let i = 0; i < (draft.photos || []).length; i++) {
+                const p = draft.photos[i];
+                try {
+                  if (p instanceof File) {
+                    const path = `trybePhotos/${uid || 'anon'}/${Date.now()}-${i}-${p.name}`;
+                    const ref = storageRef(storage, path);
+                    const task = uploadBytesResumable(ref, p);
+                    await new Promise<void>((resolve, reject) => {
+                      task.on('state_changed', () => {}, (err) => reject(err), () => resolve());
+                    });
+                    const url = await getDownloadURL(ref);
+                    photosToSave.push(url);
+                  } else if (typeof p === 'string') {
+                    if (p.startsWith('data:')) {
+                      const resp = await fetch(p);
+                      const blob = await resp.blob();
+                      const path = `trybePhotos/${uid || 'anon'}/${Date.now()}-${i}-inline.jpg`;
+                      const ref = storageRef(storage, path);
+                      const task = uploadBytesResumable(ref, blob);
+                      await new Promise<void>((resolve, reject) => {
+                        task.on('state_changed', () => {}, (err) => reject(err), () => resolve());
+                      });
+                      const url = await getDownloadURL(ref);
+                      photosToSave.push(url);
+                    } else {
+                      photosToSave.push(p);
+                    }
+                  }
+                } catch (err) {
+                  console.debug('AIBotModal: photo upload failed, keeping original', err);
+                  if (typeof p === 'string') photosToSave.push(p);
+                }
+              }
+            } catch (err) {
+              console.debug('AIBotModal: storage upload helper failed', err);
+              // fallback: keep original photo values
+              (draft.photos || []).forEach((p) => { if (typeof p === 'string') photosToSave.push(p); });
+            }
+
+            console.debug('AIBotModal: photos prepared', photosToSave);
+
+            // Build trybe payload
+            const trybeDataToSave: any = {
+              ...draft,
+              photos: photosToSave,
+              attendees: 1,
+              attendeeIds: uid ? [uid] : [],
+              createdBy: uid || null,
+              createdAt: new Date().toISOString(),
+              createdByName: undefined,
+              createdByImage: undefined,
+            };
+
+            // Try to read current user's profile for name/image
+            try {
+              if (uid) {
+                const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+                const { db } = await import('../firebase');
+                const ud = await getDoc(firestoreDoc(db, 'users', uid));
+                if (ud.exists()) {
+                  const udata: any = ud.data();
+                  trybeDataToSave.createdByName = udata.displayName || udata.firstName || udata.name || undefined;
+                  trybeDataToSave.createdByImage = udata.photoURL || udata.avatar || undefined;
+                }
+              }
+            } catch (err) { /* ignore */ }
+
+            // Filter out any remaining data: URIs or extremely large strings so we don't send huge base64 payloads
+            trybeDataToSave.photos = (photosToSave || []).filter(p => {
+              try {
+                if (!p) return false;
+                if (typeof p !== 'string') return false;
+                if (p.startsWith('data:')) return false; // strip inline base64
+                if (p.length > 200000) return false; // strip very large strings (200k chars)
+                return true;
+              } catch (e) { return false; }
+            });
+
+            // Sanitize similar to CreateTrybeModal
+            const sanitizeForFirestore = (obj: any): any => {
+              if (obj === null) return null;
+              if (['string','number','boolean'].includes(typeof obj)) return obj;
+              if (Array.isArray(obj)) return obj.map(sanitizeForFirestore).filter(v => typeof v !== 'undefined');
+              if (typeof obj === 'object') {
+                try { if (obj && typeof obj.toMillis === 'function') return obj; } catch(e){}
+                const out: any = {};
+                for (const k of Object.keys(obj)) {
+                  const v = obj[k];
+                  if (typeof v === 'function') continue;
+                  if (v instanceof File || (typeof Blob !== 'undefined' && v instanceof Blob)) continue;
+                  const sv = sanitizeForFirestore(v);
+                  if (typeof sv !== 'undefined') out[k] = sv;
+                }
+                return out;
+              }
+              return undefined;
+            };
+
+            const sanitized = sanitizeForFirestore(trybeDataToSave);
+
+            // Log approximate payload size to help diagnose 400 Bad Request
+            try {
+              const payloadStr = JSON.stringify(sanitized);
+              console.debug('AIBotModal: sanitized payload byte length ~', payloadStr.length);
+              if (payloadStr.length > 900000) {
+                console.warn('AIBotModal: sanitized payload is large (>900KB) and may trigger Firestore 400 Bad Request');
+              }
+            } catch (e) {
+              console.debug('AIBotModal: could not stringify sanitized payload for size check', e);
+            }
+
+            // Persist to Firestore using two-step write to avoid sending large fields (photos) in the first request
+            try {
+              console.debug('AIBotModal: writing trybe to Firestore (sanitized, photos omitted):', sanitized);
+              const { addDoc, collection, serverTimestamp, updateDoc, doc: firestoreDoc, getDoc, setDoc } = await import('firebase/firestore');
+              const { db } = await import('../firebase');
+              // Prepare initial payload without photos to minimize size
+              const initialPayload: any = { ...sanitized };
+              const photosForLater = Array.isArray(initialPayload.photos) ? initialPayload.photos : [];
+              delete initialPayload.photos;
+
+              // Compute deterministic id for idempotency based on payload (so repeated confirms don't create duplicates)
+              const stableHash = async (obj: any) => {
+                try {
+                  const s = JSON.stringify(obj || {});
+                  const enc = new TextEncoder();
+                  const data = enc.encode(s);
+                  const hashBuf = await (crypto.subtle ? crypto.subtle.digest('SHA-256', data) : Promise.reject('no-subtle-crypto'));
+                  const hashArray = Array.from(new Uint8Array(hashBuf as ArrayBuffer));
+                  const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                  return hex.slice(0, 20); // shortened
+                } catch (e) {
+                  // fallback to timestamp-based id (less ideal for idempotency)
+                  return String(Date.now());
+                }
+              };
+
+              const idKey = `ai-${await stableHash(initialPayload)}`;
+              const docRefPath = firestoreDoc(db, 'trybes', idKey);
+              // If doc already exists with this deterministic id, treat it as the same trybe
+              let docExisted = false;
+              try {
+                const { getDoc } = await import('firebase/firestore');
+                const existing = await getDoc(docRefPath as any);
+                if (existing && existing.exists()) {
+                  docExisted = true;
+                  console.debug('AIBotModal: trybe already exists, id=', idKey);
+                }
+              } catch (e) {
+                console.debug('AIBotModal: getDoc check failed', e);
+              }
+
+              if (!docExisted) {
+                // Create the doc with deterministic id
+                await setDoc(docRefPath as any, { ...initialPayload, createdAt: serverTimestamp() } as any);
+                console.debug('AIBotModal: trybe initial doc written, id=', idKey);
+                try { await updateDoc(firestoreDoc(db, 'trybes', idKey), { id: idKey }); } catch (e) { console.debug('AIBotModal: failed to set id field', e); }
+              } else {
+                console.debug('AIBotModal: skipping create because doc already exists:', idKey);
+              }
+              const docRef = { id: idKey } as any;
+
+              // Attach photos even if doc already existed
+              if (photosForLater && photosForLater.length) {
+                try {
+                  console.debug('AIBotModal: attaching photos to trybe (existing or new)', docRef.id, photosForLater.length);
+                  await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { photos: photosForLater } as any);
+                } catch (photoAttachErr) {
+                  console.debug('AIBotModal: failed to attach photos to trybe doc', photoAttachErr);
+                }
+              }
+
+              // Now upload/attach photos (if any) by updating the doc; this keeps the first write small
+              if (photosForLater && photosForLater.length) {
+                try {
+                  console.debug('AIBotModal: attaching photos to trybe', docRef.id, photosForLater.length);
+                  await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { photos: photosForLater } as any);
+                } catch (photoAttachErr) {
+                  console.debug('AIBotModal: failed to attach photos to trybe doc', photoAttachErr);
+                }
+              }
+
+              // Ensure chat doc exists
+              try {
+                const { setDoc, doc: firestoreDoc } = await import('firebase/firestore');
+                const chatRef = firestoreDoc(db, 'chats', `trybe-${docRef.id}`) as any;
+                await setDoc(chatRef, {
+                  eventId: docRef.id,
+                  eventName: trybeDataToSave.eventName || '',
+                  eventImage: (photosToSave && photosToSave.length) ? photosToSave[0] : undefined,
+                  createdAt: serverTimestamp(),
+                  createdBy: uid || null,
+                }, { merge: true });
+              } catch (err) {
+                console.debug('AIBotModal: failed to create chat doc', err);
+              }
+
+              // Update user's joinedEvents
+              try {
+                if (uid) {
+                  const { updateDoc, arrayUnion, doc: firestoreDoc } = await import('firebase/firestore');
+                  const { db } = await import('../firebase');
+                  await updateDoc(firestoreDoc(db, 'users', uid), { joinedEvents: arrayUnion(docRef.id) } as any);
+                }
+              } catch (err) {
+                // Best-effort; ignore
+              }
+
+              // Add to provider so UI updates immediately
+              try { addEvent({ ...trybeDataToSave, id: docRef.id }); } catch (e) {}
+
+              setCreateStep('idle');
+              setDraft(null);
+              console.debug('AIBotModal: finished persist flow for trybe', docRef.id);
+              const createdMsg: AIMessage = {
+                id: `ai-${Date.now()}`,
+                content: "Your Trybe is live! 🎉 Tap to view details.",
+                isBot: true,
+                timestamp: new Date(),
+                recommendations: [docRef.id],
+                type: 'recommendations'
+              };
+              setMessages(prev => [...prev, createdMsg]);
+            } catch (err) {
+              console.error('AIBotModal: failed to persist trybe', err);
+              setCreateStep('idle');
+              setDraft(null);
+              setIsPersisting(false);
+              setMessages(prev => [...prev, { id: `ai-${Date.now()}`, content: 'Failed to save Trybe to server. It was kept locally.', isBot: true, timestamp: new Date(), type: 'notification' }]);
+            }
+          } catch (err) {
+            console.error('AIBotModal: unexpected error in confirm flow', err);
+            setCreateStep('idle');
+            setDraft(null);
+            setIsPersisting(false);
+            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, content: 'Failed to save Trybe to server. It was kept locally.', isBot: true, timestamp: new Date(), type: 'notification' }]);
+          }
+        })();
+
+        // Duplicate created message removed: the async persist flow will post the success message when complete.
         setIsTyping(false);
         return;
       }
@@ -657,8 +912,9 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     setTimeout(() => handleSendMessage(), 100);
   };
 
-  const getRecommendedEvents = (eventIds: number[]) => {
-    return events.filter(event => eventIds.includes(event.id));
+  const getRecommendedEvents = (eventIds: Array<string | number> = []) => {
+    const idSet = new Set(eventIds.map(String));
+    return events.filter(event => idSet.has(String(event.id)));
   };
 
   const getInterestIcon = (interests: string[]) => {
@@ -730,7 +986,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                     {getRecommendedEvents(message.recommendations).map((event) => {
                       const IconComponent = getInterestIcon(event.interests || []);
                       return (
-                        <Card key={event.id} className="border border-border/50 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onEventClick(event.id)}>
+                        <Card key={String(event.id)} className="border border-border/50 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onEventClick(Number(event.id))}>
                           <CardContent className="p-3">
                             <div className="flex items-start space-x-3">
                               <img

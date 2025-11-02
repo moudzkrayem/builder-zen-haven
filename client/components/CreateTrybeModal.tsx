@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,8 @@ import {
   Repeat,
 } from "lucide-react";
 import { CATEGORIES } from '@/config/categories';
+import { PREMIUM_ENABLED } from '@/lib/featureFlags';
+import MapPicker from './MapPicker';
 
 interface CreateTrybeModalProps {
   isOpen: boolean;
@@ -34,6 +36,9 @@ interface CreateTrybeModalProps {
 interface TrybeData {
   eventName: string;
   location: string;
+  locationCoords?: { lat: number; lng: number } | null;
+  placeId?: string | null;
+  formattedAddress?: string | null;
   time: string;
   duration: string;
   description: string;
@@ -54,6 +59,9 @@ export default function CreateTrybeModal({
   const [formData, setFormData] = useState<TrybeData>({
     eventName: "",
     location: "",
+    locationCoords: null,
+    placeId: null,
+    formattedAddress: null,
     time: "",
     duration: "2",
     description: "",
@@ -67,6 +75,25 @@ export default function CreateTrybeModal({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Listen for fallback selection events from MapPicker (robustness):
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { lat, lng, formattedAddress, placeId } = e?.detail || {};
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        console.debug('[CreateTrybeModal] mappicker:select', e.detail);
+        setFormData((prev) => ({
+          ...prev,
+          location: formattedAddress ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          locationCoords: { lat, lng },
+          placeId: placeId ?? prev.placeId,
+          formattedAddress: formattedAddress ?? prev.formattedAddress,
+        }));
+      }
+    };
+    window.addEventListener('mappicker:select', handler as EventListener);
+    return () => window.removeEventListener('mappicker:select', handler as EventListener);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -177,11 +204,52 @@ export default function CreateTrybeModal({
       createdByImage: (user.photoURL) || undefined,
     };
 
-    // Debug: show what will be saved (helps diagnose Firestore errors)
-    console.debug('Creating Trybe with data:', trybeDataToSave);
+    // Sanitize payload to ensure Firestore receives only serializable values (no File/Blob/function)
+    const sanitizeForFirestore = (obj: any): any => {
+      if (obj === null) return null;
+      if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') return obj;
+      if (Array.isArray(obj)) return obj.map((v) => sanitizeForFirestore(v)).filter((v) => typeof v !== 'undefined');
+      if (typeof obj === 'object') {
+        // Preserve sentinel values like serverTimestamp() by checking for object with _MethodName? We'll allow functions named 'serverTimestamp' through by identity check
+        // However since serverTimestamp() returns a special FieldValue object, we keep it as-is by checking for toString containing 'serverTimestamp' (best-effort)
+        try {
+          if (obj && typeof obj.toMillis === 'function') return obj; // Firestore Timestamp
+        } catch (e) {}
+        const out: any = {};
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if (typeof v === 'function') continue;
+          if (v instanceof File || (typeof Blob !== 'undefined' && v instanceof Blob)) continue;
+          if (typeof v === 'object' && v !== null && v._delegate) {
+            // Some firestore sentinel objects may have internal delegates; keep them
+            out[k] = v;
+            continue;
+          }
+          // Allow serverTimestamp() sentinel (object with '.toProto' or similar) by keeping if it's not plain object
+          // Best-effort: if v has a _methodName property or similar, keep it
+          if (v && typeof v === 'object' && (v?.hasOwnProperty && (v as any)._methodName)) {
+            out[k] = v;
+            continue;
+          }
+          const sv = sanitizeForFirestore(v);
+          if (typeof sv !== 'undefined') out[k] = sv;
+        }
+        return out;
+      }
+      return undefined;
+    };
+
+    const sanitizedTrybe = sanitizeForFirestore(trybeDataToSave);
+    console.debug('Creating Trybe with sanitized data:', sanitizedTrybe);
 
     // Save in Firestore
-    const docRef = await addDoc(collection(db, "trybes"), trybeDataToSave);
+    let docRef: any = null;
+    try {
+      docRef = await addDoc(collection(db, "trybes"), sanitizedTrybe as any);
+    } catch (writeErr) {
+      console.error('CreateTrybeModal: failed to write trybe doc. Sanitized payload:', sanitizedTrybe, writeErr);
+      throw writeErr;
+    }
     console.log("✅ Trybe created with ID:", docRef.id);
 
     // Ensure the trybe doc records its own id field for easier matching later
@@ -346,8 +414,8 @@ export default function CreateTrybeModal({
 };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto pb-24">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-2xl font-bold">Create Trybe</h2>
@@ -358,65 +426,66 @@ export default function CreateTrybeModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Premium Option */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/20">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Crown className="w-5 h-5 text-primary" />
+          {PREMIUM_ENABLED ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/20">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Crown className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold flex items-center">
+                      Trybe Premium
+                      <Zap className="w-4 h-4 ml-1 text-yellow-500" />
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Create exclusive private events for verified members only
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold flex items-center">
-                    Trybe Premium
-                    <Zap className="w-4 h-4 ml-1 text-yellow-500" />
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Create exclusive private events for verified members only
-                  </p>
-                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isPremium}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isPremium: e.target.checked })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isPremium}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isPremium: e.target.checked })
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
 
-            {formData.isPremium && (
-              <div className="bg-gradient-to-br from-primary/5 to-accent/10 rounded-xl p-4 border border-primary/20">
-                <h4 className="font-semibold mb-3 flex items-center">
-                  <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                  Premium Features
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Private events for verified members only</span>
+              {formData.isPremium && (
+                <div className="bg-gradient-to-br from-primary/5 to-accent/10 rounded-xl p-4 border border-primary/20">
+                  <h4 className="font-semibold mb-3 flex items-center">
+                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                    Premium Features
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      <span>Private events for verified members only</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      <span>Exclusive member screening and approval</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                      <option value="">Select a category</option>
+                      {CATEGORIES.filter(c => c.id !== 'all').map(c => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      One-time fee for this event
+                    </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <span>Exclusive member screening and approval</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                    <option value="">Select a category</option>
-                    {CATEGORIES.filter(c => c.id !== 'all').map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    One-time fee for this event
-                  </p>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : null}
 
           {/* Event Name */}
           <div className="space-y-2">
@@ -449,6 +518,28 @@ export default function CreateTrybeModal({
                 className="pl-10 rounded-xl"
               />
             </div>
+          </div>
+
+          {/* Map picker (exact location) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Pick exact location (optional)</Label>
+              <span className="text-xs text-muted-foreground">Set precise lat/lng</span>
+            </div>
+            <MapPicker
+              apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined}
+              initial={formData.locationCoords ?? null}
+              onSelect={({ lat, lng, formattedAddress, placeId }) => {
+                console.debug('[CreateTrybeModal] MapPicker onSelect', { lat, lng, formattedAddress, placeId });
+                setFormData((prev) => ({
+                  ...prev,
+                  location: formattedAddress ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                  locationCoords: { lat, lng },
+                  placeId: placeId ?? prev.placeId,
+                  formattedAddress: formattedAddress ?? prev.formattedAddress,
+                }));
+              }}
+            />
           </div>
 
           {/* Time */}
@@ -579,28 +670,54 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
-          {/* Age Range */}
+          {/* Age Range (two single-thumb sliders for stability) */}
           <div className="space-y-2">
             <Label>Age Range</Label>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Who can join this event
-                </span>
-                <span className="font-semibold">
-                  {formData.ageRange[0]} - {formData.ageRange[1]} years
-                </span>
+                <span className="text-sm text-muted-foreground">Who can join this event</span>
+                <span className="font-semibold">{formData.ageRange[0]} - {formData.ageRange[1]} years</span>
               </div>
-              <Slider
-                value={formData.ageRange}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, ageRange: value as [number, number] })
-                }
-                max={80}
-                min={16}
-                step={1}
-                className="w-full"
-              />
+
+              {/* Min age slider (single-thumb, same pattern as max distance slider) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Minimum age</span>
+                  <span className="font-medium">{formData.ageRange[0]} years</span>
+                </div>
+                <Slider
+                  value={[formData.ageRange[0]]}
+                  onValueChange={(value) => {
+                    const newMin = Number(value[0] ?? formData.ageRange[0]);
+                    const clampedMin = Math.min(newMin, formData.ageRange[1]);
+                    setFormData({ ...formData, ageRange: [clampedMin, formData.ageRange[1]] });
+                  }}
+                  max={80}
+                  min={16}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Max age slider (single-thumb) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Maximum age</span>
+                  <span className="font-medium">{formData.ageRange[1]} years</span>
+                </div>
+                <Slider
+                  value={[formData.ageRange[1]]}
+                  onValueChange={(value) => {
+                    const newMax = Number(value[0] ?? formData.ageRange[1]);
+                    const clampedMax = Math.max(newMax, formData.ageRange[0]);
+                    setFormData({ ...formData, ageRange: [formData.ageRange[0], clampedMax] });
+                  }}
+                  max={80}
+                  min={16}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
 
@@ -720,11 +837,11 @@ export default function CreateTrybeModal({
               disabled={isSubmitting}
               className={cn(
                 "flex-1 rounded-xl",
-                formData.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90",
+                PREMIUM_ENABLED && formData.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90",
                 isSubmitting && "opacity-60 pointer-events-none"
               )}
             >
-              {formData.isPremium ? (
+              {PREMIUM_ENABLED && formData.isPremium ? (
                 <>
                   <Crown className="w-4 h-4 mr-2" />
                   {isSubmitting ? 'Creating...' : 'Create Premium Trybe'}

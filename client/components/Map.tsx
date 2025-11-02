@@ -19,16 +19,97 @@ export default function Map({ onClose }: MapProps) {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
+  const [zoom, setZoom] = useState<number>(1);
+
+  const zoomIn = () => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)));
+  const zoomOut = () => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+  const fitZoom = () => setZoom(0.65);
+
+  
+  
 
   // Transform events for map display
-  const mapEvents = events.map((event, index) => ({
-    ...event,
-    coordinates: {
-      lat: 37.7749 + (index * 0.01),
-      lng: -122.4194 + (index * 0.01)
-    },
-    distance: `${(0.5 + index * 0.3).toFixed(1)} mi`,
-  }));
+  // Use real locationCoords when available, otherwise fall back to simulated grid positions
+  const eventsWithCoords = events.map((event, index) => {
+    const hasCoords = event && (event as any).locationCoords && typeof (event as any).locationCoords.lat === 'number' && typeof (event as any).locationCoords.lng === 'number';
+    if (hasCoords) {
+      return { ...event, _coordsSource: 'real', coordinates: { lat: (event as any).locationCoords.lat, lng: (event as any).locationCoords.lng } };
+    }
+    // simulated coordinates (for seeded events without real coords)
+    return { ...event, _coordsSource: 'simulated', coordinates: { lat: 37.7749 + index * 0.01, lng: -122.4194 + index * 0.01 } };
+  });
+
+  // Compute bounding box of real coords (if any) to map lat/lng to percent positions inside the visual map
+  const realCoords = eventsWithCoords.filter((e) => (e as any)._coordsSource === 'real').map((e) => (e as any).coordinates);
+
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  if (realCoords.length > 0) {
+    for (const c of realCoords) {
+      if (c.lat < minLat) minLat = c.lat;
+      if (c.lat > maxLat) maxLat = c.lat;
+      if (c.lng < minLng) minLng = c.lng;
+      if (c.lng > maxLng) maxLng = c.lng;
+    }
+    // add small padding so markers aren't at extreme edges
+    const latPad = Math.max(0.01, (maxLat - minLat) * 0.15);
+    const lngPad = Math.max(0.01, (maxLng - minLng) * 0.15);
+    minLat -= latPad; maxLat += latPad; minLng -= lngPad; maxLng += lngPad;
+  }
+
+    // Nearby filtering: show only events within this radius (km) when userLocation is available
+    const [showAll, setShowAll] = useState<boolean>(false);
+    const nearbyRadiusKm = 50; // configurable: 50 km radius
+
+    function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+      const toRad = (v: number) => (v * Math.PI) / 180;
+      const R = 6371; // Earth's radius km
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+  // Decide which events to display: if user provided a location and hasn't toggled "showAll",
+  // filter to events within the nearbyRadiusKm (only events with real coords can be matched).
+  const hasUserLocation = !!userLocation;
+  let candidateEvents = eventsWithCoords;
+  if (hasUserLocation && !showAll) {
+    candidateEvents = eventsWithCoords.filter((ev) => {
+      const c = (ev as any).coordinates;
+      if (!c || typeof c.lat !== 'number' || typeof c.lng !== 'number') return false;
+      const d = haversineKm(userLocation!.lat, userLocation!.lng, c.lat, c.lng);
+      return d <= nearbyRadiusKm;
+    });
+  }
+
+  // Recompute bounding box from only the candidate events that have real coordinates
+  const candidateRealCoords = candidateEvents.filter((e) => (e as any)._coordsSource === 'real').map((e) => (e as any).coordinates);
+  let cMinLat = 90, cMaxLat = -90, cMinLng = 180, cMaxLng = -180;
+  if (candidateRealCoords.length > 0) {
+    for (const c of candidateRealCoords) {
+      if (c.lat < cMinLat) cMinLat = c.lat;
+      if (c.lat > cMaxLat) cMaxLat = c.lat;
+      if (c.lng < cMinLng) cMinLng = c.lng;
+      if (c.lng > cMaxLng) cMaxLng = c.lng;
+    }
+    const latPad = Math.max(0.01, (cMaxLat - cMinLat) * 0.15);
+    const lngPad = Math.max(0.01, (cMaxLng - cMinLng) * 0.15);
+    cMinLat -= latPad; cMaxLat += latPad; cMinLng -= lngPad; cMaxLng += lngPad;
+  }
+
+  const mapEvents = candidateEvents.map((event, index) => {
+    const c = (event as any).coordinates;
+    if ((event as any)._coordsSource === 'real' && candidateRealCoords.length > 0) {
+      const latSpan = cMaxLat - cMinLat || 0.01;
+      const lngSpan = cMaxLng - cMinLng || 0.01;
+      const topPercent = ((cMaxLat - c.lat) / latSpan) * 100;
+      const leftPercent = ((c.lng - cMinLng) / lngSpan) * 100;
+      return { ...event, _screenPos: { top: `${Math.min(98, Math.max(2, topPercent))}%`, left: `${Math.min(98, Math.max(2, leftPercent))}%` } };
+    }
+    // simulated or no coords: place them using the earlier layout scheme (but only when not filtering by nearby)
+    return { ...event, _screenPos: { top: `${40 + index * 15}%`, left: `${30 + index * 20}%` } };
+  });
 
   const getCurrentLocation = () => {
     setIsLoadingLocation(true);
@@ -50,18 +131,19 @@ export default function Map({ onClose }: MapProps) {
       },
       (error) => {
         let errorMessage = "Unable to retrieve location";
-        switch(error.code) {
+        switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Location access denied";
+            errorMessage = "Location access denied. Please enable location permission for this site in your browser settings and try again.";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable";
+            errorMessage = "Location information unavailable.";
             break;
           case error.TIMEOUT:
-            errorMessage = "Location request timed out";
+            errorMessage = "Location request timed out.";
             break;
         }
-        setLocationError(errorMessage);
+        // Provide guidance so users know they must click the button to trigger the browser prompt
+        setLocationError(errorMessage + ' Click the compass/refresh button to request location access.');
         setIsLoadingLocation(false);
       },
       {
@@ -72,9 +154,10 @@ export default function Map({ onClose }: MapProps) {
     );
   };
 
-  useEffect(() => {
-    getCurrentLocation();
-  }, []);
+  // NOTE: Do NOT request geolocation on mount. Browsers may suppress permission
+  // prompts when not triggered by a user gesture. Instead, request location only
+  // when the user clicks the "Refresh location" / compass button which calls
+  // `getCurrentLocation()`.
 
   const handleJoinEvent = (event: any) => {
     if (event.isPremium) {
@@ -86,6 +169,7 @@ export default function Map({ onClose }: MapProps) {
     }
   };
 
+  
   return (
     <div className="fixed inset-0 z-50 bg-background">
       {/* Header */}
@@ -109,6 +193,16 @@ export default function Map({ onClose }: MapProps) {
           >
             <RefreshCw className={`w-4 h-4 ${isLoadingLocation ? 'animate-spin' : ''}`} />
           </Button>
+          {userLocation && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAll((v) => !v)}
+              className="mr-2"
+            >
+              {showAll ? 'Show nearby' : 'Show all'}
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
@@ -118,7 +212,9 @@ export default function Map({ onClose }: MapProps) {
       {/* Map area */}
       <div className="relative flex-1 h-[calc(100vh-80px)]">
         {/* Simulated map background */}
-        <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative overflow-hidden">
+        <div className="w-full h-full relative overflow-hidden">
+          {/* Apply zoom by scaling the inner map; transform-origin center keeps it centered */}
+          <div style={{ transform: `scale(${zoom})`, transformOrigin: '50% 50%' }} className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative">
           {/* Grid pattern to simulate map */}
           <div className="absolute inset-0 opacity-20">
             <div className="grid grid-cols-8 grid-rows-12 h-full w-full">
@@ -154,14 +250,25 @@ export default function Map({ onClose }: MapProps) {
           </div>
 
           {/* Event markers */}
-          {mapEvents.map((event, index) => (
+          {mapEvents.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-card/80 p-4 rounded-lg border border-border text-center">
+                <div className="font-medium mb-2">No nearby Trybes found</div>
+                <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {nearbyRadiusKm} km of your location.</div>
+                <div className="flex justify-center">
+                  <Button size="sm" onClick={() => setShowAll(true)}>Show all Trybes</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {mapEvents.length > 0 && mapEvents.map((event, index) => (
             <button
               key={event.id}
               onClick={() => setSelectedEvent(event)}
               className="absolute transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
               style={{
-                top: `${40 + index * 15}%`,
-                left: `${30 + index * 20}%`,
+                top: (event as any)._screenPos?.top || `${40 + index * 15}%`,
+                left: (event as any)._screenPos?.left || `${30 + index * 20}%`,
               }}
             >
               <div className="relative">
@@ -181,6 +288,7 @@ export default function Map({ onClose }: MapProps) {
               </div>
             </button>
           ))}
+          </div>
         </div>
 
         {/* Event details popup */}

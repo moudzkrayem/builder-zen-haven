@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/ThemeProvider";
 import NotificationsModal from "@/components/NotificationsModal";
 import DiscoverySettingsModal from "@/components/DiscoverySettingsModal";
-import SubscriptionModal from "@/components/SubscriptionModal";
 import {
   ArrowLeft,
   Bell,
@@ -27,7 +26,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import { useNavigate } from "react-router-dom";
+import { auth } from "@/auth";
+import { db } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const settingsGroups = [
   {
@@ -163,9 +166,35 @@ export default function Settings() {
     eventReminders: true,
     profileViews: false,
   });
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const u = auth.currentUser;
+        if (!u) return;
+        // Try Firestore users/{uid}
+        try {
+          const snap = await getDoc(doc(db, 'users', u.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (mounted) setUserProfile(data);
+            return;
+          }
+        } catch (err) {
+          // ignore firestore read errors
+        }
+        // Fallback to auth user
+        if (mounted) setUserProfile({ displayName: u.displayName, photoURL: (u as any).photoURL, email: u.email });
+      } catch (err) {
+        console.debug('Settings: failed to load user profile', err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const handleToggle = (settingKey: string, value: boolean) => {
     if (settingKey === "darkMode") {
@@ -186,22 +215,29 @@ export default function Settings() {
       </div>
 
       <div className="px-4 pb-6">
-        {/* User info card */}
+        {/* User info card (populated from Firestore users/{uid}) */}
         <div className="bg-gradient-to-r from-primary/10 to-accent/20 rounded-2xl p-6 mb-6 mt-4">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-2xl font-bold text-primary-foreground">
-                JT
-              </span>
-            </div>
+            <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                {(() => {
+                  const avatarSrc = userProfile?.photoURL || (Array.isArray(userProfile?.photos) && userProfile.photos.length ? userProfile.photos[0] : null);
+                  if (avatarSrc) {
+                    return (<img src={avatarSrc} alt={userProfile.displayName || userProfile.firstName} className="w-full h-full object-cover" />);
+                  }
+                  return (
+                    <span className="text-2xl font-bold text-primary-foreground">
+                      {((userProfile?.firstName || userProfile?.displayName || 'U') || 'U').toString().charAt(0).toUpperCase()}
+                    </span>
+                  );
+                })()}
+              </div>
             <div className="flex-1">
-              <h2 className="text-xl font-bold">Jamie Taylor</h2>
+              <h2 className="text-xl font-bold">{userProfile ? (userProfile.firstName || userProfile.displayName || userProfile.name || 'You') + (userProfile?.lastName ? ` ${userProfile.lastName}` : '') : 'You'}</h2>
               <p className="text-muted-foreground">
-                San Francisco, CA • 47 events
+                {userProfile?.location ? `${userProfile.location} • ` : ''}{(userProfile?.joinedEvents?.length) ?? '0'} events
               </p>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge className="bg-primary/20 text-primary">Trybe Plus</Badge>
-                <Badge variant="outline">Verified</Badge>
+                    <Badge variant="outline">Verified</Badge>
               </div>
             </div>
           </div>
@@ -229,14 +265,12 @@ export default function Settings() {
                           "active:bg-accent",
                       )}
                       onClick={() => {
-                        if (item.label === "Notifications") {
-                          setShowNotificationsModal(true);
-                        } else if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
-                          setShowDiscoveryModal(true);
-                        } else if (item.label === "Subscription") {
-                          setShowSubscriptionModal(true);
-                        }
-                      }}
+                          if (item.label === "Notifications") {
+                            setShowNotificationsModal(true);
+                          } else if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
+                            setShowDiscoveryModal(true);
+                          }
+                        }}
                     >
                       <div className="flex items-center space-x-3 flex-1">
                         <div
@@ -274,7 +308,7 @@ export default function Settings() {
                             }
                             className="text-xs"
                           >
-                            {item.badge}
+                            {item.badge === "Premium" ? (PREMIUM_ENABLED ? 'Premium' : 'Premium (disabled)') : item.badge}
                           </Badge>
                         )}
 
@@ -337,10 +371,7 @@ export default function Settings() {
         isOpen={showDiscoveryModal}
         onClose={() => setShowDiscoveryModal(false)}
       />
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-      />
+      {/* Subscription modal removed since subscription UI is hidden */}
     </div>
   );
 }

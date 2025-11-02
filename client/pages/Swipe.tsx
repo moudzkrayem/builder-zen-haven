@@ -7,7 +7,7 @@ import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import {
   X,
   Heart,
-  RotateCcw,
+  Plus,
   MapPin,
   Clock,
   Users,
@@ -17,6 +17,7 @@ import {
   Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 
 export default function Swipe() {
   const { events, joinEvent, joinedEvents } = useEvents();
@@ -33,6 +34,29 @@ export default function Swipe() {
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({});
+
+  // resolve a storage path for a specific event id and cache it locally
+  const resolveForEvent = async (id: string | number, candidate?: string) => {
+    if (!candidate) return;
+    try {
+      if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
+        setResolvedImages(prev => (prev[String(id)] ? prev : { ...prev, [String(id)]: candidate }));
+        return;
+      }
+      const storage = getStorage();
+      let refPath = String(candidate);
+      if (refPath.startsWith('gs://')) {
+        const parts = refPath.replace('gs://', '').split('/');
+        if (parts.length > 1) parts.shift();
+        refPath = parts.join('/');
+      }
+      const url = await getDownloadURL(storageRef(storage, refPath));
+      setResolvedImages(prev => ({ ...prev, [String(id)]: url }));
+    } catch (err) {
+      console.debug('Swipe: failed to resolve image for', id, candidate, err);
+    }
+  };
 
   // Use events from context and format them for swipe interface, excluding joined events so scheduled items don't reappear
   const swipeEvents = events
@@ -52,6 +76,8 @@ export default function Swipe() {
     hostImage:
       event.hostImage ||
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+    // keep original event reference for image resolution
+    _original: event,
     eventImages: event.eventImages || [event.image],
     interests: event.interests || ["Event"],
     isPremium: event.isPremium || false,
@@ -85,13 +111,7 @@ export default function Swipe() {
     }
   };
 
-  const handleUndo = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setIsExpanded(false);
-      setCurrentPhotoIndex(0);
-    }
-  };
+  // undo removed per UX request
 
   const handleDragStart = (e: any) => {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -201,11 +221,28 @@ export default function Swipe() {
           {/* Photo carousel */}
           <div className="relative h-full">
             <div className="absolute inset-0">
-              <img
-                src={currentEvent.eventImages[currentPhotoIndex]}
-                alt={currentEvent.eventName}
-                className="w-full h-full object-cover"
-              />
+              {/* Render like trybe card: prefer resolvedImages map -> _resolvedImage -> image -> first eventImages entry */}
+              {(() => {
+                const orig = (currentEvent as any)._original;
+                const id = orig ? String(orig.id) : undefined;
+                let src: string | undefined = undefined;
+                if (id && resolvedImages[id]) src = resolvedImages[id];
+                if (!src && orig && orig._resolvedImage) src = orig._resolvedImage;
+                if (!src && orig && orig.image && (orig.image.startsWith('http') || orig.image.startsWith('data:') || orig.image.startsWith('/'))) src = orig.image;
+                // If still no HTTP src but there is a candidate storage path, kick off resolution
+                if (!src && orig && orig.image && typeof orig.image === 'string' && !orig.image.startsWith('http') && !orig.image.startsWith('data:') && !orig.image.startsWith('/')) {
+                  void resolveForEvent(id || currentEvent.id, orig.image);
+                }
+                const finalSrc = src || currentEvent.eventImages[currentPhotoIndex] || '/placeholder.svg';
+                return (
+                  <img
+                    src={finalSrc}
+                    alt={currentEvent.eventName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                  />
+                );
+              })()}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             </div>
 
@@ -342,16 +379,6 @@ export default function Swipe() {
       {/* Action buttons - Updated without super like */}
       <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center space-x-8 px-8">
         <Button
-          onClick={handleUndo}
-          disabled={currentIndex === 0}
-          size="icon"
-          variant="outline"
-          className="w-12 h-12 rounded-full bg-card shadow-lg border-2 hover:scale-110 transition-all duration-200 disabled:opacity-50"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </Button>
-
-        <Button
           onClick={() => handleSwipe("left", true)}
           size="icon"
           variant="outline"
@@ -373,7 +400,7 @@ export default function Swipe() {
               "animate-pulse scale-125 bg-primary/80",
           )}
         >
-          <Heart className="w-7 h-7 fill-current" />
+          <Plus className="w-7 h-7" />
         </Button>
       </div>
 

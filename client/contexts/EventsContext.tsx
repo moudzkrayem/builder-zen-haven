@@ -72,7 +72,7 @@ interface Connection {
   id: number;
   name: string;
   image: string;
-  eventId: number;
+  eventId: string | number;
   eventName: string;
   connectedAt: string;
 }
@@ -84,7 +84,7 @@ interface FriendRequest {
   fromUserImage: string;
   toUserId: string;
   toUserName: string;
-  eventId: number;
+  eventId: string | number;
   eventName: string;
   status: 'pending' | 'accepted' | 'declined';
   sentAt: string;
@@ -96,32 +96,32 @@ interface EventsContextType {
   trybesLoaded?: boolean;
   addEvent: (eventData: any) => void;
   updateEvent: (eventId: number, updates: Partial<Event>, notify: boolean) => void;
-  joinEvent: (eventId: number) => void;
-  leaveEvent: (eventId: number) => void;
-  joinedEvents: number[];
+  joinEvent: (eventId: string | number) => void;
+  leaveEvent: (eventId: string | number) => void;
+  joinedEvents: Array<string | number>;
   chats: Chat[];
   addMessage: (chatId: string | number, content: string, attachmentUrl?: string | null) => void;
-  createChatForEvent: (eventId: number) => void;
+  createChatForEvent: (eventId: string | number) => void;
   userRatings: UserRating[];
   hostRatings: HostRating[];
-  rateEvent: (eventId: number, rating: number) => void;
-  rateHost: (eventId: number, rating: number) => void;
-  getUserRating: (eventId: number) => number | null;
-  getHostRating: (eventId: number) => number | null;
-  canRateEvent: (eventId: number) => boolean;
-  isEventFinished: (eventId: number) => boolean;
+  rateEvent: (eventId: string | number, rating: number) => void;
+  rateHost: (eventId: string | number, rating: number) => void;
+  getUserRating: (eventId: string | number) => number | null;
+  getHostRating: (eventId: string | number) => number | null;
+  canRateEvent: (eventId: string | number) => boolean;
+  isEventFinished: (eventId: string | number) => boolean;
   connections: Connection[];
-  addConnection: (eventId: number) => void;
-  isConnected: (eventId: number) => boolean;
-  favoriteEvents: number[];
-  toggleFavorite: (eventId: number) => void;
-  isFavorite: (eventId: number) => boolean;
+  addConnection: (eventId: string | number) => void;
+  isConnected: (eventId: string | number) => boolean;
+  favoriteEvents: Array<string | number>;
+  toggleFavorite: (eventId: string | number) => void;
+  isFavorite: (eventId: string | number) => boolean;
   friendRequests: FriendRequest[];
-  sendFriendRequest: (toUserId: string, toUserName: string, eventId: number) => void;
+  sendFriendRequest: (toUserId: string, toUserName: string, eventId: string | number) => void;
   acceptFriendRequest: (requestId: string) => void;
   declineFriendRequest: (requestId: string) => void;
   getFriendRequestStatus: (toUserId: string, eventId: number) => 'none' | 'pending' | 'accepted' | 'declined';
-  canSendMessage: (toUserId: string, eventId: number) => boolean;
+  canSendMessage: (toUserId: string, eventId: string | number) => boolean;
   // Friends
   friends: any[];
   addFriendRelation: (a: { id: string; name?: string; image?: string }, b: { id: string; name?: string; image?: string }) => void;
@@ -690,7 +690,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   // Real trybes will be loaded from cache or Firestore in the startup effect below.
   const [events, setEvents] = useState<Event[]>([]);
   const [trybesLoaded, setTrybesLoaded] = useState<boolean>(false);
-  const [joinedEvents, setJoinedEvents] = useState<number[]>([]);
+  const [joinedEvents, setJoinedEvents] = useState<Array<string | number>>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
   const [hostRatings, setHostRatings] = useState<HostRating[]>([]);
@@ -708,6 +708,26 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }
 
   const [friends, setFriends] = useState<FriendEntry[]>([]);
+
+  // Ensure any events that still reference storage paths are resolved to download URLs
+  // This central effect patches provider state so all consumers (Home, Schedule, Swipe, etc.)
+  // receive resolved HTTP URLs in `image` / `_resolvedImage` and don't need to resolve themselves.
+  useEffect(() => {
+    try {
+      const toResolve = (events || []).filter((ev: any) => {
+        const candidate = (ev && (ev._resolvedImage || (Array.isArray(ev.eventImages) && ev.eventImages.length ? ev.eventImages[0] : ev.image)));
+        if (!candidate || typeof candidate !== 'string') return false;
+        const s = candidate as string;
+        return !(s.startsWith('http') || s.startsWith('data:') || s.startsWith('/'));
+      });
+      if (toResolve.length > 0) {
+        // resolveStorageImages will patch provider state with resolved URLs
+        void resolveStorageImages(toResolve as any[]);
+      }
+    } catch (err) {
+      console.debug('EventsContext: auto-resolve effect error', err);
+    }
+  }, [events]);
 
   // Keep track of realtime listeners for chats so we can unsubscribe when leaving
   const chatListenersRef = useRef<Record<string, () => void>>({});
@@ -839,6 +859,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       isPremium: Boolean(eventData.isPremium),
       ageRange: eventData.ageRange,
       repeatOption: eventData.repeatOption,
+      // Include precise location fields if provided by creator
+      // These come from CreateTrybeModal which sets locationCoords, placeId and formattedAddress
+      // so downstream consumers (maps) can render accurate markers.
+      // @ts-ignore allow extra properties on Event
+      locationCoords: eventData.locationCoords ?? null,
+      // @ts-ignore
+      placeId: eventData.placeId ?? null,
+      // @ts-ignore
+      formattedAddress: eventData.formattedAddress ?? eventData.location ?? null,
     };
       // Apply host info
       newEvent.hostName = hostInfo.name;
@@ -1245,9 +1274,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       const userRef = firestoreDoc(db, 'users', user.uid);
       try {
+        // Try to update existing user doc
         await updateDoc(userRef, { joinedEvents: arrayUnion(String(eventId)) });
       } catch (err) {
-        console.debug('persistJoin: failed to update user joinedEvents', err);
+        // If update fails (doc may not exist), create or merge the doc with joinedEvents
+        try {
+          await setDoc(userRef, { joinedEvents: [String(eventId)] }, { merge: true });
+        } catch (e) {
+          console.debug('persistJoin: failed to update or create user joinedEvents', err, e);
+        }
       }
     } catch (err) {
       console.debug('persistJoin: unexpected error', err);
@@ -1256,7 +1291,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   const leaveEvent = (eventId: string | number) => {
     const idKey = String(eventId);
-    setJoinedEvents((prev) => prev.filter((id) => String(id) !== idKey));
+    console.debug('leaveEvent: requested for', idKey, 'joinedEvents(before)=', joinedEvents.map(String));
+    setJoinedEvents((prev) => {
+      const next = prev.filter((id) => String(id) !== idKey);
+      console.debug('leaveEvent: updated joinedEvents (after)=', next.map(String));
+      return next;
+    });
 
     // Update attendee count
     setEvents((prevEvents) =>
@@ -1278,8 +1318,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     } catch (err) {}
 
     // Remove associated chat from local state
-    setChats((prevChats) => prevChats.filter((chat) => chat.eventId !== eventId));
+  // Normalize comparison to strings so chat entries are removed regardless of stored id type
+  setChats((prevChats) => prevChats.filter((chat) => String(chat.eventId) !== String(eventId)));
     // Persist in background
+    console.debug('leaveEvent: calling persistLeave for', idKey);
     void persistLeave(eventId);
   };
 
@@ -1287,7 +1329,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const persistLeave = async (eventId: string | number) => {
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        console.debug('persistLeave: no authenticated user, aborting leave for', String(eventId));
+        return;
+      }
+      console.debug('persistLeave: currentUser.uid=', user.uid, 'eventId=', String(eventId));
   const ev = events.find((e) => String(e.id) === String(eventId) || String(e.id) === String(eventId));
       if (ev) {
         try {
@@ -1315,7 +1361,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       try {
         await updateDoc(userRef, { joinedEvents: arrayRemove(String(eventId)) });
       } catch (err) {
-        console.debug('persistLeave: failed to update user joinedEvents', err);
+        // Fallback: try to read the doc and write the filtered joinedEvents array
+        try {
+          const snap = await getDoc(userRef);
+          const data: any = snap.exists() ? snap.data() : {};
+          const existing: string[] = Array.isArray(data?.joinedEvents) ? data.joinedEvents.map(String) : [];
+          const filtered = existing.filter((x) => x !== String(eventId));
+          await setDoc(userRef, { joinedEvents: filtered }, { merge: true });
+        } catch (e) {
+          console.debug('persistLeave: failed to update or fallback-write user joinedEvents', err, e);
+        }
       }
     } catch (err) {
       console.debug('persistLeave: unexpected error', err);
@@ -1385,8 +1440,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, []);
 
-  const createChatForEvent = (eventId: number) => {
-    const event = events.find((e) => e.id === eventId);
+  const createChatForEvent = (eventId: string | number) => {
+    const event = events.find((e) => String(e.id) === String(eventId));
     if (!event) return;
 
     // Check if chat already exists
@@ -1403,8 +1458,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const chatDocId = `trybe-${String(eventId)}`;
+
     const newChat: Chat = {
-      id: Date.now(),
+      id: chatDocId as any,
       eventId: eventId,
       eventName: event.eventName || event.name,
       eventImage: event.image,
@@ -1425,12 +1482,17 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     };
 
     setChats((prev) => [newChat, ...prev]);
+    // Ensure we subscribe to the chat on creation so realtime messages flow in
+    try {
+      if (typeof subscribeToChat === 'function') subscribeToChat(eventId as any);
+    } catch (e) {}
   };
 
   // Subscribe to a Firestore-backed chat for the given event so messages sync in real-time
   const subscribeToChat = async (eventId: string | number) => {
     try {
       const idKey = String(eventId);
+      console.debug('subscribeToChat: start for', idKey, 'auth.uid=', auth.currentUser?.uid);
       if (!idKey || idKey === 'NaN' || idKey === 'undefined') {
         console.debug('subscribeToChat: invalid eventId', eventId);
         return;
@@ -1531,7 +1593,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   // Listen for messages subcollection in order
   const msgsQuery = query(collection(db, `chats/trybe-${idKey}/messages`), orderBy('createdAt'));
-      const unsub = onSnapshot(msgsQuery, (snap) => {
+  const unsub = onSnapshot(msgsQuery, (snap) => {
         const serverMsgs: Message[] = snap.docs.map(d => {
           const data: any = d.data();
           return {
@@ -1752,39 +1814,39 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const getUserRating = (eventId: number): number | null => {
-    const rating = userRatings.find(r => r.eventId === eventId);
+  const getUserRating = (eventId: string | number): number | null => {
+    const rating = userRatings.find(r => String(r.eventId) === String(eventId));
     return rating ? rating.rating : null;
   };
 
   // Host rating functions
-  const rateHost = (eventId: number, rating: number) => {
-    if (!canRateEvent(eventId)) return;
-    const event = events.find(e => e.id === eventId);
+  const rateHost = (eventId: string | number, rating: number) => {
+    if (!canRateEvent(eventId as any)) return;
+    const event = events.find(e => String(e.id) === String(eventId));
     const hostName = event ? (event.hostName || event.host) : undefined;
     setHostRatings(prev => {
-      const existing = prev.find(h => h.eventId === eventId);
+      const existing = prev.find(h => String(h.eventId) === String(eventId));
       if (existing) {
-        return prev.map(h => h.eventId === eventId ? { ...h, rating } : h);
+        return prev.map(h => String(h.eventId) === String(eventId) ? { ...h, rating } : h as any);
       }
-      return [...prev, { eventId, hostName, rating, isPrivate: true }];
+      return [...prev, { eventId, hostName, rating, isPrivate: true } as any];
     });
   };
 
-  const getHostRating = (eventId: number): number | null => {
-    const h = hostRatings.find(h => h.eventId === eventId);
+  const getHostRating = (eventId: string | number): number | null => {
+    const h = hostRatings.find(h => String(h.eventId) === String(eventId));
     return h ? h.rating : null;
   };
 
-  const addConnection = (eventId: number) => {
-    const event = events.find(e => e.id === eventId);
-    if (!event || isConnected(eventId)) return;
+  const addConnection = (eventId: string | number) => {
+    const event = events.find(e => String(e.id) === String(eventId));
+    if (!event || isConnected(eventId as any)) return;
 
     const newConnection: Connection = {
       id: Date.now(),
       name: event.hostName || event.host || "Event Host",
       image: event.hostImage || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-      eventId: eventId,
+  eventId: eventId as any,
       eventName: event.eventName || event.name,
       connectedAt: new Date().toISOString(),
     };
@@ -1792,20 +1854,20 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     setConnections(prev => [...prev, newConnection]);
   };
 
-  const isConnected = (eventId: number): boolean => {
-    return connections.some(c => c.eventId === eventId);
+  const isConnected = (eventId: string | number): boolean => {
+    return connections.some(c => String(c.eventId) === String(eventId));
   };
 
-  const toggleFavorite = (eventId: number) => {
+  const toggleFavorite = (eventId: string | number) => {
     setFavoriteEvents(prev =>
-      prev.includes(eventId)
-        ? prev.filter(id => id !== eventId)
-        : [...prev, eventId]
+      prev.map(String).includes(String(eventId))
+        ? prev.filter(id => String(id) !== String(eventId))
+        : [...prev, eventId as any]
     );
   };
 
-  const isFavorite = (eventId: number): boolean => {
-    return favoriteEvents.includes(eventId);
+  const isFavorite = (eventId: string | number): boolean => {
+    return favoriteEvents.map(String).includes(String(eventId));
   };
 
   const sendFriendRequest = (toUserId: string, toUserName: string, eventId: number) => {

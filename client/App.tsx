@@ -22,6 +22,7 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AdminPage from "./pages/Admin";
+import RequireAuth from "@/components/RequireAuth";
 
 // Startup splash removed to let `Welcome` render its original splash reliably.
 
@@ -42,12 +43,12 @@ const App = () => (
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/swipe" element={<Swipe />} />
-                <Route path="/chats" element={<Chats />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
+                <Route path="/swipe" element={<RequireAuth><Swipe /></RequireAuth>} />
+                <Route path="/chats" element={<RequireAuth><Chats /></RequireAuth>} />
+                <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+                <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+                <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>

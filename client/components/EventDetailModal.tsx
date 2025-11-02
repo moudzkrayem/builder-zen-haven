@@ -23,7 +23,7 @@ import EditEventModal from "@/components/EditEventModal";
 interface EventDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  eventId: number | null;
+  eventId: string | number | null;
 }
 
 export default function EventDetailModal({ isOpen, onClose, eventId }: EventDetailModalProps) {
@@ -46,24 +46,23 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
 
-  if (!isOpen || !eventId) return null;
+  if (!isOpen || eventId == null) return null;
 
-  const event = events.find(e => e.id === eventId);
+  const event = events.find(e => String(e.id) === String(eventId));
   if (!event) return null;
-
-  const isJoined = joinedEvents.includes(eventId);
+  const isJoined = joinedEvents.map(String).includes(String(event.id));
   const eventImages = event.eventImages || [event.image];
 
   const handleJoinToggle = () => {
     if (isJoined) {
-      leaveEvent(eventId);
+      leaveEvent(event.id as any);
     } else {
-      joinEvent(eventId);
+      joinEvent(event.id as any);
     }
   };
 
   const handleConnect = () => {
-    addConnection(eventId);
+    addConnection(event.id as any);
   };
 
   const handleShare = () => {
@@ -320,11 +319,11 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
             <div className="flex space-x-3">
               <Button
                 onClick={handleConnect}
-                disabled={isConnected(eventId)}
-                variant={isConnected(eventId) ? "outline" : "default"}
+                disabled={isConnected(event.id as any)}
+                variant={isConnected(event.id as any) ? "outline" : "default"}
                 className="flex-1 h-10 rounded-xl"
               >
-                {isConnected(eventId) ? (
+                {isConnected(event.id as any) ? (
                   <><Check className="w-4 h-4 mr-2" />Connected</>
                 ) : (
                   <><UserPlus className="w-4 h-4 mr-2" />Connect+</>
@@ -346,7 +345,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
         isOpen={showEdit}
         onClose={() => setShowEdit(false)}
         event={event}
-        onSave={(updates) => updateEvent(eventId!, updates as any, true)}
+        onSave={(updates) => updateEvent(event.id as any, updates as any, true)}
       />
     </div>
   );

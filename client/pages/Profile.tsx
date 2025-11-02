@@ -25,6 +25,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -134,37 +135,14 @@ export default function Profile() {
       <div className="px-4 pb-6">
         {activeTab === "profile" ? (
           <>
-            {/* Profile photos */}
+            {/* Photos are managed in Settings */}
             <div className="mb-6 mt-6">
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {profilePhotos.map((photo, index) => (
-                  <div
-                    key={index}
-                    className="relative aspect-[3/4] rounded-2xl overflow-hidden"
-                  >
-                    <img
-                      src={photo}
-                      alt={`Profile ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    {isEditing && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <Camera className="w-6 h-6 text-white" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="bg-card p-4 rounded-2xl text-center">
+                <p className="text-sm text-muted-foreground">Photos are managed in Settings. Your primary avatar is shown there.</p>
+                <div className="mt-4">
+                  <Button variant="outline" onClick={() => navigate('/settings')}>Manage Photos in Settings</Button>
+                </div>
               </div>
-
-              {isEditing && (
-                <Button
-                  variant="outline"
-                  className="w-full h-12 rounded-xl border-dashed"
-                >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Photo
-                </Button>
-              )}
             </div>
 
             {/* Basic info */}
@@ -220,7 +198,7 @@ export default function Profile() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <button
                 onClick={() => setShowStatsModal("events")}
                 className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
@@ -239,21 +217,7 @@ export default function Profile() {
                 </div>
                 <div className="text-xs text-muted-foreground">Connections</div>
               </button>
-              <button
-                onClick={() => setShowStatsModal("views")}
-                className="relative text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
-              >
-                <div className="text-2xl font-bold text-muted-foreground mb-1">
-                  <Lock className="w-6 h-6 mx-auto" />
-                </div>
-                <div className="text-xs text-muted-foreground">Profile Views</div>
-                <div className="absolute top-2 right-2">
-                  <Crown className="w-4 h-4 text-yellow-500" />
-                </div>
-                <div className="text-xs text-yellow-600 mt-1 font-medium">
-                  Premium
-                </div>
-              </button>
+              {/* Profile Views hidden — premium feature removed from profile */}
             </div>
 
             {/* Interests */}

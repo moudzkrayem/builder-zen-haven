@@ -49,8 +49,10 @@ export default function VerifyEmail() {
     }
     setSending(true);
     try {
+      const site = (import.meta as any).env?.VITE_SITE_URL || window.location.origin;
+      const actionUrl = `${site.replace(/\/$/, '')}/verify-email`;
       await sendEmailVerification(auth.currentUser, {
-        url: "http://localhost:5173/verify-email", // change in prod
+        url: actionUrl,
         handleCodeInApp: true,
       });
       setMessage(`✅ Verification link resent to ${auth.currentUser.email}`);

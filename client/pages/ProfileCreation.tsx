@@ -650,17 +650,17 @@ const handleComplete = async () => {
                   <div className="grid grid-cols-2 gap-2">
                     {INTEREST_CATEGORIES[selectedCategory].interests
                       .filter(interest => !profileData.thingsYouDoGreat.includes(interest) && !profileData.thingsYouWantToTry.includes(interest))
-                      .map((interest) => (
+                        .map((interest) => (
                         <Button
                           key={interest}
                           variant="outline"
                           size="sm"
                           onClick={() => addInterest(interest, 'great')}
                           disabled={profileData.thingsYouDoGreat.length >= 10}
-                          className="justify-start text-left rounded-xl hover:scale-105 transition-transform"
+                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal break-words"
                         >
-                          <Plus className="w-3 h-3 mr-2 text-green-500" />
-                          {interest}
+                          <Plus className="w-3 h-3 mr-2 text-green-500 flex-shrink-0" />
+                          <span className="break-words">{interest}</span>
                         </Button>
                       ))}
                   </div>
@@ -756,10 +756,10 @@ const handleComplete = async () => {
                           size="sm"
                           onClick={() => addInterest(interest, 'try')}
                           disabled={profileData.thingsYouWantToTry.length >= 10}
-                          className="justify-start text-left rounded-xl hover:scale-105 transition-transform"
+                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal break-words"
                         >
-                          <Plus className="w-3 h-3 mr-2 text-red-500" />
-                          {interest}
+                          <Plus className="w-3 h-3 mr-2 text-red-500 flex-shrink-0" />
+                          <span className="break-words">{interest}</span>
                         </Button>
                       ))}
                   </div>

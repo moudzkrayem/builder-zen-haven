@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenChat: (eventId: number, hostName: string) => void;
+  onOpenChat: (eventId: string | number, hostName: string) => void;
   onEventClick?: (eventId: number) => void;
 }
 
@@ -29,7 +29,7 @@ export default function ScheduleModal({
   onEventClick,
 }: ScheduleModalProps) {
   const { events, joinedEvents, leaveEvent } = useEvents();
-  const [cancellingEvent, setCancellingEvent] = useState<number | null>(null);
+  const [cancellingEvent, setCancellingEvent] = useState<string | number | null>(null);
   // Map of resolved images for joined events to avoid re-resolving repeatedly
   const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({});
 
@@ -42,31 +42,50 @@ export default function ScheduleModal({
         const joinedEventsListLocal = events.filter((event) => joinedSetLocal.has(String(event.id)));
         const toResolve = joinedEventsListLocal.map((e) => ({ id: String(e.id), src: (e as any)._resolvedImage || e.image || (e as any).eventImages?.[0] || (e as any).photos?.[0] }));
         const storage = getStorage();
-        for (const item of toResolve) {
-          if (!mounted) break;
-          if (!item.src) continue;
-          if (item.src.startsWith('http')) {
-            setResolvedImages(prev => ({ ...prev, [item.id]: item.src }));
-            continue;
-          }
 
-          let path = String(item.src);
-          const match = path.match(/\/o\/(.*?)\?/);
-          if (match && match[1]) path = decodeURIComponent(match[1]);
-          if (path.startsWith('gs://')) {
-            path = path.replace('gs://', '');
-            const parts = path.split('/');
-            if (parts.length > 1) parts.shift();
-            path = parts.join('/');
-          }
-
+        // Resolve all candidates in parallel (best-effort). Use Promise.allSettled so one failure doesn't block others.
+        const promises = toResolve.map(async (item) => {
+          if (!item.src) return { id: item.id, url: undefined };
           try {
-            const url = await getDownloadURL(storageRef(storage, path));
-            if (!mounted) break;
-            setResolvedImages(prev => ({ ...prev, [item.id]: url }));
+            if (item.src.startsWith('http')) return { id: item.id, url: item.src };
+
+            let path = String(item.src);
+            const match = path.match(/\/o\/(.*?)\?/);
+            if (match && match[1]) path = decodeURIComponent(match[1]);
+            if (path.startsWith('gs://')) {
+              path = path.replace('gs://', '');
+              const parts = path.split('/');
+              if (parts.length > 1) parts.shift();
+              path = parts.join('/');
+            }
+
+            try {
+              const url = await getDownloadURL(storageRef(storage, path));
+              return { id: item.id, url };
+            } catch (err) {
+              console.debug('ScheduleModal: failed to resolve image for', item.id, err);
+              return { id: item.id, url: undefined };
+            }
           } catch (err) {
-            console.debug('ScheduleModal: failed to resolve image for', item.id, err);
+            return { id: item.id, url: undefined };
           }
+        });
+
+        const results = await Promise.allSettled(promises);
+        if (!mounted) return;
+        const next: Record<string, string> = {};
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            const value = (r.value as any);
+            if (value && value.id && value.url) next[value.id] = value.url;
+          }
+        }
+        // Merge into state once to reduce re-renders
+        if (Object.keys(next).length > 0) {
+          console.debug('ScheduleModal: resolved images', next);
+          setResolvedImages(prev => ({ ...prev, ...next }));
+        } else {
+          console.debug('ScheduleModal: no resolved images found for joined events', toResolve.map(t => t.id));
         }
       } catch (err) {
         console.debug('ScheduleModal: unexpected error resolving images', err);
@@ -75,6 +94,48 @@ export default function ScheduleModal({
     return () => { mounted = false; };
   }, [events, joinedEvents]);
 
+  // Helper to resolve a single storage candidate and cache it
+  const resolveAndCache = async (id: string, candidate?: string) => {
+    if (!candidate) return;
+    try {
+      // quick-check: if it's already an http(s) url, store directly
+      if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
+        setResolvedImages(prev => (prev[id] ? prev : { ...prev, [id]: candidate }));
+        return;
+      }
+
+      const storage = getStorage();
+      let refPath = String(candidate);
+      if (refPath.startsWith('gs://')) {
+        const parts = refPath.replace('gs://', '').split('/');
+        if (parts.length > 1) parts.shift();
+        refPath = parts.join('/');
+      }
+      const url = await getDownloadURL(storageRef(storage, refPath));
+      setResolvedImages(prev => ({ ...prev, [id]: url }));
+    } catch (err) {
+      console.debug('ScheduleModal: resolveAndCache failed for', id, candidate, err);
+    }
+  };
+
+  const getDisplaySrc = (event: any) => {
+    const id = String(event.id);
+    // priority: resolvedImages map -> event._resolvedImage -> event.image (if http) -> event.eventImages[0]
+    if (resolvedImages[id]) return resolvedImages[id];
+    if (event && event._resolvedImage && typeof event._resolvedImage === 'string') return event._resolvedImage;
+    if (event && event.image && typeof event.image === 'string' && (event.image.startsWith('http') || event.image.startsWith('data:') || event.image.startsWith('/'))) return event.image;
+
+    // If image looks like a storage path, try resolving it in background
+    const candidate = event && event.image ? event.image : (event && event.eventImages && event.eventImages[0] ? event.eventImages[0] : undefined);
+    if (candidate && typeof candidate === 'string' && !candidate.startsWith('http') && !candidate.startsWith('data:') && !candidate.startsWith('/')) {
+      // kick off resolution but don't await here
+      void resolveAndCache(id, candidate);
+      return undefined;
+    }
+
+    return candidate || undefined;
+  };
+
   if (!isOpen) return null;
 
   // Normalize comparison to strings so IDs match whether stored as numbers or Firestore string ids
@@ -82,13 +143,18 @@ export default function ScheduleModal({
   const joinedEventsList = events.filter((event) => joinedSet.has(String(event.id)));
  
 
-  const handleCancelEvent = async (eventId: number) => {
+  const handleCancelEvent = async (eventId: string | number) => {
+    // Immediately mark cancelling for UI feedback and perform leave
+    console.debug('ScheduleModal: handleCancelEvent firing for', String(eventId));
     setCancellingEvent(eventId);
-    // Add a small delay for visual feedback
-    setTimeout(() => {
-      leaveEvent(eventId);
-      setCancellingEvent(null);
-    }, 500);
+    try {
+      // Call leaveEvent immediately (no artificial delay) so server-side persist runs right away
+      leaveEvent(eventId as any);
+    } catch (err) {
+      console.debug('ScheduleModal: leaveEvent threw', err);
+    }
+    // Clear the cancelling indicator shortly after to restore UI
+    setTimeout(() => setCancellingEvent(null), 600);
   };
 
   const formatEventDate = (event: any) => {
@@ -156,7 +222,7 @@ export default function ScheduleModal({
               {joinedEventsList.map((event) => (
                 <div
                   key={event.id}
-                  onClick={() => onEventClick?.(Number(event.id))}
+                  onClick={() => onEventClick?.(event.id as any)}
                   className={cn(
                     "bg-muted/30 rounded-2xl p-4 border border-border transition-all duration-300 hover:bg-muted/50 cursor-pointer",
                     cancellingEvent === event.id &&
@@ -165,14 +231,24 @@ export default function ScheduleModal({
                 >
                   <div className="flex items-start space-x-4">
                     {/* Event Image */}
-                    <img
-                      src={resolvedImages[String(event.id)] || (event as any)._resolvedImage || event.image || (event as any).eventImages?.[0] || (event as any).photos?.[0] || '/placeholder.svg'}
-                      alt={event.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
-                    />
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                      {/* Render using getDisplaySrc which may trigger background resolution for storage paths */}
+                      {
+                        (() => {
+                          const src = getDisplaySrc(event) || '/placeholder.svg';
+                          return (
+                            <img
+                              src={src}
+                              alt={event.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-16 h-16 rounded-xl object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                            />
+                          );
+                        })()
+                      }
+                    </div>
 
                     {/* Event Details */}
                     <div className="flex-1 min-w-0">
@@ -219,12 +295,11 @@ export default function ScheduleModal({
                     <Button
                       variant="outline"
                       size="sm"
-                        onClick={(e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-                        onOpenChat(
-                          Number(event.id),
-                          event.hostName || event.host || "Host",
-                        );
+                        // Pass id through as-is (string or number). Consumer will normalize.
+                        console.debug('ScheduleModal: Chat clicked for', String(event.id));
+                        onOpenChat?.(event.id as any, event.hostName || event.host || "Host");
                       }}
                       className="flex items-center space-x-2"
                     >
@@ -238,16 +313,17 @@ export default function ScheduleModal({
                         size="sm"
                         onClick={(e) => e.stopPropagation()}
                         className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        aria-label="Keep spot"
                       >
-                        <Check className="w-4 h-4 mr-1" />
-                        Keep Spot
+                        <Check className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                          onClick={(e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          handleCancelEvent(Number(event.id));
+                          console.debug('ScheduleModal: Cancel clicked for', String(event.id));
+                          handleCancelEvent(event.id as any);
                         }}
                         disabled={cancellingEvent === event.id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
