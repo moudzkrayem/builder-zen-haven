@@ -260,6 +260,19 @@ export default function ProfileCreation() {
     }
   };
 
+  // Ensure the page is scrolled to top when the profile creation mounts or when the step changes
+  useEffect(() => {
+    try {
+      const m = document.querySelector('main');
+      if (m && typeof (m as HTMLElement).scrollTo === 'function') {
+        (m as HTMLElement).scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
+      try { window.scrollTo(0, 0); } catch (e) {}
+    } catch (err) {
+      // ignore
+    }
+  }, [currentStep]);
+
 const handleComplete = async () => {
   if (!auth.currentUser) {
     alert("You must be logged in to save your profile.");
@@ -291,6 +304,7 @@ const handleComplete = async () => {
 
     setTimeout(() => {
       document.body.removeChild(confetti);
+      try { window.scrollTo(0, 0); } catch (e) {}
       navigate("/home");
     }, 1500);
   } catch (error) {

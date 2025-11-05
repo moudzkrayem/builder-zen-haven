@@ -28,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import { useNavigate } from "react-router-dom";
-import { auth } from "@/auth";
+import { auth, logout } from "@/auth";
 import { db } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -264,11 +264,36 @@ export default function Settings() {
                         item.type === "action" &&
                           "active:bg-accent",
                       )}
-                      onClick={() => {
-                          if (item.label === "Notifications") {
-                            setShowNotificationsModal(true);
-                          } else if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
-                            setShowDiscoveryModal(true);
+                      onClick={async () => {
+                          try {
+                            if (item.label === "Notifications") {
+                              setShowNotificationsModal(true);
+                              return;
+                            }
+
+                            if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
+                              setShowDiscoveryModal(true);
+                              return;
+                            }
+
+                            if (item.label === "Sign Out") {
+                              // Perform logout via auth helper, clear session-local data and navigate to login
+                              try {
+                                await logout();
+                              } catch (err) {
+                                console.warn('Settings: logout failed', err);
+                              }
+                              try {
+                                // Clear some local caches and session state
+                                localStorage.removeItem('trybes_cache_v1');
+                                localStorage.removeItem('userProfile');
+                                sessionStorage.removeItem('openScheduleOnLoad');
+                              } catch (e) {}
+                              navigate('/login');
+                              return;
+                            }
+                          } catch (err) {
+                            console.debug('Settings: item click handler error', err);
                           }
                         }}
                     >
