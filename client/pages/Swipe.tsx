@@ -4,20 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
 import SwipeFiltersModal from "@/components/SwipeFiltersModal";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
-import {
-  X,
-  Heart,
-  Plus,
-  MapPin,
-  Clock,
-  Users,
-  Settings,
-  DollarSign,
-  Star,
-  Crown,
-} from "lucide-react";
+import { X, Heart, Plus, MapPin, Clock, Users, Settings, DollarSign, Star, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { isHttpDataOrRelative, normalizeStorageRefPath, isTrustedExternalImage } from '@/lib/imageUtils';
+import SafeImg from '@/components/SafeImg';
 
 export default function Swipe() {
   const { events, joinEvent, joinedEvents } = useEvents();
@@ -40,21 +31,24 @@ export default function Swipe() {
   const resolveForEvent = async (id: string | number, candidate?: string) => {
     if (!candidate) return;
     try {
-      if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
-        setResolvedImages(prev => (prev[String(id)] ? prev : { ...prev, [String(id)]: candidate }));
+      console.log('Swipe.resolveForEvent: candidate for', id, candidate);
+      if (typeof candidate === 'string' && isHttpDataOrRelative(candidate)) {
+        console.log('Swipe.resolveForEvent: treating as http/data/relative, evaluating trust before caching for', id, candidate);
+        if (isTrustedExternalImage(candidate)) {
+          setResolvedImages(prev => (prev[String(id)] ? prev : { ...prev, [String(id)]: candidate }));
+        } else {
+          console.log('Swipe.resolveForEvent: skipping cache for untrusted external image', id, candidate);
+        }
         return;
       }
       const storage = getStorage();
-      let refPath = String(candidate);
-      if (refPath.startsWith('gs://')) {
-        const parts = refPath.replace('gs://', '').split('/');
-        if (parts.length > 1) parts.shift();
-        refPath = parts.join('/');
-      }
+      const refPath = normalizeStorageRefPath(String(candidate));
+      console.log('Swipe.resolveForEvent: attempting getDownloadURL for', id, refPath);
       const url = await getDownloadURL(storageRef(storage, refPath));
+      console.log('Swipe.resolveForEvent: resolved', id, url);
       setResolvedImages(prev => ({ ...prev, [String(id)]: url }));
     } catch (err) {
-      console.debug('Swipe: failed to resolve image for', id, candidate, err);
+      console.log('Swipe: failed to resolve image for', id, candidate, err);
     }
   };
 
@@ -226,20 +220,29 @@ export default function Swipe() {
                 const orig = (currentEvent as any)._original;
                 const id = orig ? String(orig.id) : undefined;
                 let src: string | undefined = undefined;
+                // 1) component-level resolved cache
                 if (id && resolvedImages[id]) src = resolvedImages[id];
-                if (!src && orig && orig._resolvedImage) src = orig._resolvedImage;
+                // 2) canonical fields: image then eventImages/photos
                 if (!src && orig && orig.image && (orig.image.startsWith('http') || orig.image.startsWith('data:') || orig.image.startsWith('/'))) src = orig.image;
-                // If still no HTTP src but there is a candidate storage path, kick off resolution
-                if (!src && orig && orig.image && typeof orig.image === 'string' && !orig.image.startsWith('http') && !orig.image.startsWith('data:') && !orig.image.startsWith('/')) {
-                  void resolveForEvent(id || currentEvent.id, orig.image);
+                if (!src && orig && Array.isArray(orig.eventImages) && orig.eventImages[0]) src = orig.eventImages[currentPhotoIndex] || orig.eventImages[0];
+                if (!src && orig && Array.isArray((orig as any).photos) && (orig as any).photos[0]) src = (orig as any).photos[0];
+                // 3) trusted _resolvedImage only
+                if (!src && orig && orig._resolvedImage && isTrustedExternalImage(orig._resolvedImage)) src = orig._resolvedImage;
+
+                // If still no HTTP src but there is a storage-path candidate in canonical fields, kick off resolution
+                const candidate = orig && orig.image ? orig.image : (orig && Array.isArray(orig.eventImages) && orig.eventImages[0] ? orig.eventImages[0] : (orig && (orig as any).photos && (orig as any).photos[0] ? (orig as any).photos[0] : undefined));
+                if (!src && candidate && typeof candidate === 'string' && !candidate.startsWith('http') && !candidate.startsWith('data:') && !candidate.startsWith('/')) {
+                  void resolveForEvent(id || currentEvent.id, candidate);
                 }
-                const finalSrc = src || currentEvent.eventImages[currentPhotoIndex] || '/placeholder.svg';
+
+                const finalSrc = src || (currentEvent.eventImages && currentEvent.eventImages[currentPhotoIndex]) || '';
                 return (
-                  <img
+                  <SafeImg
+                    key={`swipe-img-${String(id || currentEvent.id)}`}
                     src={finalSrc}
                     alt={currentEvent.eventName}
                     className="w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                    debugContext={`Swipe:event:${String(id || currentEvent.id)}`}
                   />
                 );
               })()}
@@ -288,10 +291,11 @@ export default function Swipe() {
 
             {/* Host circle */}
             <div className="absolute top-6 left-6 flex items-center space-x-3 z-10">
-              <img
+              <SafeImg
                 src={currentEvent.hostImage}
                 alt={currentEvent.hostName}
                 className="w-12 h-12 rounded-full border-2 border-white object-cover"
+                debugContext={`Swipe:host:${String(currentEvent.id)}`}
               />
               <div className="text-white">
                 <div className="text-sm font-semibold">

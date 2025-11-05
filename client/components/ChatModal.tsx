@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { isHttpDataOrRelative, normalizeStorageRefPath } from '@/lib/imageUtils';
 import { app } from "../firebase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import SafeImg from '@/components/SafeImg';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -114,33 +116,20 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
       try {
         const src = chat?.eventImage || event?.image;
         if (!src) return;
-        // If already an http URL and loads correctly, use it. Otherwise, attempt to resolve a storage path.
-        if (typeof src === 'string' && src.startsWith('http')) {
+        // If already an http URL or a data URL (including encoded), use it. Otherwise, attempt to resolve a storage path.
+        if (typeof src === 'string' && isHttpDataOrRelative(src)) {
           setResolvedEventImage(src);
           return;
         }
 
-        let path = String(src);
-        if (path.startsWith('gs://')) {
-          path = path.replace('gs://', '');
-          const parts = path.split('/');
-          if (parts.length > 1) parts.shift();
-          path = parts.join('/');
-        }
-
-        // If the string looks like a full storage download URL, extract the '/o/<path>' portion
-        const match = String(path).match(/\/o\/(.*?)\?/);
-        if (match && match[1]) {
-          path = decodeURIComponent(match[1]);
-        }
-
         try {
+          const path = normalizeStorageRefPath(String(src));
           const storage = getStorage(app);
           const url = await getDownloadURL(storageRef(storage, path));
           if (mounted) setResolvedEventImage(url);
         } catch (err) {
           // Could not resolve; leave resolvedEventImage as-is
-          console.debug('ChatModal: failed to resolve event image from storage path', path, err);
+          console.debug('ChatModal: failed to resolve event image from storage path', src, err);
         }
       } catch (err) {
         console.debug('ChatModal: unexpected error resolving event image', err);
@@ -232,32 +221,11 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           <Button variant="ghost" size="icon" onClick={onClose}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <img
-            src={resolvedEventImage || '/placeholder.svg'}
+          <SafeImg
+            src={resolvedEventImage || ''}
             alt={chat.eventName || 'Trybe'}
             className="w-10 h-10 rounded-xl object-cover"
-            onError={async (e) => {
-              try {
-                const el = e.currentTarget as HTMLImageElement;
-                const src = chat?.eventImage || event?.image;
-                if (!src) { el.src = '/placeholder.svg'; return; }
-                // Attempt to extract storage path and re-resolve
-                let path = String(src);
-                const match = path.match(/\/o\/(.*?)\?/);
-                if (match && match[1]) path = decodeURIComponent(match[1]);
-                if (path.startsWith('gs://')) {
-                  path = path.replace('gs://', '');
-                  const parts = path.split('/');
-                  if (parts.length > 1) parts.shift();
-                  path = parts.join('/');
-                }
-                const storage = getStorage(app);
-                const url = await getDownloadURL(storageRef(storage, path));
-                el.src = url;
-              } catch (err) {
-                (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
-              }
-            }}
+            debugContext={`ChatModal:event:${String(chat.eventId)}`}
           />
           <div>
             <h3 className="font-semibold">{chat.eventName}</h3>
@@ -336,10 +304,11 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="relative flex-shrink-0">
-                    <img
+                    <SafeImg
                       src={member.image}
                       alt={member.name}
                       className="w-10 h-10 rounded-full object-cover"
+                      debugContext={`ChatModal:member:${String(member.id)}`}
                     />
                     <div className={cn(
                       "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card",

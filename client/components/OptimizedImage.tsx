@@ -1,5 +1,6 @@
 import React from 'react';
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { isHttpDataOrRelative, normalizeStorageRefPath } from '@/lib/imageUtils';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   srcCandidates: Array<string | undefined | null>;
@@ -10,24 +11,15 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
 const CACHE_KEY_PREFIX = 'imgcache:';
 
 async function resolveStoragePath(path: string): Promise<string | undefined> {
-  try {
-    const storage = getStorage();
-    // If the path looks like a full URL return as-is
-    if (path.startsWith('http')) return path;
+    try {
+      const storage = getStorage();
+      // If the path looks like a full URL or data URL (including encoded), return as-is
+      if (isHttpDataOrRelative(path)) return path;
 
-    // Normalize common GCS formats
-    let p = path;
-    const match = p.match(/\/o\/(.*?)\?/);
-    if (match && match[1]) p = decodeURIComponent(match[1]);
-    if (p.startsWith('gs://')) {
-      p = p.replace('gs://', '');
-      const parts = p.split('/');
-      if (parts.length > 1) parts.shift();
-      p = parts.join('/');
-    }
-
-    const url = await getDownloadURL(storageRef(storage, p));
-    return url;
+      // Normalize common storage formats and resolve
+      const p = normalizeStorageRefPath(path);
+      const url = await getDownloadURL(storageRef(storage, p));
+      return url;
   } catch (err) {
     // Fail silently
     return undefined;

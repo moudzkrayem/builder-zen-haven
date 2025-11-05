@@ -13,6 +13,7 @@ import { useEvents } from "@/contexts/EventsContext";
 import { collection, getDocs } from "firebase/firestore";
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
+import { isHttpDataOrRelative, normalizeStorageRefPath } from '@/lib/imageUtils';
 import {
   Search,
   Filter,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import EventsDebugOverlay from '@/components/EventsDebugOverlay';
+import SafeImg from '@/components/SafeImg';
 import { CATEGORIES, CATEGORY_BY_ID } from '@/config/categories';
 import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 // Local state to hold Trybes fetched from Firestore will be created inside the Home component
@@ -441,18 +443,12 @@ export default function Home() {
             const data: any = doc;
             const candidate = Array.isArray(data.photos) && data.photos.length > 0 ? data.photos[0] : data.image;
 
-            if (!candidate || candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/')) {
+            if (!candidate || isHttpDataOrRelative(candidate)) {
               // nothing to resolve
               continue;
             }
 
-            // resolve storage path in a best-effort manner
-            let refPath = candidate;
-            if (candidate.startsWith('gs://')) {
-              const parts = candidate.replace('gs://', '').split('/');
-              parts.shift(); // remove bucket name
-              refPath = parts.join('/');
-            }
+            const refPath = normalizeStorageRefPath(String(candidate));
 
             try {
               const ref = storageRef(storage, refPath);
@@ -632,18 +628,14 @@ export default function Home() {
                   )}
                 >
                   <div className="flex">
-                    <div className="relative w-24 h-24">
-                      <img
-                        src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
+                      <div className="relative w-24 h-24">
+                      <SafeImg
+                        src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
                         alt={trybe.name}
-                        onError={(e) => {
-                          // Fallback to local placeholder when remote image fails
-                          const target = e.currentTarget as HTMLImageElement;
-                          if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
-                        }}
                         className="w-full h-full object-cover"
                         loading="lazy"
                         decoding="async"
+                        debugContext={`Home:recommended:${String(trybe.id)}`}
                       />
                       <div className="absolute top-2 left-2 flex flex-col space-y-1">
                         {trybe.isPopular && (
@@ -812,14 +804,11 @@ export default function Home() {
                       )}
                     >
                       <div className="relative aspect-[4/3]">
-                        <img
-                          src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
+                        <SafeImg
+                          src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
                           alt={trybe.name}
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
-                          }}
                           className="w-full h-full object-cover"
+                          debugContext={`Home:similar:${String(trybe.id)}`}
                         />
                         <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
                           <div className="flex items-center space-x-1">
@@ -977,14 +966,11 @@ export default function Home() {
                   )}
                 >
                   <div className="relative aspect-[4/3]">
-                    <img
-                      src={(trybe as any)._resolvedImage || (trybe as any).image || '/placeholder.svg'}
+                    <SafeImg
+                      src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
                       alt={trybe.name}
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        if (target?.src && !target.src.includes('placeholder.svg')) target.src = '/placeholder.svg';
-                      }}
                       className="w-full h-full object-cover"
+                      debugContext={`Home:nearby:${String(trybe.id)}`}
                     />
                     <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
                       <div className="flex items-center space-x-1">

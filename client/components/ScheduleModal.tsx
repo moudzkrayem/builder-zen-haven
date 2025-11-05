@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { isHttpDataOrRelative, normalizeStorageRefPath, isTrustedExternalImage } from '@/lib/imageUtils';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
@@ -13,6 +14,7 @@ import {
   Check,
   Trash2,
 } from "lucide-react";
+import SafeImg from '@/components/SafeImg';
 import { cn } from "@/lib/utils";
 
 interface ScheduleModalProps {
@@ -40,33 +42,39 @@ export default function ScheduleModal({
       try {
         const joinedSetLocal = new Set((joinedEvents || []).map((id) => String(id)));
         const joinedEventsListLocal = events.filter((event) => joinedSetLocal.has(String(event.id)));
-        const toResolve = joinedEventsListLocal.map((e) => ({ id: String(e.id), src: (e as any)._resolvedImage || e.image || (e as any).eventImages?.[0] || (e as any).photos?.[0] }));
+        // Build resolve candidates using canonical fields first (image / eventImages / photos).
+        // Only include _resolvedImage if it looks like a trusted external image (avoids trusting unsplash/third-party fallbacks).
+        const toResolve = joinedEventsListLocal.map((e) => {
+          const canonical = e.image || (e as any).eventImages?.[0] || (e as any).photos?.[0];
+          const resolved = (e as any)._resolvedImage;
+          const src = canonical || (resolved && isTrustedExternalImage(resolved) ? resolved : undefined);
+          return { id: String(e.id), src };
+        });
         const storage = getStorage();
 
         // Resolve all candidates in parallel (best-effort). Use Promise.allSettled so one failure doesn't block others.
         const promises = toResolve.map(async (item) => {
           if (!item.src) return { id: item.id, url: undefined };
           try {
-            if (item.src.startsWith('http')) return { id: item.id, url: item.src };
-
-            let path = String(item.src);
-            const match = path.match(/\/o\/(.*?)\?/);
-            if (match && match[1]) path = decodeURIComponent(match[1]);
-            if (path.startsWith('gs://')) {
-              path = path.replace('gs://', '');
-              const parts = path.split('/');
-              if (parts.length > 1) parts.shift();
-              path = parts.join('/');
+            // Log the candidate so user can paste visible console output
+            console.log('ScheduleModal: candidate', item.id, item.src);
+            if (isHttpDataOrRelative(item.src as any)) {
+              console.log('ScheduleModal: treating as http/data/relative, skipping storage resolve for', item.id);
+              return { id: item.id, url: item.src };
             }
 
+            const path = normalizeStorageRefPath(String(item.src));
             try {
+              console.log('ScheduleModal: attempting getDownloadURL for', item.id, path);
               const url = await getDownloadURL(storageRef(storage, path));
+              console.log('ScheduleModal: getDownloadURL success for', item.id, url);
               return { id: item.id, url };
             } catch (err) {
-              console.debug('ScheduleModal: failed to resolve image for', item.id, err);
+              console.log('ScheduleModal: failed to resolve image for', item.id, err);
               return { id: item.id, url: undefined };
             }
           } catch (err) {
+            console.log('ScheduleModal: internal error resolving candidate for', item.id, err);
             return { id: item.id, url: undefined };
           }
         });
@@ -82,13 +90,13 @@ export default function ScheduleModal({
         }
         // Merge into state once to reduce re-renders
         if (Object.keys(next).length > 0) {
-          console.debug('ScheduleModal: resolved images', next);
+          console.log('ScheduleModal: resolved images', next);
           setResolvedImages(prev => ({ ...prev, ...next }));
         } else {
-          console.debug('ScheduleModal: no resolved images found for joined events', toResolve.map(t => t.id));
+          console.log('ScheduleModal: no resolved images found for joined events', toResolve.map(t => t.id));
         }
       } catch (err) {
-        console.debug('ScheduleModal: unexpected error resolving images', err);
+        console.log('ScheduleModal: unexpected error resolving images', err);
       }
     })();
     return () => { mounted = false; };
@@ -98,35 +106,39 @@ export default function ScheduleModal({
   const resolveAndCache = async (id: string, candidate?: string) => {
     if (!candidate) return;
     try {
-      // quick-check: if it's already an http(s) url, store directly
-      if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
-        setResolvedImages(prev => (prev[id] ? prev : { ...prev, [id]: candidate }));
-        return;
-      }
+      // quick-check: if it's already an http(s) url or data URL (including encoded), store directly
+      if (typeof candidate === 'string' && isHttpDataOrRelative(candidate)) {
+            console.log('ScheduleModal.resolveAndCache: candidate is http/data/relative, evaluating trust for caching', id, candidate);
+            // Only cache if the candidate is trusted (data:, known CDN/storage, or whitelisted hosts).
+            if (isTrustedExternalImage(candidate)) {
+              setResolvedImages(prev => (prev[id] ? prev : { ...prev, [id]: candidate }));
+            } else {
+              console.log('ScheduleModal.resolveAndCache: skipping cache for untrusted external image', id, candidate);
+            }
+            return;
+          }
 
       const storage = getStorage();
-      let refPath = String(candidate);
-      if (refPath.startsWith('gs://')) {
-        const parts = refPath.replace('gs://', '').split('/');
-        if (parts.length > 1) parts.shift();
-        refPath = parts.join('/');
-      }
+      const refPath = normalizeStorageRefPath(String(candidate));
       const url = await getDownloadURL(storageRef(storage, refPath));
       setResolvedImages(prev => ({ ...prev, [id]: url }));
     } catch (err) {
-      console.debug('ScheduleModal: resolveAndCache failed for', id, candidate, err);
+      console.log('ScheduleModal: resolveAndCache failed for', id, candidate, err);
     }
   };
 
   const getDisplaySrc = (event: any) => {
     const id = String(event.id);
-    // priority: resolvedImages map -> event._resolvedImage -> event.image (if http) -> event.eventImages[0]
-    if (resolvedImages[id]) return resolvedImages[id];
-    if (event && event._resolvedImage && typeof event._resolvedImage === 'string') return event._resolvedImage;
-    if (event && event.image && typeof event.image === 'string' && (event.image.startsWith('http') || event.image.startsWith('data:') || event.image.startsWith('/'))) return event.image;
+  // priority: resolvedImages map -> canonical image fields (image/eventImages/photos) -> trusted _resolvedImage
+  if (resolvedImages[id]) return resolvedImages[id];
+  if (event && event.image && typeof event.image === 'string' && (event.image.startsWith('http') || event.image.startsWith('data:') || event.image.startsWith('/'))) return event.image;
+  if (event && event.eventImages && Array.isArray(event.eventImages) && event.eventImages[0]) return event.eventImages[0];
+  if (event && (event as any).photos && Array.isArray((event as any).photos) && (event as any).photos[0]) return (event as any).photos[0];
+  // Only trust _resolvedImage if it's from a trusted origin (avoids Unsplash fallbacks being authoritative)
+  if (event && (event as any)._resolvedImage && typeof (event as any)._resolvedImage === 'string' && isTrustedExternalImage((event as any)._resolvedImage)) return (event as any)._resolvedImage;
 
-    // If image looks like a storage path, try resolving it in background
-    const candidate = event && event.image ? event.image : (event && event.eventImages && event.eventImages[0] ? event.eventImages[0] : undefined);
+  // If image looks like a storage path in the canonical fields, try resolving it in background
+  const candidate = event && event.image ? event.image : (event && event.eventImages && event.eventImages[0] ? event.eventImages[0] : (event && (event as any).photos && (event as any).photos[0] ? (event as any).photos[0] : undefined));
     if (candidate && typeof candidate === 'string' && !candidate.startsWith('http') && !candidate.startsWith('data:') && !candidate.startsWith('/')) {
       // kick off resolution but don't await here
       void resolveAndCache(id, candidate);
@@ -145,7 +157,7 @@ export default function ScheduleModal({
 
   const handleCancelEvent = async (eventId: string | number) => {
     // Immediately mark cancelling for UI feedback and perform leave
-    console.debug('ScheduleModal: handleCancelEvent firing for', String(eventId));
+  console.log('ScheduleModal: handleCancelEvent firing for', String(eventId));
     setCancellingEvent(eventId);
     try {
       // Call leaveEvent immediately (no artificial delay) so server-side persist runs right away
@@ -235,15 +247,16 @@ export default function ScheduleModal({
                       {/* Render using getDisplaySrc which may trigger background resolution for storage paths */}
                       {
                         (() => {
-                          const src = getDisplaySrc(event) || '/placeholder.svg';
+                          const src = getDisplaySrc(event) || '';
                           return (
-                            <img
+                            <SafeImg
+                              key={`sched-img-${String(event.id)}`}
                               src={src}
                               alt={event.name}
+                              className="w-16 h-16 rounded-xl object-cover"
                               loading="lazy"
                               decoding="async"
-                              className="w-16 h-16 rounded-xl object-cover"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                              debugContext={`ScheduleModal:event:${String(event.id)}`}
                             />
                           );
                         })()
@@ -298,7 +311,7 @@ export default function ScheduleModal({
                       onClick={(e) => {
                         e.stopPropagation();
                         // Pass id through as-is (string or number). Consumer will normalize.
-                        console.debug('ScheduleModal: Chat clicked for', String(event.id));
+                        console.log('ScheduleModal: Chat clicked for', String(event.id));
                         onOpenChat?.(event.id as any, event.hostName || event.host || "Host");
                       }}
                       className="flex items-center space-x-2"
@@ -322,7 +335,7 @@ export default function ScheduleModal({
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          console.debug('ScheduleModal: Cancel clicked for', String(event.id));
+                          console.log('ScheduleModal: Cancel clicked for', String(event.id));
                           handleCancelEvent(event.id as any);
                         }}
                         disabled={cancellingEvent === event.id}

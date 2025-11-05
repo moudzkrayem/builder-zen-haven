@@ -33,3 +33,58 @@ export function getImageCandidates(item: any, resolvedMap?: Record<string, strin
 }
 
 export default getImageCandidates;
+
+export function looksLikeDataUrl(candidate?: string) {
+  if (!candidate || typeof candidate !== 'string') return false;
+  try {
+    const s = candidate.trim();
+    if (s.toLowerCase().startsWith('data:')) return true;
+    // Also detect URL-encoded data: (e.g., data%3Aimage%2Fjpeg...)
+    try {
+      const dec = decodeURIComponent(s);
+      if (dec.toLowerCase().startsWith('data:')) return true;
+    } catch (e) {
+      // ignore decode errors
+    }
+  } catch (e) {}
+  return false;
+}
+
+export function isHttpDataOrRelative(candidate?: string) {
+  if (!candidate || typeof candidate !== 'string') return false;
+  const s = candidate.trim();
+  return s.startsWith('http') || looksLikeDataUrl(s) || s.startsWith('/');
+}
+
+export function normalizeStorageRefPath(candidate: string) {
+  let refPath = String(candidate);
+  // If the candidate is already a gs:// path, normalize to storage path
+  if (refPath.startsWith('gs://')) {
+    refPath = refPath.replace('gs://', '');
+    const parts = refPath.split('/');
+    if (parts.length > 1) parts.shift();
+    return parts.join('/');
+  }
+  // If candidate looks like a firebase storage download URL with /o/<encodedPath>?..., extract encodedPath
+  const m = refPath.match(/\/o\/(.*?)\?/);
+  if (m && m[1]) {
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+  }
+  return refPath;
+}
+
+export function isUnsplash(u?: string) {
+  if (!u || typeof u !== 'string') return false;
+  return /(^https?:\/\/(?:images\.)?unsplash\.com\/)/i.test(u.trim());
+}
+
+export function isTrustedExternalImage(u?: string) {
+  if (!u || typeof u !== 'string') return false;
+  const s = u.trim();
+  // data: URLs, local relative paths, and known CDN/storage hosts are trusted
+  if (/^data:image\//i.test(s)) return true;
+  if (s.startsWith('/')) return true;
+  // Allow firebase storage, google profile images, builder.io CDN, and other known origins
+  if (/^https?:\/\/(?:firebasestorage\.googleapis\.com|lh3\.googleusercontent\.com|cdn\.builder\.io|res\.cloudinary\.com)\//i.test(s)) return true;
+  return false;
+}

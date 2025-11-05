@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useRef } fro
 import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc, setDoc, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { looksLikeDataUrl, isHttpDataOrRelative, normalizeStorageRefPath, isTrustedExternalImage } from '@/lib/imageUtils';
 import { onUserChanged, auth } from "@/auth";
 
 interface Event {
@@ -135,14 +136,14 @@ const EventsContext = createContext<EventsContextType | undefined>(undefined);
 const initialEvents: Event[] = [
   {
     id: 1,
-    name: "Weekend Farmers Market",
-    eventName: "Weekend Farmers Market",
+    name: "Market Collective Farmers Market",
+    eventName: "Market Collective Farmers Market",
     hostName: "Market Collective",
     hostAge: 30,
-    location: "Union Square",
+    location: "Downtown",
     date: "Sat 9:00 AM",
-    attendees: 45,
-    maxCapacity: 60,
+    attendees: 50,
+    maxCapacity: 100,
     fee: "Free",
     image:
       "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4",
@@ -632,14 +633,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
     const timeStr = dateObj ? dateObj.toISOString() : ev.time;
 
-    // Prefer explicit resolved image, then explicit image, then first eventImages entry, then default by category
-    const imgCandidate = (ev._resolvedImage && String(ev._resolvedImage).trim())
-      ? String(ev._resolvedImage)
-      : (ev.image && String(ev.image).trim()
-        ? String(ev.image)
-        : (ev.eventImages && ev.eventImages.length ? String(ev.eventImages[0]) : undefined));
+    // Prefer canonical explicit image fields first (image, eventImages, photos) then a trusted _resolvedImage.
+    const imgCandidate = (ev.image && String(ev.image).trim())
+      ? String(ev.image)
+      : (ev.eventImages && ev.eventImages.length ? String(ev.eventImages[0]) : (ev.photos && Array.isArray(ev.photos) && ev.photos.length ? String(ev.photos[0]) : undefined));
 
-    const img = imgCandidate || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
+    const resolvedCandidate = (ev._resolvedImage && typeof ev._resolvedImage === 'string') ? String(ev._resolvedImage).trim() : undefined;
+    const img = imgCandidate || (resolvedCandidate && isTrustedExternalImage(resolvedCandidate) ? resolvedCandidate : undefined) || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
     const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
   // Prefer explicit creator fields if present
   const hostName = ev.createdByName || ev.hostName || ev.host || 'You';
@@ -658,31 +658,50 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       for (const doc of trybeDocs) {
         const candidate = (doc._resolvedImage) || (Array.isArray(doc.photos) && doc.photos.length ? doc.photos[0] : doc.image);
         if (!candidate) continue;
-        if (typeof candidate === 'string' && (candidate.startsWith('http') || candidate.startsWith('data:') || candidate.startsWith('/'))) {
-          // already usable
+        // If candidate is already a usable URL or a data: URL (including encoded forms), skip
+        if (typeof candidate === 'string' && isHttpDataOrRelative(candidate)) {
           continue;
         }
 
-        let refPath = String(candidate);
-        if (refPath.startsWith('gs://')) {
-          const parts = refPath.replace('gs://', '').split('/');
-          // If bucket included, remove it
-          if (parts.length > 1) parts.shift();
-          refPath = parts.join('/');
-        }
+        // Normalize candidate into a storage path for getDownloadURL
+        let refPath = normalizeStorageRefPath(String(candidate));
 
         try {
           const ref = storageRef(storage, refPath);
+          console.log('EventsContext.resolveStorageImages: attempting getDownloadURL for', String(doc.id), refPath);
           const url = await getDownloadURL(ref);
           // Patch the event in the provider state so UIs render immediately
           setEvents((prev) => (prev || []).map((p: any) => (String(p.id) === String(doc.id) ? { ...p, _resolvedImage: url, image: url } : p)));
-          console.debug('EventsContext: resolved storage image for', doc.id, url);
+          console.log('EventsContext: resolved storage image for', doc.id, url);
+          // Best-effort: persist resolved URL back to Firestore only when the resolved URL is from a trusted origin.
+          // This avoids writing third-party fallbacks (e.g., Unsplash) into the canonical trybe data.
+          try {
+            const trybeRef = firestoreDoc(db, 'trybes', String(doc.id));
+            const updatePayload: any = {};
+            const existingImage = doc && doc.image ? String(doc.image) : '';
+            const trusted = isTrustedExternalImage(url);
+            // Only write _resolvedImage to Firestore if the URL is trusted.
+            if (trusted) updatePayload._resolvedImage = url;
+            // Only update the canonical `image` if the existing stored image is not an inline data: URL
+            // and the resolved URL is trusted.
+            if (trusted && !(existingImage.startsWith('data:'))) {
+              updatePayload.image = url;
+            } else if (!trusted) {
+              console.log('EventsContext: resolved URL not trusted; skipping persistence for', doc.id, url);
+            }
+            if (Object.keys(updatePayload).length > 0) {
+              await updateDoc(trybeRef, updatePayload as any);
+            }
+          } catch (e) {
+            // ignore persistence errors (permission rules etc.) but log for debugging
+            console.log('EventsContext: failed to persist resolved image to trybe doc', doc.id, e);
+          }
         } catch (err) {
-          console.debug('EventsContext: failed to resolve storage image for', doc.id, candidate, err);
+          console.log('EventsContext: failed to resolve storage image for', doc.id, candidate, err);
         }
       }
     } catch (err) {
-      console.debug('EventsContext: resolveStorageImages unexpected error', err);
+      console.log('EventsContext: resolveStorageImages unexpected error', err);
     }
   }
 
@@ -782,14 +801,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               // If the stored avatar/profile picture is a Storage path (gs:// or path), try to resolve it to a download URL
               let imageUrl = udv.avatar || udv.photoURL || udv.profilePicture || undefined;
               try {
-                if (imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:') && !imageUrl.startsWith('/')) {
+                if (imageUrl && typeof imageUrl === 'string' && !isHttpDataOrRelative(imageUrl)) {
                   const storage = getStorage(app);
-                  let refPath = String(imageUrl);
-                  if (refPath.startsWith('gs://')) {
-                    const parts = refPath.replace('gs://', '').split('/');
-                    if (parts.length > 1) parts.shift();
-                    refPath = parts.join('/');
-                  }
+                  const refPath = normalizeStorageRefPath(String(imageUrl));
                   try {
                     imageUrl = await getDownloadURL(storageRef(storage, refPath));
                   } catch (err) {
@@ -1113,13 +1127,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               // Try to resolve the primary photo synchronously so schedule shows image immediately
               try {
                 const candidate = (d._resolvedImage) || (Array.isArray(d.photos) && d.photos.length ? d.photos[0] : d.image);
-                if (candidate && typeof candidate === 'string' && !candidate.startsWith('http') && !candidate.startsWith('data:') && !candidate.startsWith('/')) {
-                  let refPath = String(candidate);
-                  if (refPath.startsWith('gs://')) {
-                    const parts = refPath.replace('gs://', '').split('/');
-                    if (parts.length > 1) parts.shift();
-                    refPath = parts.join('/');
-                  }
+                if (candidate && typeof candidate === 'string' && !isHttpDataOrRelative(candidate)) {
+                  const refPath = normalizeStorageRefPath(String(candidate));
                   try {
                     const storage = getStorage(app);
                     const url = await getDownloadURL(storageRef(storage, refPath));
@@ -1552,15 +1561,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
               const td: any = trybeSnap.data();
               const candidate = td._resolvedImage || (Array.isArray(td.photos) && td.photos.length ? td.photos[0] : td.image);
               let resolvedImage = candidate;
-              if (resolvedImage && typeof resolvedImage === 'string' && !resolvedImage.startsWith('http') && !resolvedImage.startsWith('data:') && !resolvedImage.startsWith('/')) {
+              if (resolvedImage && typeof resolvedImage === 'string' && !isHttpDataOrRelative(resolvedImage)) {
                 try {
                   const storage = getStorage(app);
-                  let refPath = String(resolvedImage);
-                  if (refPath.startsWith('gs://')) {
-                    const parts = refPath.replace('gs://', '').split('/');
-                    if (parts.length > 1) parts.shift();
-                    refPath = parts.join('/');
-                  }
+                  const refPath = normalizeStorageRefPath(String(resolvedImage));
                   resolvedImage = await getDownloadURL(storageRef(storage, refPath));
                 } catch (err) {
                   console.debug('subscribeToChat: failed to resolve trybe image', err);
