@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // 🔹 Firestore import
+import { getFirestore, initializeFirestore } from "firebase/firestore"; // 🔹 Firestore import
 
 // Your Firebase config
 const firebaseConfig = {
@@ -28,6 +28,12 @@ isSupported().then((ok) => {
 const auth = getAuth(app);
 
 // 🔹 Firestore DB
-const db = getFirestore(app);
+// Use initializeFirestore with experimentalForceLongPolling and disabling fetch streams
+// to avoid WebChannel / QUIC transport issues that can surface as
+// net::ERR_QUIC_PROTOCOL_ERROR or transport errors in some networks/browsers.
+// If you'd prefer default behavior, switch back to getFirestore(app).
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
 export { app, analytics, auth, db };

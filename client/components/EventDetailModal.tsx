@@ -53,6 +53,49 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   const isJoined = joinedEvents.map(String).includes(String(event.id));
   const eventImages = event.eventImages || [event.image];
 
+  // Build Google Maps URL candidates (try multiple formats for best accuracy)
+  const placeId = (event as any).placeId || (event as any).formattedPlaceId || (event as any).place_id;
+  const coords = (event as any).locationCoords || (event as any).coords;
+  const address = event.location || (event as any).formattedAddress || '';
+
+  const candidates: string[] = [];
+
+  // Prefer precise coordinates first (most reliable). Add a sanity check for lat/lng
+  if (coords) {
+    const rawLat = Number((coords as any).lat);
+    const rawLng = Number((coords as any).lng);
+    if (!isNaN(rawLat) && !isNaN(rawLng)) {
+      let lat = rawLat;
+      let lng = rawLng;
+      // Sanity: if lat is out of bounds, maybe coords were stored as {lng, lat} or swapped strings
+      const latOutOfRange = lat < -90 || lat > 90;
+      const lngOutOfRange = lng < -180 || lng > 180;
+      if (latOutOfRange && !lngOutOfRange) {
+        // swap
+        [lat, lng] = [lng, lat];
+      }
+
+      candidates.push(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+      candidates.push(`https://www.google.com/maps/@${lat},${lng},15z`);
+    }
+  }
+
+  // Then try place_id formats (some place IDs work better with different URL shapes)
+  if (placeId) {
+    candidates.push(`https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`);
+    candidates.push(`https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`);
+  }
+
+  // Finally fall back to the human-readable address
+  if (address) {
+    candidates.push(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+  }
+
+  // Fallback: empty maps search
+  if (candidates.length === 0) candidates.push('https://www.google.com/maps');
+  // Use the 3rd candidate when available (index 2), otherwise fall back to the first candidate.
+  const mapUrl = candidates[2] ?? candidates[0];
+
   const handleJoinToggle = () => {
     if (isJoined) {
       leaveEvent(event.id as any);
@@ -153,9 +196,34 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
               <h1 className="text-2xl font-bold mb-2">{event.eventName || event.name}</h1>
               <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
                 <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{event.location}</span>
-                </div>
+                    {/* Wrap the pin + address in a single anchor so the whole area is clickable */}
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center space-x-1 underline text-sm text-muted-foreground max-w-full cursor-pointer"
+                      aria-label={`Open ${event.location} in Google Maps`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                          if (mapUrl) window.open(mapUrl, '_blank');
+                        } catch (err) {}
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          try { if (mapUrl) window.open(mapUrl, '_blank'); } catch (err) {}
+                        }
+                      }}
+                      role="link"
+                      tabIndex={0}
+                    >
+                      <MapPin className="w-4 h-4 flex-shrink-0" />
+                      <span className="break-words max-w-full">{event.location}</span>
+                    </a>
+                    
+                  </div>
                 <div className="flex items-center space-x-1">
                   <Clock className="w-4 h-4" />
                   <span>{event.date}</span>
@@ -344,7 +412,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
       <EditEventModal
         isOpen={showEdit}
         onClose={() => setShowEdit(false)}
-        event={event}
+        event={event as any}
         onSave={(updates) => updateEvent(event.id as any, updates as any, true)}
       />
     </div>

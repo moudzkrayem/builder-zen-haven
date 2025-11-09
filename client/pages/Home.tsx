@@ -175,7 +175,7 @@ export default function Home() {
   }, []);
 
   // Filter and sort events based on user interests
-  const getPersonalizedEvents = () => {
+  const getPersonalizedEvents = (): any[] => {
     if (!userProfile) return events;
     // Build a robust set of user interest tokens and phrases
     const rawUserInterests = [
@@ -253,8 +253,8 @@ export default function Home() {
 
   // Personalized matches with positive score only (used for the "Similar events" section)
   const personalizedMatches = getPersonalizedEvents()
-    .filter(e => (e.personalityScore || 0) > 0)
-    .filter(e => !joinedEvents.includes(e.id) && categoryMatches(e.category));
+    .filter((e: any) => ((e.personalityScore || 0) > 0))
+    .filter((e: any) => !joinedEvents.includes(e.id) && categoryMatches(e.category));
 
   
 
@@ -755,9 +755,14 @@ export default function Home() {
                       </div>
 
                       <div className="flex items-center space-x-3 text-sm text-muted-foreground mb-2">
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>{trybe.location}</span>
+                        <div className="flex items-center space-x-1 flex-1 min-w-0">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span
+                            className="block text-sm break-words overflow-hidden"
+                            style={{ display: '-webkit-box', WebkitLineClamp: 2 as any, WebkitBoxOrient: 'vertical' as any }}
+                          >
+                            {trybe.location}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Clock className="w-3 h-3" />
@@ -918,9 +923,14 @@ export default function Home() {
                         <h3 className="font-semibold text-sm mb-1 line-clamp-1">
                           {trybe.name}
                         </h3>
-                        <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2">
-                          <MapPin className="w-3 h-3" />
-                          <span>{trybe.location}</span>
+                        <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2 flex-1 min-w-0">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span
+                            className="block text-xs break-words overflow-hidden"
+                            style={{ display: '-webkit-box', WebkitLineClamp: 2 as any, WebkitBoxOrient: 'vertical' as any }}
+                          >
+                            {trybe.location}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-muted-foreground">
@@ -1080,10 +1090,15 @@ export default function Home() {
                     <h3 className="font-semibold text-sm mb-1 line-clamp-1">
                       {trybe.name}
                     </h3>
-                    <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2">
-                      <MapPin className="w-3 h-3" />
-                      <span>{trybe.location}</span>
-                    </div>
+                      <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2 flex-1 min-w-0">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span
+                          className="block break-words overflow-hidden text-xs"
+                          style={{ display: '-webkit-box', WebkitLineClamp: 2 as any, WebkitBoxOrient: 'vertical' as any }}
+                        >
+                          {trybe.location}
+                        </span>
+                      </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         {trybe.date}
