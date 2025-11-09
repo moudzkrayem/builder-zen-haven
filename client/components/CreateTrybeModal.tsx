@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,6 @@ import {
   Star,
   Zap,
   Clock,
-  Repeat,
 } from "lucide-react";
 import { CATEGORIES } from '@/config/categories';
 import { PREMIUM_ENABLED } from '@/lib/featureFlags';
@@ -42,11 +41,10 @@ interface TrybeData {
   time: string;
   duration: string;
   description: string;
-  maxCapacity: number;
+  maxCapacity: number | string;
   fee: string;
   photos: Array<string | File>;
   ageRange: [number, number];
-  repeatOption: string;
   isPremium: boolean;
   category: string;
 }
@@ -62,19 +60,49 @@ export default function CreateTrybeModal({
     locationCoords: null,
     placeId: null,
     formattedAddress: null,
-    time: "",
-    duration: "2",
+  time: "",
+  // start with empty duration so placeholder shows; user picks a value to set
+  duration: "",
     description: "",
     maxCapacity: 10,
     fee: "Free",
   photos: [],
     ageRange: [18, 65],
-    repeatOption: "none",
     isPremium: false,
     category: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  // Accessibility refs for the MapPicker modal
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const firstFocusableRef = useRef<HTMLDivElement | null>(null);
+  const lastFocusableRef = useRef<HTMLDivElement | null>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  // Keydown handler to support ESC and Tab-trap when modal open
+  const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      setShowMapPicker(false);
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      // Simple focus trap: if focus is on last and Tab, move to first. If Shift+Tab on first, move to last.
+      const focusable = modalRef.current?.querySelectorAll<HTMLElement>("a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])");
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    }
+  };
 
   // Listen for fallback selection events from MapPicker (robustness):
   useEffect(() => {
@@ -94,6 +122,29 @@ export default function CreateTrybeModal({
     window.addEventListener('mappicker:select', handler as EventListener);
     return () => window.removeEventListener('mappicker:select', handler as EventListener);
   }, []);
+
+  // Manage focus when MapPicker modal opens/closes
+  useEffect(() => {
+    if (showMapPicker) {
+      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      // wait a tick for modal to render
+      setTimeout(() => {
+        // focus the first focusable inside the modal
+        const focusable = modalRef.current?.querySelectorAll<HTMLElement>("a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex='-1'])");
+        if (focusable && focusable.length) {
+          (focusable[0] as HTMLElement).focus();
+        } else {
+          firstFocusableRef.current?.focus();
+        }
+      }, 0);
+      // Prevent background scrolling
+      document.body.style.overflow = 'hidden';
+    } else {
+      // restore focus
+      document.body.style.overflow = '';
+      setTimeout(() => previousActiveElement.current?.focus(), 0);
+    }
+  }, [showMapPicker]);
 
   if (!isOpen) return null;
 
@@ -168,7 +219,7 @@ export default function CreateTrybeModal({
       }
     }
 
-    // Prepare Trybe data (use resolved photo URLs)
+    // Prepare Trybe data (use resolved photo URLs). Coerce maxCapacity to a number.
     const trybeDataToSave = {
       ...formData,
       photos: photosToSave,
@@ -179,6 +230,11 @@ export default function CreateTrybeModal({
       createdByName: (user.displayName) || undefined,
       createdByImage: (user.photoURL) || undefined,
     };
+
+    // Ensure numeric fields are properly typed for Firestore
+    trybeDataToSave.maxCapacity = (typeof formData.maxCapacity === 'string' && formData.maxCapacity.trim() === '')
+      ? 10
+      : Number(formData.maxCapacity) || 10;
 
     // Sanitize payload to ensure Firestore receives only serializable values (no File/Blob/function)
     const sanitizeForFirestore = (obj: any): any => {
@@ -414,13 +470,13 @@ export default function CreateTrybeModal({
       eventName: "",
       location: "",
       time: "",
-      duration: "2",
+      duration: "",
       description: "",
       maxCapacity: 10,
       fee: "Free",
       photos: [],
       ageRange: [18, 65],
-      repeatOption: "none",
+      // repeatOption removed
       isPremium: false,
       category: "", // don’t forget to reset this too
     });
@@ -526,42 +582,85 @@ export default function CreateTrybeModal({
           {/* Location */}
           <div className="space-y-2">
             <Label htmlFor="location">Location *</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
-                placeholder="Where will this happen?"
-                required
-                className="pl-10 rounded-xl"
-              />
-            </div>
+                    <div className="flex flex-col space-y-2">
+                      {/* Precise location button placed above the location input */}
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Set map location</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowMapPicker(true)}
+                          className="text-sm"
+                        >
+                          Set map location
+                        </Button>
+                      </div>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="location"
+                          value={formData.location}
+                          onChange={(e) =>
+                            setFormData({ ...formData, location: e.target.value })
+                          }
+                          placeholder="Where will this happen?"
+                          required
+                          className="pl-10 rounded-xl"
+                        />
+                      </div>
+                    </div>
           </div>
+                  {/* MapPicker modal — opened when user clicks "Set precise location" */}
+                  {showMapPicker && (
+                    <div
+                      className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+                      aria-hidden={!showMapPicker}
+                    >
+                      {/* Backdrop */}
+                      <div
+                        className="absolute inset-0 bg-black/40"
+                        onClick={() => setShowMapPicker(false)}
+                      />
 
-          {/* Map picker (exact location) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Pick exact location (optional)</Label>
-              <span className="text-xs text-muted-foreground">Set precise lat/lng</span>
-            </div>
-            <MapPicker
-              apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined}
-              initial={formData.locationCoords ?? null}
-              onSelect={({ lat, lng, formattedAddress, placeId }) => {
-                console.debug('[CreateTrybeModal] MapPicker onSelect', { lat, lng, formattedAddress, placeId });
-                setFormData((prev) => ({
-                  ...prev,
-                  location: formattedAddress ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                  locationCoords: { lat, lng },
-                  placeId: placeId ?? prev.placeId,
-                  formattedAddress: formattedAddress ?? prev.formattedAddress,
-                }));
-              }}
-            />
-          </div>
+                      <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="mappicker-title"
+                        ref={(el) => modalRef.current = el}
+                        className="relative bg-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-auto p-4 shadow-lg"
+                        onKeyDown={handleModalKeyDown}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 id="mappicker-title" className="font-semibold text-lg">Choose map location</h3>
+                          <div className="flex items-center space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => setShowMapPicker(false)} className="text-sm font-semibold">Close</Button>
+                          </div>
+                        </div>
+
+                        <div tabIndex={-1} className="outline-none" ref={firstFocusableRef} />
+
+                        <MapPicker
+                          apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined}
+                          initial={formData.locationCoords ?? null}
+                          onSelect={({ lat, lng, formattedAddress, placeId }) => {
+                            console.debug('[CreateTrybeModal] MapPicker onSelect', { lat, lng, formattedAddress, placeId });
+                            setFormData((prev) => ({
+                              ...prev,
+                              location: formattedAddress ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                              locationCoords: { lat, lng },
+                              placeId: placeId ?? prev.placeId,
+                              formattedAddress: formattedAddress ?? prev.formattedAddress,
+                            }));
+                            // close the modal after selection
+                            setShowMapPicker(false);
+                          }}
+                        />
+
+                        <div tabIndex={-1} className="outline-none" ref={lastFocusableRef} />
+                      </div>
+                    </div>
+                  )}
 
           {/* Time */}
           <div className="space-y-2">
@@ -584,28 +683,33 @@ export default function CreateTrybeModal({
           {/* Event Duration */}
           <div className="space-y-2">
             <Label htmlFor="duration">Event Duration</Label>
-            <div className="relative">
-              <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <select
-                id="duration"
-                value={formData.duration}
-                onChange={(e) =>
-                  setFormData({ ...formData, duration: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              >
-                <option value="0.5">30 minutes</option>
-                <option value="1">1 hour</option>
-                <option value="1.5">1.5 hours</option>
-                <option value="2">2 hours</option>
-                <option value="3">3 hours</option>
-                <option value="4">4 hours</option>
-                <option value="6">6 hours</option>
-                <option value="8">8 hours</option>
-                <option value="12">12 hours</option>
-                <option value="24">All day</option>
-              </select>
-            </div>
+              <div className="flex items-center">
+                <div className="pl-3 pr-3">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <select
+                  id="duration"
+                  value={formData.duration}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    console.debug('[CreateTrybeModal] duration selected', v);
+                    setFormData({ ...formData, duration: v });
+                  }}
+                  className="flex-1 pl-4 pr-4 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                >
+                  <option value="" disabled>Select duration</option>
+                  <option value="0.5">30 minutes</option>
+                  <option value="1">1 hour</option>
+                  <option value="1.5">1.5 hours</option>
+                  <option value="2">2 hours</option>
+                  <option value="3">3 hours</option>
+                  <option value="4">4 hours</option>
+                  <option value="6">6 hours</option>
+                  <option value="8">8 hours</option>
+                  <option value="12">12 hours</option>
+                  <option value="24">All day</option>
+                </select>
+              </div>
           </div>
 
           {/* Description */}
@@ -661,12 +765,11 @@ export default function CreateTrybeModal({
                 min="1"
                 max="100"
                 value={formData.maxCapacity}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    maxCapacity: parseInt(e.target.value) || 1,
-                  })
-                }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  // Allow clearing the field (empty string) while editing; coerce to number on submit.
+                  setFormData({ ...formData, maxCapacity: raw === '' ? '' : parseInt(raw, 10) });
+                }}
                 required
                 className="pl-10 rounded-xl"
               />
@@ -742,36 +845,7 @@ export default function CreateTrybeModal({
             </div>
           </div>
 
-          {/* Repeat Trybe Option */}
-          <div className="space-y-2">
-            <Label htmlFor="repeatOption">Repeat Trybe</Label>
-            <div className="relative">
-              <Repeat className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <select
-                id="repeatOption"
-                value={formData.repeatOption}
-                onChange={(e) =>
-                  setFormData({ ...formData, repeatOption: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              >
-                <option value="none">One-time event</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {formData.repeatOption === "none"
-                ? "This event will only happen once"
-                : formData.repeatOption === "daily"
-                ? "This event will repeat every day at the same time"
-                : formData.repeatOption === "weekly"
-                ? "This event will repeat every week on the same day"
-                : "This event will repeat every month on the same date"
-              }
-            </p>
-          </div>
+          {/* Repeat/recurrence removed — events are one-time only */}
 
           {/* Photo Upload */}
           <div className="space-y-2">

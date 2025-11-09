@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { X, MapPin, Calendar, Users, DollarSign, Crown, Upload, Camera } from "lucide-react";
+import { X, MapPin, Calendar, Users, DollarSign, Crown, Upload, Camera, Clock } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
 export interface EditEventModalProps {
@@ -24,7 +24,6 @@ export interface EditEventModalProps {
     isPremium?: boolean;
     eventImages?: string[];
     ageRange?: [number, number];
-    repeatOption?: string;
   } | null;
   onSave: (updates: Partial<EditEventModalProps["event"]>) => void;
 }
@@ -34,14 +33,14 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     eventName: event?.eventName || event?.name || "",
     location: event?.location || "",
     time: event?.time || "",
-    duration: event?.duration || "2",
+    // prefer empty string so UI can show a placeholder when duration is not set
+    duration: event?.duration || "",
     maxCapacity: event?.maxCapacity || 10,
     fee: event?.fee || "Free",
     description: event?.description || "",
     isPremium: Boolean(event?.isPremium),
     photos: event?.eventImages || [],
     ageRange: event?.ageRange || [18, 65],
-    repeatOption: event?.repeatOption || "none",
   }));
 
   useEffect(() => {
@@ -50,14 +49,13 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
       eventName: event.eventName || event.name || "",
       location: event.location || "",
       time: event.time || "",
-      duration: event.duration || "2",
+      duration: event.duration || "",
       maxCapacity: event.maxCapacity || 10,
       fee: event.fee || "Free",
       description: event.description || "",
       isPremium: Boolean(event.isPremium),
       photos: event.eventImages || [],
       ageRange: event.ageRange || [18, 65],
-      repeatOption: event.repeatOption || "none",
     });
   }, [event]);
 
@@ -74,7 +72,7 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     if (form.fee && form.fee !== event.fee) updates.fee = form.fee;
     if ((form.description || "") !== (event.description || "")) updates.description = form.description;
     if (Boolean(form.isPremium) !== Boolean(event.isPremium)) updates.isPremium = form.isPremium;
-    if (form.repeatOption !== (event.repeatOption || "none")) updates.repeatOption = form.repeatOption;
+  // repeatOption removed — no-op
     if (form.ageRange && JSON.stringify(form.ageRange) !== JSON.stringify(event.ageRange || [18,65])) updates.ageRange = form.ageRange;
     if (form.photos && JSON.stringify(form.photos) !== JSON.stringify(event.eventImages || [])) updates.eventImages = form.photos;
 
@@ -148,23 +146,33 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
 
           <div className="space-y-2">
             <Label htmlFor="duration">Event Duration</Label>
-            <select
-              id="duration"
-              value={form.duration}
-              onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
-              className="w-full pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            >
-              <option value="0.5">30 minutes</option>
-              <option value="1">1 hour</option>
-              <option value="1.5">1.5 hours</option>
-              <option value="2">2 hours</option>
-              <option value="3">3 hours</option>
-              <option value="4">4 hours</option>
-              <option value="6">6 hours</option>
-              <option value="8">8 hours</option>
-              <option value="12">12 hours</option>
-              <option value="24">All day</option>
-            </select>
+            <div className="flex items-center">
+              <div className="pl-3 pr-3">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <select
+                id="duration"
+                value={form.duration}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  console.debug('[EditEventModal] duration selected', v);
+                  setForm((f) => ({ ...f, duration: v }));
+                }}
+                className="flex-1 pl-4 pr-4 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              >
+                <option value="" disabled>Select duration</option>
+                <option value="0.5">30 minutes</option>
+                <option value="1">1 hour</option>
+                <option value="1.5">1.5 hours</option>
+                <option value="2">2 hours</option>
+                <option value="3">3 hours</option>
+                <option value="4">4 hours</option>
+                <option value="6">6 hours</option>
+                <option value="8">8 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">All day</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -227,29 +235,7 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="repeatOption">Repeat Trybe</Label>
-            <select
-              id="repeatOption"
-              value={form.repeatOption}
-              onChange={(e) => setForm((f: any) => ({ ...f, repeatOption: e.target.value }))}
-              className="w-full pr-4 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            >
-              <option value="none">One-time event</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {form.repeatOption === "none"
-                ? "This event will only happen once"
-                : form.repeatOption === "daily"
-                ? "This event will repeat every day at the same time"
-                : form.repeatOption === "weekly"
-                ? "This event will repeat every week on the same day"
-                : "This event will repeat every month on the same date"}
-            </p>
-          </div>
+          
 
           <div className="space-y-2">
             <Label>Event Photos</Label>

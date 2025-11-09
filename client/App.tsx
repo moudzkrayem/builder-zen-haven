@@ -28,16 +28,36 @@ import RequireAuth from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="trybe-ui-theme">
-      <EventsProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Layout>
-              <Routes>
+const App = () => {
+  // Protect against pages restored from the browser back/forward cache (bfcache)
+  // which can show stale, authenticated content after sign-out. When a page is
+  // restored from bfcache the `pageshow` event has `persisted === true`.
+  // Reloading in that case forces a fresh auth check.
+  React.useEffect(() => {
+    const handler = (e: PageTransitionEvent) => {
+      try {
+        if ((e as any).persisted) {
+          window.location.reload();
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('pageshow', handler as EventListener);
+    return () => window.removeEventListener('pageshow', handler as EventListener);
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system" storageKey="trybe-ui-theme">
+        <EventsProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Layout>
+                <Routes>
                 <Route path="/" element={<Welcome />} />
                 <Route path="/create-profile" element={<ProfileCreation />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
@@ -57,6 +77,7 @@ const App = () => (
       </EventsProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 createRoot(document.getElementById("root")!).render(<App />);

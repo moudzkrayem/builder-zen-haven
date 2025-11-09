@@ -289,7 +289,11 @@ export default function Settings() {
                                 localStorage.removeItem('userProfile');
                                 sessionStorage.removeItem('openScheduleOnLoad');
                               } catch (e) {}
-                              navigate('/login');
+                              // Replace the current history entry with login to reduce chance
+                              // the user can navigate back to an authenticated page from
+                              // the immediate history stack. We also force a full reload
+                              // to ensure in-memory state is cleared.
+                              window.location.replace('/login');
                               return;
                             }
                           } catch (err) {

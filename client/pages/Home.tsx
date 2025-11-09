@@ -10,6 +10,7 @@ import EventDetailModal from "@/components/EventDetailModal";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import AIBotModal from "@/components/AIBotModal";
 import { useEvents } from "@/contexts/EventsContext";
+import { auth } from "@/auth";
 import { collection, getDocs } from "firebase/firestore";
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
@@ -232,7 +233,23 @@ export default function Home() {
   };
 
   // Use personalized events instead of all events, but exclude joined events so scheduled items move to My Schedule
-  const featuredTrybes = getPersonalizedEvents().filter(e => !joinedEvents.includes(e.id) && categoryMatches(e.category));
+  // Show personalized events, but keep trybes created by the current user visible
+  // even if they are already in joinedEvents (creator should see their own Trybe immediately).
+  const featuredTrybes = getPersonalizedEvents().filter(e => {
+    const isCreator = (() => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return false;
+        // `host` is set by EventsContext when creating events to the creator's uid
+        return String(e.host) === String(uid) || String((e as any).createdBy) === String(uid) || String(e.hostName || '').toLowerCase() === 'you';
+      } catch (err) {
+        return false;
+      }
+    })();
+
+    // Keep event if not joined OR if the current user is the creator
+    return (!joinedEvents.includes(e.id) || isCreator) && categoryMatches(e.category);
+  });
 
   // Personalized matches with positive score only (used for the "Similar events" section)
   const personalizedMatches = getPersonalizedEvents()
@@ -313,7 +330,7 @@ export default function Home() {
       description: data.description || "",
       isPremium: Boolean(data.isPremium),
       ageRange: data.ageRange || [18, 65],
-      repeatOption: data.repeatOption || 'none',
+  // recurrence removed — ignore repeatOption if present in legacy docs
     };
   });
 
@@ -552,8 +569,10 @@ export default function Home() {
                   key={category.id}
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
+                  title={category.label}
                   className={cn(
-                    "flex-shrink-0 rounded-full h-9 px-4",
+                    // responsive max widths: compact on phones, expand on larger screens
+                    "flex-shrink-0 rounded-full h-9 px-4 max-w-[8rem] md:max-w-[10rem] lg:max-w-[12rem] truncate",
                     isSelected && "bg-primary text-primary-foreground",
                   )}
                   onClick={() => setSelectedCategory(category.id)}

@@ -29,7 +29,6 @@ interface Event {
   description?: string;
   isPremium?: boolean;
   ageRange?: [number, number];
-  repeatOption?: string;
 }
 
 interface Chat {
@@ -871,8 +870,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         ? eventData.description
         : `Join us for ${eventData.eventName}! This is a newly created event.`,
       isPremium: Boolean(eventData.isPremium),
-      ageRange: eventData.ageRange,
-      repeatOption: eventData.repeatOption,
+  ageRange: eventData.ageRange,
       // Include precise location fields if provided by creator
       // These come from CreateTrybeModal which sets locationCoords, placeId and formattedAddress
       // so downstream consumers (maps) can render accurate markers.
@@ -1056,9 +1054,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         if (applied.ageRange && JSON.stringify(applied.ageRange) !== JSON.stringify(oldE.ageRange)) {
           changes.push(`• Age Range: ${oldE.ageRange ? `${oldE.ageRange[0]}-${oldE.ageRange[1]}` : '-'} → ${newE.ageRange ? `${newE.ageRange[0]}-${newE.ageRange[1]}` : '-'}`);
         }
-        if (applied.repeatOption && applied.repeatOption !== oldE.repeatOption) {
-          changes.push(`• Repeat: ${oldE.repeatOption || 'none'} → ${newE.repeatOption || 'none'}`);
-        }
+        // recurrence removed — no repeatOption to report
         if (applied.eventImages && oldE.eventImages) {
           if (applied.eventImages.length !== oldE.eventImages.length) {
             changes.push(`• Photos: ${oldE.eventImages.length} → ${newE.eventImages?.length || 0}`);

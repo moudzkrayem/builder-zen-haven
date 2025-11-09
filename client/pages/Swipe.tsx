@@ -15,6 +15,8 @@ export default function Swipe() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const imgTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const imgTouchMovedRef = useRef(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -26,6 +28,7 @@ export default function Swipe() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({});
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
   // resolve a storage path for a specific event id and cache it locally
   const resolveForEvent = async (id: string | number, candidate?: string) => {
@@ -52,9 +55,11 @@ export default function Swipe() {
     }
   };
 
-  // Use events from context and format them for swipe interface, excluding joined events so scheduled items don't reappear
+  // Use events from context and format them for swipe interface, excluding joined events
+  // and locally dismissed events so scheduled items don't reappear
   const swipeEvents = events
     .filter(event => !joinedEvents.includes(event.id))
+    .filter(event => !dismissedIds.includes(String(event.id)))
     .map((event) => ({
     id: event.id,
     eventName: event.eventName || event.name,
@@ -91,15 +96,35 @@ export default function Swipe() {
         setShowPremiumUpgradeModal(true);
         return; // Don't proceed with the swipe
       } else {
+        // Persist join (EventsContext handles local state + Firestore persistence)
         joinEvent(currentEvent.id);
         // Show success popup animation
         setShowSuccessPopup(true);
         setTimeout(() => setShowSuccessPopup(false), 2000);
+        // Remove this event from the local carousel immediately so user sees next suggestions
+        const idKey = String(currentEvent.id);
+        setDismissedIds(prev => (prev.includes(idKey) ? prev : [...prev, idKey]));
       }
     }
 
-    if (currentIndex < swipeEvents.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    // If swiping left (dismiss) we should remove from the local carousel suggestions
+    if (direction === 'left' && currentEvent) {
+      const idKey = String(currentEvent.id);
+      setDismissedIds(prev => {
+        if (prev.includes(idKey)) return prev;
+        return [...prev, idKey];
+      });
+      // Keep index within bounds of the new reduced list. If we dismissed the last item,
+      // clamp index to previous length - 2 so the next available item (if any) shows.
+      setCurrentIndex((ci) => Math.min(ci, Math.max(0, swipeEvents.length - 2)));
+      setIsExpanded(false);
+      setCurrentPhotoIndex(0);
+      return;
+    }
+
+    // For right swipe (join) advance to next card in the carousel if available.
+    if (direction === 'right') {
+      setCurrentIndex((ci) => Math.min(ci, Math.max(0, swipeEvents.length - 2)));
       setIsExpanded(false);
       setCurrentPhotoIndex(0);
     }
@@ -131,11 +156,16 @@ export default function Swipe() {
     if (!isDragging) return;
 
     const threshold = 100;
+    const dx = dragOffset.x;
+    const dy = dragOffset.y;
 
-    if (Math.abs(dragOffset.x) > threshold) {
-      handleSwipe(dragOffset.x > 0 ? "right" : "left");
+    // Only treat as a horizontal swipe if horizontal movement is dominant
+    // This avoids diagonal/vertical gestures accidentally triggering a join
+    if (Math.abs(dx) > threshold && Math.abs(dx) > Math.abs(dy)) {
+      handleSwipe(dx > 0 ? "right" : "left");
     }
 
+    // Reset drag state
     setDragOffset({ x: 0, y: 0 });
     setIsDragging(false);
   };
@@ -160,6 +190,11 @@ export default function Swipe() {
       document.removeEventListener("touchend", handleTouchEnd);
     };
   }, [isDragging, dragStart, dragOffset]);
+
+  // Reset photo index when the current event changes
+  useEffect(() => {
+    setCurrentPhotoIndex(0);
+  }, [currentEvent?.id]);
 
   if (!currentEvent) {
     return (
@@ -237,13 +272,61 @@ export default function Swipe() {
 
                 const finalSrc = src || (currentEvent.eventImages && currentEvent.eventImages[currentPhotoIndex]) || '';
                 return (
-                  <SafeImg
-                    key={`swipe-img-${String(id || currentEvent.id)}`}
-                    src={finalSrc}
-                    alt={currentEvent.eventName}
-                    className="w-full h-full object-cover"
-                    debugContext={`Swipe:event:${String(id || currentEvent.id)}`}
-                  />
+                  <div
+                    className="w-full h-full"
+                    onTouchStart={(e) => {
+                      try {
+                        const t = e.touches[0];
+                        imgTouchStartRef.current = { x: t.clientX, y: t.clientY };
+                        imgTouchMovedRef.current = false;
+                        // prevent parent drag start from immediately capturing
+                        e.stopPropagation();
+                      } catch (err) {}
+                    }}
+                    onTouchMove={(e) => {
+                      try {
+                        if (!imgTouchStartRef.current) return;
+                        const t = e.touches[0];
+                        const dx = t.clientX - imgTouchStartRef.current.x;
+                        const dy = t.clientY - imgTouchStartRef.current.y;
+                        // if horizontal movement dominates, treat as image swipe and prevent parent drag
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                          imgTouchMovedRef.current = true;
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }
+                      } catch (err) {}
+                    }}
+                    onTouchEnd={(e) => {
+                      try {
+                        if (!imgTouchStartRef.current) return;
+                        const t = e.changedTouches[0];
+                        const dx = t.clientX - imgTouchStartRef.current.x;
+                        const dy = t.clientY - imgTouchStartRef.current.y;
+                        // small threshold to avoid accidental swipes
+                        if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+                          // swipe left -> next
+                          if (dx < 0) {
+                            setCurrentPhotoIndex((ci) => Math.min(currentEvent.eventImages.length - 1, ci + 1));
+                          } else {
+                            setCurrentPhotoIndex((ci) => Math.max(0, ci - 1));
+                          }
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }
+                      } catch (err) {}
+                      imgTouchStartRef.current = null;
+                      imgTouchMovedRef.current = false;
+                    }}
+                  >
+                    <SafeImg
+                      key={`swipe-img-${String(id || currentEvent.id)}`}
+                      src={finalSrc}
+                      alt={currentEvent.eventName}
+                      className="w-full h-full object-cover"
+                      debugContext={`Swipe:event:${String(id || currentEvent.id)}`}
+                    />
+                  </div>
                 );
               })()}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
@@ -268,16 +351,36 @@ export default function Swipe() {
             {currentEvent.eventImages.length > 1 && (
               <>
                 <button
-                  className="absolute left-0 top-20 bottom-32 w-1/2 z-10"
+                  type="button"
+                  aria-label="Previous photo"
+                  className="absolute left-0 top-20 bottom-32 w-1/2 z-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
                   }}
+                  onTouchStart={(e) => {
+                    // Prevent parent drag handlers from stealing this touch
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+                  }}
                 />
                 <button
-                  className="absolute right-0 top-20 bottom-32 w-1/2 z-10"
+                  type="button"
+                  aria-label="Next photo"
+                  className="absolute right-0 top-20 bottom-32 w-1/2 z-40"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setCurrentPhotoIndex(
+                      Math.min(
+                        currentEvent.eventImages.length - 1,
+                        currentPhotoIndex + 1,
+                      ),
+                    );
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     setCurrentPhotoIndex(
                       Math.min(
                         currentEvent.eventImages.length - 1,

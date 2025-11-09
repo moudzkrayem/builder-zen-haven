@@ -88,7 +88,6 @@ type TrybeDraft = {
   fee: string;
   photos: string[];
   ageRange: [number, number];
-  repeatOption: string;
   isPremium: boolean;
 };
 
@@ -102,7 +101,6 @@ type CreateStep =
   | 'fee'
   | 'description'
   | 'ageRange'
-  | 'repeatOption'
   | 'photos'
   | 'isPremium'
   | 'confirm';
@@ -224,7 +222,6 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       fee: "Free",
       photos: [],
       ageRange: [18, 65],
-      repeatOption: "none",
       isPremium: false,
     });
     setCreateStep('eventName');
@@ -322,13 +319,10 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     if ((createStep === 'ageRange' || createStep === 'photos') && (raw === 'continue' || raw === 'skip')) {
       // proceed; values already set in UI handlers or defaults
       if (createStep === 'ageRange') {
-        setCreateStep('repeatOption');
-        sendActionMessage("Repeat this Trybe?", [
-          { label: 'One-time', value: 'repeat:none', style: 'primary' },
-          { label: 'Daily', value: 'repeat:daily' },
-          { label: 'Weekly', value: 'repeat:weekly' },
-          { label: 'Monthly', value: 'repeat:monthly' },
-        ]);
+          setCreateStep('photos');
+          const upId = `ai-${Date.now()}`;
+          const photoMsg: AIMessage = { id: upId, content: "Add event photos (optional).", isBot: true, timestamp: new Date(), type: 'text', control: 'upload' };
+          setMessages(prev => [...prev, photoMsg]);
         return;
       }
       if (createStep === 'photos') {
@@ -435,33 +429,13 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       }
       case 'ageRange': {
         // Any input here continues; if skipped, defaults are kept
-        setCreateStep('repeatOption');
-        sendActionMessage("Repeat this Trybe?", [
-          { label: 'One-time', value: 'repeat:none', style: 'primary' },
-          { label: 'Daily', value: 'repeat:daily' },
-          { label: 'Weekly', value: 'repeat:weekly' },
-          { label: 'Monthly', value: 'repeat:monthly' },
-        ]);
-        break;
-      }
-      case 'repeatOption': {
-        const m = raw.match(/^repeat:(none|daily|weekly|monthly)$/);
-        if (!m) {
-          sendActionMessage("Choose a repeat option:", [
-            { label: 'One-time', value: 'repeat:none', style: 'primary' },
-            { label: 'Daily', value: 'repeat:daily' },
-            { label: 'Weekly', value: 'repeat:weekly' },
-            { label: 'Monthly', value: 'repeat:monthly' },
-          ]);
-          break;
-        }
-        setDraft({ ...draft, repeatOption: m[1] });
         setCreateStep('photos');
         const upId = `ai-${Date.now()}`;
         const photoMsg: AIMessage = { id: upId, content: "Add event photos (optional).", isBot: true, timestamp: new Date(), type: 'text', control: 'upload' };
         setMessages(prev => [...prev, photoMsg]);
         break;
       }
+  // repeatOption removed — recurrence is no longer supported
       case 'photos': {
         // After adding photos via UI, user clicks Continue or Skip
         setCreateStep('isPremium');
@@ -474,10 +448,10 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       case 'isPremium': {
         const t = raw.trim().toLowerCase();
         const premium = /^(y|yes|premium|true)$/i.test(t) ? true : /^(n|no|false)$/i.test(t) ? false : false;
-        const updated = { ...draft, isPremium: premium };
+  const updated = { ...draft, isPremium: premium };
         setDraft(updated);
         setCreateStep('confirm');
-        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}\n• Repeat: ${updated.repeatOption || 'none'}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
+  const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
         sendActionMessage(summary + "\n\nReady to go?", [
           { label: 'Confirm', value: 'confirm', style: 'primary' },
           { label: 'Cancel', value: 'cancel', style: 'secondary' },
@@ -530,10 +504,12 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
               for (let i = 0; i < (draft.photos || []).length; i++) {
                 const p = draft.photos[i];
                 try {
-                  if (p instanceof File) {
-                    const path = `trybePhotos/${uid || 'anon'}/${Date.now()}-${i}-${p.name}`;
+                  if (typeof p !== 'string') {
+                    // treat non-string entries as File/Blob-like
+                    const fname = (p as any)?.name || `upload-${i}`;
+                    const path = `trybePhotos/${uid || 'anon'}/${Date.now()}-${i}-${fname}`;
                     const ref = storageRef(storage, path);
-                    const task = uploadBytesResumable(ref, p);
+                    const task = uploadBytesResumable(ref, p as any);
                     await new Promise<void>((resolve, reject) => {
                       task.on('state_changed', () => {}, (err) => reject(err), () => resolve());
                     });
@@ -616,7 +592,8 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                 for (const k of Object.keys(obj)) {
                   const v = obj[k];
                   if (typeof v === 'function') continue;
-                  if (v instanceof File || (typeof Blob !== 'undefined' && v instanceof Blob)) continue;
+                  // Skip File/Blob-like objects (avoid sending binary data to Firestore)
+                  if (typeof v === 'object' && v !== null && ((v as any).size !== undefined || (v as any).type !== undefined)) continue;
                   const sv = sanitizeForFirestore(v);
                   if (typeof sv !== 'undefined') out[k] = sv;
                 }

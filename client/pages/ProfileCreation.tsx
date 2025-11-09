@@ -613,11 +613,12 @@ const handleComplete = async () => {
                     {profileData.thingsYouDoGreat.map((interest) => (
                       <Badge
                         key={interest}
-                        className="px-4 py-2 rounded-full bg-gradient-to-r from-primary to-accent text-white cursor-pointer hover:scale-105 transition-transform"
+                        title={interest}
+                        className="px-4 py-2 rounded-full bg-gradient-to-r from-primary to-accent text-white cursor-pointer hover:scale-105 transition-transform flex items-center max-w-[8rem] sm:max-w-[10rem] md:max-w-[12rem]"
                         onClick={() => removeInterest(interest, 'great')}
                       >
-                        {interest}
-                        <X className="w-3 h-3 ml-2" />
+                        <span className="truncate">{interest}</span>
+                        <X className="w-3 h-3 ml-2 flex-shrink-0" />
                       </Badge>
                     ))}
                   </div>
@@ -667,14 +668,15 @@ const handleComplete = async () => {
                         .map((interest) => (
                         <Button
                           key={interest}
+                          title={interest}
                           variant="outline"
                           size="sm"
                           onClick={() => addInterest(interest, 'great')}
                           disabled={profileData.thingsYouDoGreat.length >= 10}
-                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal break-words"
+                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal md:whitespace-nowrap overflow-hidden"
                         >
                           <Plus className="w-3 h-3 mr-2 text-green-500 flex-shrink-0" />
-                          <span className="break-words">{interest}</span>
+                          <span className="truncate">{interest}</span>
                         </Button>
                       ))}
                   </div>
@@ -712,11 +714,12 @@ const handleComplete = async () => {
                     {profileData.thingsYouWantToTry.map((interest) => (
                       <Badge
                         key={interest}
-                        className="px-4 py-2 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white cursor-pointer hover:scale-105 transition-transform"
+                        title={interest}
+                        className="px-4 py-2 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white cursor-pointer hover:scale-105 transition-transform flex items-center max-w-[8rem] sm:max-w-[10rem] md:max-w-[12rem]"
                         onClick={() => removeInterest(interest, 'try')}
                       >
-                        {interest}
-                        <X className="w-3 h-3 ml-2" />
+                        <span className="truncate">{interest}</span>
+                        <X className="w-3 h-3 ml-2 flex-shrink-0" />
                       </Badge>
                     ))}
                   </div>
@@ -760,20 +763,21 @@ const handleComplete = async () => {
                     </div>
                     {INTEREST_CATEGORIES[selectedCategory].label}
                   </h4>
-                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                     {INTEREST_CATEGORIES[selectedCategory].interests
                       .filter(interest => !profileData.thingsYouDoGreat.includes(interest) && !profileData.thingsYouWantToTry.includes(interest))
                       .map((interest) => (
                         <Button
                           key={interest}
+                          title={interest}
                           variant="outline"
                           size="sm"
                           onClick={() => addInterest(interest, 'try')}
                           disabled={profileData.thingsYouWantToTry.length >= 10}
-                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal break-words"
+                          className="justify-start items-start text-left rounded-xl hover:scale-105 transition-transform whitespace-normal md:whitespace-nowrap overflow-hidden"
                         >
                           <Plus className="w-3 h-3 mr-2 text-red-500 flex-shrink-0" />
-                          <span className="break-words">{interest}</span>
+                          <span className="truncate">{interest}</span>
                         </Button>
                       ))}
                   </div>
@@ -962,6 +966,19 @@ const handleComplete = async () => {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
+              {/* Back button moved to left side so it's visually on the left edge of the page */}
+              {currentStep > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleBack}
+                  className="rounded-full mr-2"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              )}
+
               <img
                 src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F2ddd6c77a8df4501aa9e8730dda91175?format=webp&width=800"
                 alt="Trybe Logo"
@@ -974,12 +991,6 @@ const handleComplete = async () => {
                 </p>
               </div>
             </div>
-            
-            {currentStep > 0 && (
-              <Button variant="ghost" size="icon" onClick={handleBack} className="rounded-full">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            )}
           </div>
 
           {/* Progress Bar */}

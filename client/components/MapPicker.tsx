@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface LatLng {
   lat: number;
@@ -299,8 +300,7 @@ export default function MapPicker({ apiKey, initial = null, onSelect }: MapPicke
 
   return (
     <div className="space-y-2">
-      <div className="flex space-x-2">
-        <div className="relative w-full">
+      <div className="relative w-full">
           <input
             ref={inputRef}
             className="w-full rounded-xl border border-input p-2 text-sm placeholder:text-muted-foreground bg-input"
@@ -358,14 +358,21 @@ export default function MapPicker({ apiKey, initial = null, onSelect }: MapPicke
               ))}
             </ul>
           )}
+          </div>
+
+        <div ref={mapRef} className="w-full h-48 rounded-xl border border-input mt-3" />
+
+        <div className="mt-3 flex justify-center">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={useGeolocation}
+            className="bg-primary text-white font-semibold px-4 rounded-xl"
+          >
+            Use my location
+          </Button>
         </div>
-
-        <button type="button" onClick={useGeolocation} className="rounded-xl px-3 bg-primary text-white">
-          Use my location
-        </button>
-      </div>
-
-      <div ref={mapRef} className="w-full h-48 rounded-xl border border-input" />
 
       {selectedPlace && (
         <div className="text-sm text-muted-foreground">
