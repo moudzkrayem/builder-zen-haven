@@ -56,6 +56,7 @@ export default function Home() {
   const [showMap, setShowMap] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [initialScheduleFilter, setInitialScheduleFilter] = useState<'joined' | 'host' | null>(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [showEventDetailModal, setShowEventDetailModal] = useState(false);
@@ -169,6 +170,9 @@ export default function Home() {
   useEffect(() => {
     const openSchedule = sessionStorage.getItem('openScheduleOnLoad');
     if (openSchedule) {
+      // support values 'host' or 'joined' set by Profile page
+      if (openSchedule === 'host') setInitialScheduleFilter('host');
+      else setInitialScheduleFilter('joined');
       setShowScheduleModal(true);
       sessionStorage.removeItem('openScheduleOnLoad');
     }
@@ -385,7 +389,28 @@ export default function Home() {
       return true;
     });
 
-  const finalDisplayedTrybes = displayedTrybes;
+  // Helper to detect expired trybes (events whose time/date is in the past)
+  const isExpired = (event: any) => {
+    try {
+      const tryParse = (value: any) => {
+        if (!value) return null;
+        if (typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) return d;
+        return null;
+      };
+
+      const candidates = [event.time, event.date, event];
+      for (const c of candidates) {
+        const d = tryParse(c);
+        if (d) return d.getTime() < Date.now();
+      }
+    } catch (err) {}
+    return false;
+  };
+
+  // Remove expired trybes from Home's main listing
+  const finalDisplayedTrybes = displayedTrybes.filter((t: any) => !isExpired(t));
 
   // Nearby filtering helpers (kept local for now). Use only when user grants location.
   const nearbyRadiusKm = 50; // default radius
@@ -1153,6 +1178,7 @@ export default function Home() {
         onClose={() => setShowScheduleModal(false)}
         onOpenChat={handleOpenChat}
         onEventClick={handleEventClick}
+        scheduleFilter={initialScheduleFilter ?? undefined}
       />
 
       {/* Chat Modal */}

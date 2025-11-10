@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { auth } from "@/auth";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { isHttpDataOrRelative, normalizeStorageRefPath, isTrustedExternalImage } from '@/lib/imageUtils';
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface ScheduleModalProps {
   onClose: () => void;
   onOpenChat: (eventId: string | number, hostName: string) => void;
   onEventClick?: (eventId: number) => void;
+  // optional filter: 'joined' (default) shows events the user joined; 'host' shows events the user hosts
+  scheduleFilter?: 'joined' | 'host';
 }
 
 export default function ScheduleModal({
@@ -29,6 +32,7 @@ export default function ScheduleModal({
   onClose,
   onOpenChat,
   onEventClick,
+  scheduleFilter,
 }: ScheduleModalProps) {
   const { events, joinedEvents, leaveEvent } = useEvents();
   const [cancellingEvent, setCancellingEvent] = useState<string | number | null>(null);
@@ -153,6 +157,18 @@ export default function ScheduleModal({
   // Normalize comparison to strings so IDs match whether stored as numbers or Firestore string ids
   const joinedSet = new Set((joinedEvents || []).map((id) => String(id)));
   const joinedEventsList = events.filter((event) => joinedSet.has(String(event.id)));
+
+  // If the caller asked for host events, compute those (events where the current user is host/creator)
+  const currentUid = auth.currentUser?.uid;
+  const hostEventsList = events.filter((event) => {
+    try {
+      return String(event.host) === String(currentUid) || String((event as any).createdBy) === String(currentUid);
+    } catch (err) {
+      return false;
+    }
+  });
+
+  const eventsToShow = scheduleFilter === 'host' ? hostEventsList : joinedEventsList;
  
 
   const handleCancelEvent = async (eventId: string | number) => {
@@ -208,10 +224,9 @@ export default function ScheduleModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div>
-            <h2 className="text-2xl font-bold">My Schedule</h2>
+            <h2 className="text-2xl font-bold">{scheduleFilter === 'host' ? 'My Events' : 'My Schedule'}</h2>
             <p className="text-muted-foreground text-sm">
-              {joinedEventsList.length} event
-              {joinedEventsList.length !== 1 ? "s" : ""} joined
+              {eventsToShow.length} event{eventsToShow.length !== 1 ? "s" : ""} {scheduleFilter === 'host' ? 'hosting' : 'joined'}
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -221,17 +236,21 @@ export default function ScheduleModal({
 
         {/* Events List */}
         <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
-          {joinedEventsList.length === 0 ? (
+          {eventsToShow.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <Calendar className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No events yet</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                {scheduleFilter === 'host' ? "No hosted events yet" : "No events yet"}
+              </h3>
               <p className="text-muted-foreground">
-                Join some events to see them in your schedule!
+                {scheduleFilter === 'host'
+                  ? "You're not hosting any events right now. Create one to get started."
+                  : "Join some events to see them in your schedule!"}
               </p>
             </div>
           ) : (
             <div className="p-6 space-y-4">
-              {joinedEventsList.map((event) => (
+              {eventsToShow.map((event) => (
                 <div
                   key={event.id}
                   onClick={() => onEventClick?.(event.id as any)}
@@ -270,7 +289,7 @@ export default function ScheduleModal({
                           {event.eventName || event.name}
                         </h3>
                         <Badge className="bg-green-500 text-white ml-2">
-                          Joined
+                          {scheduleFilter === 'host' ? 'Hosting' : 'Joined'}
                         </Badge>
                       </div>
 
@@ -362,7 +381,7 @@ export default function ScheduleModal({
         </div>
 
         {/* Footer */}
-        {joinedEventsList.length > 0 && (
+        {eventsToShow.length > 0 && (
           <div className="p-6 border-t border-border">
             <Button
               onClick={onClose}

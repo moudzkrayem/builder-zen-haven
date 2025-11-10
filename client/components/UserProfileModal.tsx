@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
@@ -73,9 +73,31 @@ export default function UserProfileModal({
     onClose();
   };
 
-  // Compute footer offset so on small screens the footer sits above any fixed bottom nav.
-  const isLargeScreen = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : true;
-  const footerBottomStyle = isLargeScreen ? '0px' : 'calc(env(safe-area-inset-bottom, 0px) + 72px)';
+  // Measure footer height and apply equivalent bottom padding to the scrollable content
+  // so the footer never overlaps the scrollable area on small screens.
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const [contentPaddingBottom, setContentPaddingBottom] = useState<string>('calc(env(safe-area-inset-bottom, 0px) + 6rem)');
+
+  useLayoutEffect(() => {
+    const update = () => {
+      try {
+        const footerHeight = footerRef.current ? footerRef.current.getBoundingClientRect().height : 0;
+        // Add a small gap (12px) so buttons aren't flush to the nav
+        const gap = 12;
+        setContentPaddingBottom(`calc(env(safe-area-inset-bottom, 0px) + ${Math.ceil(footerHeight + gap)}px)`);
+      } catch (err) {
+        // ignore measurement errors
+      }
+    };
+    // Initial measurement and on resize/orientation change
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
 
   return (
     // Anchor to bottom on small screens, but center on large (desktop/laptop).
@@ -86,7 +108,7 @@ export default function UserProfileModal({
       style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y', height: '100dvh' }}
     >
       <div
-        className="bg-card rounded-t-3xl lg:rounded-3xl w-full max-w-lg lg:max-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] overflow-hidden mx-4 lg:mx-0 flex flex-col"
+        className="bg-card rounded-t-3xl lg:rounded-3xl w-full max-w-lg lg:max-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] overflow-hidden mx-4 lg:mx-0 flex flex-col relative"
         style={{ maxHeight: 'min(85vh, 100dvh)' }}
       >
         {/* Header: place the profile image in normal flow so the modal can scroll correctly */}
@@ -115,7 +137,7 @@ export default function UserProfileModal({
         </div>
 
         {/* Content */}
-  <div className="p-6 pt-6 lg:pt-6 overflow-y-auto flex-1 pb-24 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)' }}>
+  <div className="p-6 pt-6 lg:pt-6 overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: contentPaddingBottom }}>
           {/* Basic Info */}
           <div className="mb-6">
             <div className="flex items-start justify-between mb-2">
@@ -194,7 +216,7 @@ export default function UserProfileModal({
         </div>
 
         {/* Footer Actions */}
-  <div className="p-6 border-t border-border bg-muted/20 sticky z-50" style={{ bottom: footerBottomStyle }}>
+  <div ref={footerRef} className="p-6 border-t border-border bg-muted/20 z-50 absolute left-0 right-0" style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <div className="flex space-x-3">
             <Button
               onClick={handleConnect}

@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import React, { useEffect, useState } from "react";
+import ScheduleModal from "@/components/ScheduleModal";
 import { auth, db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +41,10 @@ export default function Profile() {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState<"events" | "connections" | "views" | null>(null);
   const navigate = useNavigate();
+
+  // Local schedule modal state so Profile can open the same popup as Home without redirect
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleFilterLocal, setScheduleFilterLocal] = useState<'joined' | 'host' | null>(null);
 
   const [profile, setProfile] = useState<any | null>(null);
   useEffect(() => {
@@ -82,6 +87,28 @@ export default function Profile() {
     ...(profile?.thingsYouDoGreat || []),
     ...(profile?.thingsYouWantToTry || []),
   ];
+
+  // Helper to determine whether an event is expired (based on time/date fields)
+  const isExpired = (event: any) => {
+    try {
+      const tryParse = (value: any) => {
+        if (!value) return null;
+        if (typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) return d;
+        return null;
+      };
+
+      const candidates = [event.time, event.date, event];
+      for (const c of candidates) {
+        const d = tryParse(c);
+        if (d) {
+          return d.getTime() < Date.now();
+        }
+      }
+    } catch (err) {}
+    return false;
+  };
 
   return (
     <div className="h-full bg-background overflow-y-auto">
@@ -135,12 +162,20 @@ export default function Profile() {
       <div className="px-4 pb-6">
         {activeTab === "profile" ? (
           <>
-            {/* Photos are managed in Settings */}
+            {/* Photos shown from profile (created at profile creation). Uses same placement as participant popup */}
             <div className="mb-6 mt-6">
-              <div className="bg-card p-4 rounded-2xl text-center">
-                <p className="text-sm text-muted-foreground">Photos are managed in Settings. Your primary avatar is shown there.</p>
-                <div className="mt-4">
-                  <Button variant="outline" onClick={() => navigate('/settings')}>Manage Photos in Settings</Button>
+              <div className="bg-card p-4 rounded-2xl">
+                <h3 className="text-sm font-semibold mb-3">Photos</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {profilePhotos && profilePhotos.length > 0 ? (
+                    profilePhotos.map((src: string, i: number) => (
+                      <div key={i} className="aspect-square rounded-xl overflow-hidden">
+                        <img src={src} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No photos yet. Manage photos in Settings.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -197,28 +232,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <button
-                onClick={() => setShowStatsModal("events")}
-                className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
-              >
-                <div className="text-2xl font-bold text-primary mb-1">
-                  {joinedEvents.length}
-                </div>
-                <div className="text-xs text-muted-foreground">Events</div>
-              </button>
-              <button
-                onClick={() => setShowStatsModal("connections")}
-                className="text-center p-4 bg-accent/50 rounded-2xl hover:bg-accent/70 transition-colors"
-              >
-                <div className="text-2xl font-bold text-primary mb-1">
-                  {connections.length}
-                </div>
-                <div className="text-xs text-muted-foreground">Connections</div>
-              </button>
-              {/* Profile Views hidden — premium feature removed from profile */}
-            </div>
+            {/* Stats removed per user request: events/connections counters hidden */}
 
             {/* Interests */}
             <div className="mb-6">
@@ -261,17 +275,12 @@ export default function Profile() {
 
             {/* Quick actions */}
             <div className="space-y-3">
-              <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90" onClick={() => setActiveTab("profile")}>
-                <Heart className="w-5 h-5 mr-2" />
-                Preview My Profile
-              </Button>
-
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { sessionStorage.setItem('openScheduleOnLoad','true'); navigate('/home'); }}>
+                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { setScheduleFilterLocal('host'); setShowScheduleModal(true); }}>
                   <Users className="w-5 h-5 mr-2" />
                   My Events
                 </Button>
-                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { sessionStorage.setItem('openScheduleOnLoad','true'); navigate('/home'); }}>
+                <Button variant="outline" className="h-12 rounded-xl" onClick={() => { setScheduleFilterLocal('joined'); setShowScheduleModal(true); }}>
                   <Calendar className="w-5 h-5 mr-2" />
                   Schedule
                 </Button>
@@ -285,13 +294,17 @@ export default function Profile() {
                 {[
                   "Privacy Settings",
                   "Notification Preferences",
-                  "Subscription",
                   "Help & Support",
                 ].map((item, index) => (
                   <Button
                     key={index}
                     variant="ghost"
                     className="w-full justify-start h-12 rounded-xl text-foreground"
+                    onClick={() => {
+                      if (item === 'Privacy Settings') navigate('/settings#privacy');
+                      else if (item === 'Notification Preferences') navigate('/settings#notifications');
+                      else if (item === 'Help & Support') navigate('/help');
+                    }}
                   >
                     {item}
                   </Button>
@@ -320,7 +333,7 @@ export default function Profile() {
             {/* Previous Events Content */}
             <div className="mt-6">
               <h2 className="text-2xl font-bold mb-6">Previous Events</h2>
-              {joinedEvents.length === 0 ? (
+              {joinedEvents.filter((id) => id != null).length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No events attended yet</h3>
@@ -334,8 +347,8 @@ export default function Profile() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {events
-                    .filter((event) => joinedEvents.includes(event.id))
+                    {events
+                      .filter((event) => joinedEvents.includes(event.id) && isExpired(event))
                     .map((event) => (
                       <div
                         key={event.id}
@@ -552,6 +565,20 @@ export default function Profile() {
         isOpen={showStatsModal !== null}
         onClose={() => setShowStatsModal(null)}
         type={showStatsModal}
+      />
+      {/* Schedule modal reused from Home so Profile can open it in-place */}
+      <ScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => { setShowScheduleModal(false); setScheduleFilterLocal(null); }}
+        onOpenChat={(id, hostName) => {
+          // simple behavior: navigate to chat by opening a chat modal elsewhere in the app
+          // for now, close schedule modal so Home/parent can handle chat opening
+          setShowScheduleModal(false);
+          // if needed, we could emit an event or call context here to open chat
+          console.debug('Profile: ScheduleModal requested open chat for', id, hostName);
+        }}
+        onEventClick={(id) => { setShowScheduleModal(false); /* no-op or open event detail if desired */ }}
+        scheduleFilter={scheduleFilterLocal ?? undefined}
       />
     </div>
   );
