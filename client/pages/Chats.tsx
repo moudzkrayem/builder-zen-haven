@@ -1,10 +1,15 @@
-import { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import ChatModal from "@/components/ChatModal";
 import { useEvents } from "@/contexts/EventsContext";
 import { Search, MoreHorizontal, Heart, Star } from "lucide-react";
+import SafeImg from '@/components/SafeImg';
+import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { normalizeStorageRefPath } from '@/lib/imageUtils';
+import { app } from '@/firebase';
+import { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 
 // Mock chat data
@@ -18,6 +23,46 @@ export default function Chats() {
   const filteredChats = chats.filter((chat) =>
     chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const [resolvedProfileImages, setResolvedProfileImages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const storage = getStorage(app);
+        const next = { ...resolvedProfileImages };
+        // Collect up to first 3 participant images from visible chats to resolve
+        const candidates: Array<{ id: string; img?: string }> = [];
+        for (const chat of chats.slice(0, 20)) {
+          const p = chat.participantProfiles;
+          if (p && p.length) {
+            for (const prof of p.slice(0, 3)) {
+              candidates.push({ id: prof.id, img: prof.image });
+            }
+          }
+        }
+        for (const c of candidates) {
+          if (!c.img || next[String(c.id)]) continue;
+          const img = c.img;
+          if (typeof img === 'string' && (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://'))) {
+            next[String(c.id)] = img;
+            continue;
+          }
+          try {
+            const path = normalizeStorageRefPath(String(img));
+            const url = await getDownloadURL(storageRef(storage, path));
+            if (!mounted) break;
+            next[String(c.id)] = url;
+          } catch (e) {
+            // leave unresolved; do not set empty string so UI can fallback to stored profile image or placeholder
+          }
+        }
+        if (mounted) setResolvedProfileImages(next);
+      } catch (e) {}
+    })();
+    return () => { mounted = false; };
+  }, [chats]);
 
   const handleOpenChat = (chatId: string | number) => {
     setActiveChatId(chatId);
@@ -60,11 +105,7 @@ export default function Chats() {
               className="flex-shrink-0 hover:opacity-80 transition-opacity"
             >
               <div className="relative">
-                <img
-                  src={chat.eventImage}
-                  alt={chat.eventName}
-                  className="w-16 h-16 rounded-xl object-cover border-2 border-primary"
-                />
+                <SafeImg src={chat.eventImage || (chat.participantProfiles && (chat.participantProfiles[0]?.imageResolved || chat.participantProfiles[0]?.image)) || ''} alt={chat.eventName} className="w-16 h-16 rounded-xl object-cover border-2 border-primary" debugContext={`Chats:carousel:${String(chat.id)}`} />
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                   <Heart className="w-3 h-3 text-primary-foreground" />
                 </div>
@@ -112,14 +153,29 @@ export default function Chats() {
                 onClick={() => handleOpenChat(chat.id)}
                 className="w-full flex items-center space-x-3 px-4 py-4 hover:bg-accent/50 transition-colors text-left"
               >
-                {/* Avatar */}
-                <div className="relative">
-                  <img
-                    src={chat.eventImage}
-                    alt={chat.eventName}
-                    className="w-14 h-14 rounded-xl object-cover"
-                  />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
+                {/* Avatar or stacked participant images */}
+                <div className="relative flex items-center">
+                      {chat.participantProfiles && chat.participantProfiles.length > 0 ? (
+                    <div className="flex -space-x-2">
+                      {chat.participantProfiles.slice(0, 3).map((p, i) => (
+                        <SafeImg
+                          key={p.id}
+                          src={
+                            (resolvedProfileImages[String(p.id)] || resolvedProfileImages[p.id] || (p as any).imageResolved || (p as any).image) as string | undefined
+                            || ''
+                          }
+                          alt={p.name}
+                          className={`w-10 h-10 rounded-full object-cover border-2 border-background`}
+                          debugContext={`Chats:list:${String(chat.id)}:${p.id}`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <SafeImg src={chat.eventImage || ''} alt={chat.eventName} className="w-14 h-14 rounded-xl object-cover" debugContext={`Chats:list:${String(chat.id)}:event`} />
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Chat info */}
@@ -139,7 +195,7 @@ export default function Chats() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                     <p
                       className={cn(
                         "text-sm truncate flex-1",
@@ -150,9 +206,9 @@ export default function Chats() {
                     >
                       {chat.lastMessage}
                     </p>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {chat.participants} members
-                    </span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {chat.participantProfiles && chat.participantProfiles.length ? chat.participantProfiles.length : chat.participants} members
+                      </span>
                   </div>
                 </div>
               </button>

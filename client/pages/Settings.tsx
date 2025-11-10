@@ -30,7 +30,9 @@ import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import { useNavigate } from "react-router-dom";
 import { auth, logout } from "@/auth";
 import { db } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { updateProfile } from 'firebase/auth';
 
 const settingsGroups = [
   {
@@ -167,6 +169,8 @@ export default function Settings() {
     profileViews: false,
   });
   const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -193,6 +197,59 @@ export default function Settings() {
     load();
     return () => { mounted = false; };
   }, []);
+
+  // Upload handler for changing avatar/profile photo
+  const handleAvatarFile = async (file?: File | null) => {
+    if (!file) return;
+    const u = auth.currentUser;
+    if (!u) return;
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      const storage = getStorage();
+      const path = `userPhotos/${u.uid}/${Date.now()}-${file.name}`;
+      const ref = storageRef(storage, path);
+      const task = uploadBytesResumable(ref, file);
+      await new Promise<void>((resolve, reject) => {
+        task.on('state_changed', (snapshot) => {
+          if (snapshot.totalBytes) {
+            setUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+          }
+        }, (err) => reject(err), async () => {
+          try {
+            const url = await getDownloadURL(ref);
+            // Persist into Firestore users/{uid} (merge)
+            try {
+              const userRef = doc(db, 'users', u.uid);
+              await setDoc(userRef, { photoURL: url }, { merge: true } as any);
+            } catch (err) {
+              console.debug('Settings: failed to persist user photoURL to Firestore', err);
+            }
+            // Keep auth user in sync (best-effort)
+            try {
+              await updateProfile(u, { photoURL: url } as any);
+            } catch (err) {
+              // ignore
+            }
+            // Optimistic UI update
+            setUserProfile(prev => ({ ...(prev || {}), photoURL: url }));
+            resolve();
+          } catch (err) { reject(err); }
+        });
+      });
+    } catch (err) {
+      console.debug('Settings: avatar upload failed', err);
+      alert('Failed to upload avatar image');
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const onAvatarInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) handleAvatarFile(f);
+  };
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
 
@@ -218,20 +275,27 @@ export default function Settings() {
         {/* User info card (populated from Firestore users/{uid}) */}
         <div className="bg-gradient-to-r from-primary/10 to-accent/20 rounded-2xl p-6 mb-6 mt-4">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                {(() => {
-                  const avatarSrc = userProfile?.photoURL || (Array.isArray(userProfile?.photos) && userProfile.photos.length ? userProfile.photos[0] : null);
-                  if (avatarSrc) {
-                    return (<img src={avatarSrc} alt={userProfile.displayName || userProfile.firstName} className="w-full h-full object-cover" />);
-                  }
-                  return (
-                    <span className="text-2xl font-bold text-primary-foreground">
-                      {((userProfile?.firstName || userProfile?.displayName || 'U') || 'U').toString().charAt(0).toUpperCase()}
-                    </span>
-                  );
-                })()}
+              <div className="flex flex-col items-start space-y-2">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                  {(() => {
+                    const avatarSrc = userProfile?.photoURL || (Array.isArray(userProfile?.photos) && userProfile.photos.length ? userProfile.photos[0] : null);
+                    if (avatarSrc) {
+                      return (<img src={avatarSrc} alt={userProfile.displayName || userProfile.firstName} className="w-full h-full object-cover" />);
+                    }
+                    return (
+                      <span className="text-2xl font-bold text-primary-foreground">
+                        {((userProfile?.firstName || userProfile?.displayName || 'U') || 'U').toString().charAt(0).toUpperCase()}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input id="avatar-input" type="file" accept="image/*" onChange={onAvatarInput} className="hidden" />
+                  <label htmlFor="avatar-input" className="text-xs cursor-pointer text-primary hover:underline">Change</label>
+                  {uploading && <span className="text-xs text-muted-foreground">Uploading {uploadProgress ?? 0}%</span>}
+                </div>
               </div>
-            <div className="flex-1">
+              <div className="flex-1">
               <h2 className="text-xl font-bold">{userProfile ? (userProfile.firstName || userProfile.displayName || userProfile.name || 'You') + (userProfile?.lastName ? ` ${userProfile.lastName}` : '') : 'You'}</h2>
               <p className="text-muted-foreground">
                 {userProfile?.location ? `${userProfile.location} • ` : ''}{(userProfile?.joinedEvents?.length) ?? '0'} events

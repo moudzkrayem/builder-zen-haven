@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent } from "@/components/ui/card";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth, db, app } from "../firebase";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import {
   Camera,
   Plus,
@@ -240,6 +241,9 @@ export default function ProfileCreation() {
     timePreferences: []
   });
 
+  // Keep original File objects for photos so we can upload them to Storage on save.
+  const profileFilesRef = React.useRef<Record<number, File>>({});
+
   const handleNext = async () => {
     if (currentStep < STEP_TITLES.length - 1) {
       setIsTransitioning(true);
@@ -279,23 +283,64 @@ const handleComplete = async () => {
     return;
   }
 
-  // Safely trim photos & prepare data
-  const safeProfile = { ...profileData } as typeof profileData;
-  safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
-
   try {
-    // Save to Firestore (each user = one document)
-    const userId = auth.currentUser.uid;
-    const userRef = doc(db, "users", userId);
+    const uid = auth.currentUser.uid;
+    const userRef = doc(db, "users", uid);
 
+    // Prepare a shallow copy and trim photos
+    const safeProfile = { ...profileData } as typeof profileData;
+    safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
+
+    // Upload any original Files kept in profileFilesRef.current and replace the
+    // corresponding compressed data URLs with storage paths (users/{uid}/photos/...)
+    const storage = getStorage(app);
+    const uploadedPhotos: string[] = [...safeProfile.photos];
+
+    const entries = Object.entries(profileFilesRef.current) as [string, File][];
+    // Sort by numeric index so array positions match
+    entries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+    for (const [indexStr, file] of entries) {
+      try {
+        const index = Number(indexStr);
+        const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+        const path = `users/${uid}/photos/${filename}`;
+        const sRef = storageRef(storage, path);
+
+        await new Promise<void>((resolve, reject) => {
+          const uploadTask = uploadBytesResumable(sRef, file);
+          uploadTask.on(
+            "state_changed",
+            () => {},
+            (err) => reject(err),
+            () => resolve(),
+          );
+        });
+
+        // Resolve a public download URL and store that in Firestore so other
+        // clients can render the image immediately without resolving storage refs.
+        try {
+          const url = await getDownloadURL(sRef);
+          uploadedPhotos[index] = url;
+        } catch (err) {
+          // If we can't resolve the download URL, fall back to storing the storage path
+          // (UI components still resolve storage paths on demand).
+          uploadedPhotos[index] = path;
+        }
+      } catch (err) {
+        console.debug("profile upload failed for one file, keeping compressed thumbnail", err);
+      }
+    }
+
+    safeProfile.photos = uploadedPhotos.slice(0, 6);
+
+    // Persist the user document (merge so we won't wipe other fields)
     await setDoc(userRef, {
       ...safeProfile,
-      createdAt: new Date().toISOString(),
-    });
+      updatedAt: new Date().toISOString(),
+    }, { merge: true } as any);
 
-    console.log("✅ Profile saved to Firestore!");
-
-    // 🎉 Celebration animation (keep your existing confetti)
+    // Success UX: small celebration then navigate
     const confetti = document.createElement("div");
     confetti.innerHTML = "🎉";
     confetti.className =
@@ -306,7 +351,7 @@ const handleComplete = async () => {
       document.body.removeChild(confetti);
       try { window.scrollTo(0, 0); } catch (e) {}
       navigate("/home");
-    }, 1500);
+    }, 1300);
   } catch (error) {
     console.error("❌ Error saving profile:", error);
     alert("Failed to save profile. Please try again.");
@@ -551,12 +596,25 @@ const handleComplete = async () => {
                       try {
                         const data = await readAndCompressFile(f, 320, 0.7);
                         compressed.push(data);
-                      } catch {}
+                      } catch {
+                        // ignore compression failure, we'll still keep the original file
+                      }
                     }
-                    setProfileData((prev) => ({
-                      ...prev,
-                      photos: [...prev.photos, ...compressed].slice(0, 6),
-                    }));
+
+                    // Attach original File objects to profileFilesRef so handleComplete can upload them
+                    setProfileData((prev) => {
+                      const baseIndex = prev.photos.length;
+                      files.forEach((f, idx) => {
+                        const i = baseIndex + idx;
+                        try { profileFilesRef.current[i] = f; } catch (err) {}
+                      });
+
+                      return {
+                        ...prev,
+                        photos: [...prev.photos, ...compressed].slice(0, 6),
+                      };
+                    });
+
                     e.currentTarget.value = "";
                   }}
                   className="hidden"

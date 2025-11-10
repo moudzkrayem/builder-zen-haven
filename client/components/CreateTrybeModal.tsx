@@ -5,9 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc, setDoc, arrayUnion, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc, setDoc, arrayUnion, getDoc, runTransaction } from "firebase/firestore";
 import { db, app } from "../firebase"; // ✅ make sure you export db and app in firebase.ts
 import { auth } from "../firebase"; // to get current user
+import { createTrybeWithMessage } from '@/lib/createTrybeWithMessage';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   X,
@@ -274,21 +275,16 @@ export default function CreateTrybeModal({
     const sanitizedTrybe = sanitizeForFirestore(trybeDataToSave);
     console.debug('Creating Trybe with sanitized data:', sanitizedTrybe);
 
-    // Save in Firestore
-    let docRef: any = null;
+    // Save in Firestore using an atomic batch (create trybe + initial message)
+    let docRef: any = { id: null };
     try {
-      docRef = await addDoc(collection(db, "trybes"), sanitizedTrybe as any);
+      const welcome = `Welcome to ${sanitizedTrybe.eventName || (sanitizedTrybe as any).name || 'this trybe'} group chat!`;
+      const newId = await createTrybeWithMessage({ trybeId: null, trybeData: sanitizedTrybe, initialMessageText: welcome });
+      docRef.id = newId;
+      console.log("✅ Trybe created with ID:", docRef.id);
     } catch (writeErr) {
-      console.error('CreateTrybeModal: failed to write trybe doc. Sanitized payload:', sanitizedTrybe, writeErr);
+      console.error('CreateTrybeModal: failed to create trybe with initial message. Sanitized payload:', sanitizedTrybe, writeErr);
       throw writeErr;
-    }
-    console.log("✅ Trybe created with ID:", docRef.id);
-
-    // Ensure the trybe doc records its own id field for easier matching later
-    try {
-      await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { id: docRef.id });
-    } catch (err) {
-      console.debug('Failed to set id field on created trybe doc', err);
     }
 
     // Build a created trybe object to pass to the parent/provider so UI can update immediately
@@ -355,99 +351,34 @@ export default function CreateTrybeModal({
       }
     })();
 
-    // Create a persistent chat doc for this trybe so participants can join immediately
-    // Improve robustness: ensure auth token is available, include identifying fields that rules might expect,
-    // and retry a couple times with backoff for transient failures. Surface richer error info for debugging.
+    // Create an initial system message under trybes/{trybeId}/messages instead of a separate chat doc.
     try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        console.debug('CreateTrybeModal: no authenticated user at chat creation time, skipping chat doc creation');
-      } else {
-        const chatRef = firestoreDoc(db, 'chats', `trybe-${docRef.id}`);
-        const chatPayloadBase: any = {
-          eventId: docRef.id,
-          eventName: trybeDataToSave.eventName || '',
-          eventImage: photosToSave && photosToSave.length ? photosToSave[0] : (trybeDataToSave.createdByImage || null),
+      const messagesCol = collection(db, 'trybes', String(docRef.id), 'messages');
+  const welcome = `Welcome to ${trybeDataToSave.eventName || (trybeDataToSave as any).name || 'this trybe'} group chat!`;
+      try {
+        await addDoc(messagesCol, {
+          senderId: 'system',
+          senderName: 'System',
+          text: welcome,
+          system: true,
           createdAt: serverTimestamp(),
-          // Include creator metadata which Firestore rules commonly require
-          createdBy: uid,
-          createdByName: trybeDataToSave.createdByName || null,
-          createdByImage: trybeDataToSave.createdByImage || null,
-        };
+        } as any);
+      } catch (err) {
+        console.debug('CreateTrybeModal: failed to write initial system message', err);
+      }
 
-        // Ensure we have a fresh token before attempting sensitive writes (helps avoid some auth timing races)
-        try {
-          // Force refresh token; if this fails it's non-fatal but helpful for diagnostics
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const currentUser: any = auth.currentUser;
-          if (currentUser?.getIdToken) {
-            await currentUser.getIdToken(true);
-          }
-        } catch (tokenErr) {
-          console.debug('CreateTrybeModal: getIdToken refresh failed (continuing):', tokenErr);
-        }
-
-        // Retry loop with exponential backoff for transient failures
-        const maxAttempts = 3;
-        let lastErr: any = null;
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            // Include both forms: an array for rules expecting `participants` and a map for efficient membership checks
-            const payload = {
-              ...chatPayloadBase,
-              participants: [uid],
-              participantsMap: { [uid]: true },
-            };
-            await setDoc(chatRef, payload, { merge: true });
-
-            // Read back to confirm creation and surface debug info
-            try {
-              const { getDoc } = await import('firebase/firestore');
-              const snap = await getDoc(chatRef as any);
-              console.debug('CreateTrybeModal: chat doc readback', snap.exists(), snap.exists() ? snap.data() : null);
-            } catch (readErr) {
-              console.debug('CreateTrybeModal: created chat doc but failed to read back', readErr);
-            }
-
-            console.debug(`CreateTrybeModal: created chat doc trybe-${docRef.id} (attempt ${attempt})`);
-            lastErr = null;
-            break; // success
-          } catch (writeErr: any) {
-            lastErr = writeErr;
-            // If this is clearly a permission error, stop retrying and surface immediate diagnostic
-            if (writeErr?.code === 'permission-denied' || /permission/i.test(writeErr?.message || '')) {
-              console.error('CreateTrybeModal: permission-denied when creating chat doc', writeErr);
-              // Surface an alert with code to make it easy to copy into bug report
-              try {
-                alert(`Failed to create chat doc: ${writeErr?.code || writeErr?.message || String(writeErr)}`);
-              } catch (_) {}
-              break;
-            }
-
-            // For other errors, log and backoff then retry
-            console.warn(`CreateTrybeModal: chat doc create attempt ${attempt} failed`, writeErr);
-            if (attempt < maxAttempts) {
-              // Exponential backoff (ms)
-              const backoff = 250 * Math.pow(2, attempt - 1);
-              await new Promise((res) => setTimeout(res, backoff));
-            }
-          }
-        }
-
-        if (lastErr) {
-          // If after retries we still failed, log full error and surface alert for capture
-          console.error('CreateTrybeModal: failed to create chat doc after retries', lastErr);
-          try {
-            alert('Failed to create chat doc: ' + (lastErr?.code ? `${lastErr.code} — ${lastErr.message}` : (lastErr?.message || String(lastErr))));
-          } catch (_) {}
-        }
+      // Optionally update parent trybe summary fields (best-effort)
+      try {
+        const trybeRef = firestoreDoc(db, 'trybes', String(docRef.id));
+        await updateDoc(trybeRef, {
+          lastMessage: welcome,
+          lastMessageAt: serverTimestamp(),
+        } as any);
+      } catch (err) {
+        // ignore summary update errors
       }
     } catch (err) {
-      // Unexpected error while attempting chat creation flow
-      console.error('CreateTrybeModal: unexpected error during chat creation', err);
-      try {
-        alert('Failed to create chat doc: ' + (err?.message || String(err)));
-      } catch (_) {}
+      console.debug('CreateTrybeModal: unexpected error while creating initial message', err);
     }
 
     // Persist creator's joinedEvents so the chat shows after refresh

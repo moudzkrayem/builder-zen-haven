@@ -686,19 +686,19 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                 }
               }
 
-              // Ensure chat doc exists
+              // No separate chat document is created in the parent-anchored model.
+              // Optionally create an initial system message under trybes/{id}/messages.
               try {
-                const { setDoc, doc: firestoreDoc } = await import('firebase/firestore');
-                const chatRef = firestoreDoc(db, 'chats', `trybe-${docRef.id}`) as any;
-                await setDoc(chatRef, {
-                  eventId: docRef.id,
-                  eventName: trybeDataToSave.eventName || '',
-                  eventImage: (photosToSave && photosToSave.length) ? photosToSave[0] : undefined,
+                const { addDoc, collection } = await import('firebase/firestore');
+                await addDoc(collection(db, 'trybes', docRef.id, 'messages'), {
+                  senderId: 'system',
+                  senderName: 'System',
+                  text: `Welcome to ${trybeDataToSave.eventName || (trybeDataToSave as any).name || 'this trybe'}!`,
+                  system: true,
                   createdAt: serverTimestamp(),
-                  createdBy: uid || null,
-                }, { merge: true });
+                } as any);
               } catch (err) {
-                console.debug('AIBotModal: failed to create chat doc', err);
+                console.debug('AIBotModal: failed to write initial system message', err);
               }
 
               // Update user's joinedEvents

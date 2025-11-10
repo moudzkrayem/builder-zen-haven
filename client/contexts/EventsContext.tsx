@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useRef } from "react";
-import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc, setDoc, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc as firestoreDoc, updateDoc, arrayUnion, arrayRemove, increment, getDoc, setDoc, onSnapshot, addDoc, serverTimestamp, query, orderBy, runTransaction, where } from "firebase/firestore";
+import { useToast } from '@/hooks/use-toast';
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { looksLikeDataUrl, isHttpDataOrRelative, normalizeStorageRefPath, isTrustedExternalImage } from '@/lib/imageUtils';
@@ -7,21 +8,21 @@ import { onUserChanged, auth } from "@/auth";
 
 interface Event {
   id: string | number;
-  name: string;
-  eventName?: string; // For new events
-  hostName?: string; // For swipe format
-  hostAge?: number; // For swipe format
-  location: string;
-  date: string;
-  time?: string;
-  duration?: string;
-  attendees: number;
-  maxCapacity: number;
-  fee: string;
-  image: string;
+  name?: string;
+  eventName?: string;
+  hostName?: string;
+  hostAge?: number;
+  location?: string;
+  date?: string;
+  attendees?: number;
+  maxCapacity?: number;
+  fee?: string;
+  image?: string;
+  photos?: string[];
+  _resolvedImage?: string;
   eventImages?: string[]; // For swipe format
   hostImage?: string; // For swipe format
-  category: string;
+  category?: string;
   isPopular?: boolean;
   host?: string;
   rating?: number;
@@ -29,6 +30,10 @@ interface Event {
   description?: string;
   isPremium?: boolean;
   ageRange?: [number, number];
+  time?: string;
+  duration?: string | number;
+  createdBy?: string;
+  attendeeIds?: string[];
 }
 
 interface Chat {
@@ -41,6 +46,8 @@ interface Chat {
   time: string;
   unreadCount: number;
   messages: Message[];
+  participantNames?: string[];
+  participantProfiles?: Array<{ id: string; name: string; image?: string; imageResolved?: string }>
 }
 
 interface Message {
@@ -95,7 +102,7 @@ interface EventsContextType {
   events: Event[];
   trybesLoaded?: boolean;
   addEvent: (eventData: any) => void;
-  updateEvent: (eventId: number, updates: Partial<Event>, notify: boolean) => void;
+  updateEvent: (eventId: string | number, updates: Partial<Event>, notify: boolean) => void;
   joinEvent: (eventId: string | number) => void;
   leaveEvent: (eventId: string | number) => void;
   joinedEvents: Array<string | number>;
@@ -122,247 +129,15 @@ interface EventsContextType {
   declineFriendRequest: (requestId: string) => void;
   getFriendRequestStatus: (toUserId: string, eventId: number) => 'none' | 'pending' | 'accepted' | 'declined';
   canSendMessage: (toUserId: string, eventId: string | number) => boolean;
+  markRead: (trybeId: string | number, uid?: string) => void;
   // Friends
   friends: any[];
   addFriendRelation: (a: { id: string; name?: string; image?: string }, b: { id: string; name?: string; image?: string }) => void;
   getFriendsOf: (userId: string) => any[];
   setSharePreferenceForUser: (userId: string, allowed: boolean) => void;
 }
-
-const EventsContext = createContext<EventsContextType | undefined>(undefined);
-
-// Initial events data (combining from both Home and Swipe pages)
-const initialEvents: Event[] = [
-  {
-    id: 1,
-    name: "Market Collective Farmers Market",
-    eventName: "Market Collective Farmers Market",
-    hostName: "Market Collective",
-    hostAge: 30,
-    location: "Downtown",
-    date: "Sat 9:00 AM",
-    attendees: 50,
-    maxCapacity: 100,
-    fee: "Free",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4",
-    eventImages: [
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F55c1b0c99abb442eaf238a298dbf7cf4",
-      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop",
-    ],
-    hostImage:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    category: "Food & Drink",
-    isPopular: true,
-    host: "Market Collective",
-    rating: 4.8,
-    interests: ["Food", "Community", "Local"],
-    description:
-      "Join us for fresh produce, artisanal goods, and community vibes at the weekend farmers market!",
-  },
-  {
-    id: 2,
-    name: "Rooftop Yoga Session",
-    eventName: "Rooftop Yoga Session",
-    hostName: "ZenFlow Studio",
-    hostAge: 28,
-    location: "SoMa District",
-    date: "Sun 7:00 AM",
-    attendees: 20,
-    maxCapacity: 25,
-    fee: "$15",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F5e158f125714409bbacba8ef1838840f",
-    eventImages: [
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F5e158f125714409bbacba8ef1838840f",
-      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop",
-    ],
-    hostImage:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    category: "Fitness",
-    isPopular: false,
-    host: "ZenFlow Studio",
-    rating: 4.9,
-    interests: ["Yoga", "Wellness", "Mindfulness"],
-    description:
-      "Start your Sunday with energizing yoga on our beautiful rooftop overlooking the city.",
-  },
-  {
-    id: 3,
-    name: "Tech Networking Mixer",
-    eventName: "Tech Networking Mixer",
-    hostName: "TechConnect SF",
-    hostAge: 32,
-    location: "SOMA",
-    date: "Thu 6:00 PM",
-    attendees: 87,
-    maxCapacity: 100,
-    fee: "$25",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F3d29be6add9348eab169879d1e722aae",
-    eventImages: [
-      "https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F3d29be6add9348eab169879d1e722aae",
-      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop",
-    ],
-    hostImage:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
-    category: "Professional",
-    isPopular: true,
-    host: "TechConnect SF",
-    rating: 4.7,
-    interests: ["Tech", "Networking", "Startups"],
-    description:
-      "Connect with fellow tech professionals, entrepreneurs, and innovators in the heart of SF.",
-  },
-  {
-    id: 4,
-    name: "Exclusive Wine Tasting",
-    eventName: "Exclusive Wine Tasting",
-    hostName: "Sommelier Society",
-    hostAge: 35,
-    location: "Napa Valley",
-    date: "Fri 7:00 PM",
-    attendees: 12,
-    maxCapacity: 15,
-    fee: "$85",
-    image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&h=600&fit=crop",
-    eventImages: [
-      "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1558346648-9757f2fa4c1e?w=400&h=600&fit=crop",
-    ],
-    hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    category: "Food & Drink",
-    isPopular: true,
-    host: "Sommelier Society",
-    rating: 4.9,
-    interests: ["Wine", "Luxury", "Exclusive"],
-    description: "An intimate wine tasting experience with rare vintages and expert sommelier guidance.",
-    isPremium: true,
-  },
-  {
-    id: 5,
-    name: "VIP Art Gallery Opening",
-    eventName: "VIP Art Gallery Opening",
-    hostName: "Modern Art Collective",
-    hostAge: 29,
-    location: "Chelsea District",
-    date: "Sat 8:00 PM",
-    attendees: 25,
-    maxCapacity: 30,
-    fee: "$120",
-    image: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=600&fit=crop",
-    eventImages: [
-      "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop",
-    ],
-    hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    category: "Arts & Culture",
-    isPopular: true,
-    host: "Modern Art Collective",
-    rating: 4.8,
-    interests: ["Art", "Culture", "VIP"],
-    description: "Exclusive first look at contemporary art pieces with artists and collectors.",
-    isPremium: true,
-  },
-  {
-    id: 6,
-    name: "Sunset Beach Volleyball",
-    eventName: "Sunset Beach Volleyball",
-    hostName: "Sand & Spike Club",
-    hostAge: 27,
-    location: "Ocean Beach",
-    date: "Sat 5:30 PM",
-    attendees: 16,
-    maxCapacity: 20,
-    fee: "Free",
-    image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80&auto=format&fit=crop",
-    eventImages: ["https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80&auto=format&fit=crop"],
-    hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    category: "Outdoors",
-    isPopular: false,
-    host: "Sand & Spike Club",
-    rating: 4.5,
-    interests: ["Sports", "Beach", "Community"],
-    description: "Join a friendly beach volleyball game as the sun sets.",
-  },
-  {
-    id: 7,
-    name: "Indie Acoustic Night",
-    eventName: "Indie Acoustic Night",
-    hostName: "The Vinyl Lounge",
-    hostAge: 31,
-    location: "Mission District",
-    date: "Fri 9:00 PM",
-    attendees: 60,
-    maxCapacity: 80,
-    fee: "$10",
-    image: "https://images.unsplash.com/photo-1485579149621-3123dd979885?w=800&q=80&auto=format&fit=crop",
-    eventImages: ["https://images.unsplash.com/photo-1485579149621-3123dd979885?w=800&q=80&auto=format&fit=crop"],
-    hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    category: "Music",
-    isPopular: true,
-    host: "The Vinyl Lounge",
-    rating: 4.6,
-    interests: ["Music", "Live", "Indie"],
-    description: "An intimate evening showcasing local acoustic singer-songwriters.",
-  },
-  {
-    id: 8,
-    name: "Weekend Coding Workshop",
-    eventName: "Weekend Coding Workshop",
-    hostName: "CodeCraft",
-    hostAge: 34,
-    location: "Downtown Tech Hub",
-    date: "Sat 10:00 AM",
-    attendees: 18,
-    maxCapacity: 25,
-    fee: "$40",
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=600&fit=crop",
-    category: "Workshops",
-    isPopular: false,
-    host: "CodeCraft",
-    rating: 4.9,
-    interests: ["Coding", "Workshops", "Education"],
-    description: "Hands-on bootcamp covering web development fundamentals.",
-  },
-  {
-    id: 9,
-    name: "Community Beach Cleanup",
-    eventName: "Community Beach Cleanup",
-    hostName: "GreenAction",
-    hostAge: 40,
-    location: "Baker Beach",
-    date: "Sun 8:00 AM",
-    attendees: 30,
-    maxCapacity: 100,
-    fee: "Free",
-    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400&h=600&fit=crop",
-    category: "Volunteering",
-    isPopular: false,
-    host: "GreenAction",
-    rating: 4.7,
-    interests: ["Environment", "Community", "Volunteering"],
-    description: "Help keep our beaches clean and meet neighbors who care about the environment.",
-  },
-  {
-    id: 10,
-    name: "Family Picnic & Games",
-    eventName: "Family Picnic & Games",
-    hostName: "Parks Dept",
-    hostAge: 38,
-    location: "Golden Gate Park",
-    date: "Sun 12:00 PM",
-    attendees: 90,
-    maxCapacity: 200,
-    fee: "Free",
-    image: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=400&h=600&fit=crop",
-    category: "Family",
-    isPopular: true,
-    host: "Parks Dept",
-    rating: 4.4,
-    interests: ["Family", "Outdoors", "Games"],
-    description: "Bring the family for a relaxed picnic, kid-friendly games, and community fun.",
-  },
+const EventsContext = createContext<EventsContextType>({} as any);
+const _SAMPLE_EVENTS: Event[] = [
   {
     id: 11,
     name: "Gourmet Cooking Class",
@@ -586,6 +361,7 @@ const initialEvents: Event[] = [
 ];
 
 export function EventsProvider({ children }: { children: ReactNode }) {
+  const { toast } = useToast();
   const DEFAULT_IMAGES: Record<string, string> = {
     "Food & Drink": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80&auto=format&fit=crop",
     "Fitness": "https://images.unsplash.com/photo-1544161515-4ab0b4b4f1b6?w=800&q=80&auto=format&fit=crop",
@@ -917,21 +693,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             // @ts-ignore
             if (typeof createChatForEvent === 'function') createChatForEvent(newEvent.id);
             // Also create persistent Firestore chat doc for this trybe so it exists for participants
-            (async () => {
-              try {
-                const uid = auth.currentUser?.uid || String(newEvent.host || '');
-                const chatRef = firestoreDoc(db, 'chats', `trybe-${String(newEvent.id)}`);
-                const payload: any = {
-                  eventId: String(newEvent.id),
-                  eventName: newEvent.eventName || newEvent.name || '',
-                  createdAt: serverTimestamp(),
-                };
-                if (uid) payload.participantsMap = { [uid]: true };
-                await setDoc(chatRef, payload, { merge: true });
-              } catch (err) {
-                console.debug('addEvent: failed to create persistent chat doc', err);
-              }
-            })();
+                // No persistent `chats` document is created in the new model.
+                // Messages will live under trybes/{trybeId}/messages and
+                // membership is canonical on trybes/{trybeId}.attendeeIds.
             // Also subscribe the current user to the chat so it appears in their Chats view
             // @ts-ignore
             if (typeof subscribeToChat === 'function') subscribeToChat(newEvent.id);
@@ -1005,7 +769,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const updateEvent = (eventId: number, updates: Partial<Event>, notify: boolean) => {
+  const updateEvent = (eventId: string | number, updates: Partial<Event>, notify: boolean) => {
     setEvents(prev => {
       const prevEvent = prev.find(e => e.id === eventId);
       if (!prevEvent) return prev;
@@ -1100,6 +864,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   const joinEvent = (eventId: string | number) => {
     const idKey = String(eventId);
+    console.debug('joinEvent: invoked', { eventId: idKey, joinedEventsBefore: joinedEvents.map(String) });
     if (!joinedEvents.map(String).includes(idKey)) {
       setJoinedEvents((prev) => [...prev, eventId as any]);
 
@@ -1157,134 +922,201 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }
 
       // Create or update group chat for the event
-      // Ensure persistent chat exists and subscribe the current user to it
-  createChatForEvent(eventId as any);
-  subscribeToChat(eventId as any);
-      // Persist in background
-      void persistJoin(eventId);
+      // Ensure persistent chat exists. Create the local chat immediately so UI shows it,
+      // but defer attaching the real-time listener until we've persisted the join to Firestore
+      // to avoid permission races (join -> ensure chat participant -> subscribe).
+      createChatForEvent(eventId as any);
+      // Use the consolidated join flow: ensure trybe then ensure chat participant, then subscribe.
+      void (async () => {
+        try {
+            // joinTrybeAndSubscribe will perform the transactional trybe update and ensure chat participant
+            if (typeof joinTrybeAndSubscribe === 'function') {
+              console.debug('joinEvent: calling joinTrybeAndSubscribe', { eventId: String(eventId) });
+              await joinTrybeAndSubscribe(String(eventId));
+              console.debug('joinEvent: joinTrybeAndSubscribe completed', { eventId: String(eventId) });
+            } else {
+              // Fallback to existing flow
+              console.debug('joinEvent: calling persistJoin fallback', { eventId: String(eventId) });
+              const ok = await persistJoin(eventId);
+              console.debug('joinEvent: persistJoin fallback result', { eventId: String(eventId), ok });
+              if (typeof subscribeToChat === 'function') {
+                console.debug('joinEvent: subscribing to chat after fallback persistJoin', { eventId: String(eventId) });
+                subscribeToChat(eventId as any);
+              }
+            }
+          } catch (e: any) {
+            console.error('joinEvent: joinTrybeAndSubscribe failed', { code: e?.code, message: e?.message, error: e });
+            // If the consolidated flow failed (for example due to an auth timing race),
+            // attempt a best-effort persistJoin fallback so the join is saved to Firestore.
+            try {
+              console.debug('joinEvent: attempting fallback persistJoin after failure', { eventId: String(eventId), error: e?.message || e });
+              const ok = await persistJoin(eventId).catch((pe: any) => {
+                console.error('joinEvent: persistJoin threw', { code: pe?.code, message: pe?.message, error: pe });
+                return false;
+              });
+              console.debug('joinEvent: fallback persistJoin result', { eventId: String(eventId), ok });
+              if (ok && typeof subscribeToChat === 'function') {
+                console.debug('joinEvent: subscribing to chat after fallback persistJoin (post-error)', { eventId: String(eventId) });
+                subscribeToChat(eventId as any);
+              }
+            } catch (err) {
+              console.debug('joinEvent: fallback persistJoin also failed', err);
+            }
+          }
+      })();
     }
   };
 
   // Persist join to Firestore and user's profile when possible
-  const persistJoin = async (eventId: string | number) => {
+  const persistJoin = async (eventId: string | number): Promise<boolean> => {
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      console.debug('persistJoin: invoked', { eventId: String(eventId), userUid: user?.uid });
+      // Quick auth checks and diagnostics for permission errors
+      if (!user) {
+        console.debug('persistJoin: no authenticated user (aborting) for', String(eventId));
+        try { toast?.({ title: 'Join failed', description: 'You must be signed in to join events.', variant: 'destructive' }); } catch (e) {}
+        return;
+      }
+      try {
+        // Try to log token presence (don't log token value itself)
+        const token = await user.getIdToken(false).catch((e) => { console.debug('persistJoin: getIdToken failed', e); return null; });
+        console.debug('persistJoin: auth.currentUser.uid=', user.uid, 'hasIdToken=', !!token);
+      } catch (e) {
+        console.debug('persistJoin: unexpected error while checking id token', e);
+      }
       // Attempt to resolve the Firestore doc id from the in-memory events list.
   const ev = events.find((e) => String(e.id) === String(eventId) || String(e.id) === String(eventId));
+  let userUpdated = false;
+  let trybeUpdated = false;
       if (ev) {
   const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
-        try {
-          // Read current attendeeIds to avoid double-counting when creator is already present
+        console.debug('persistJoin: updated user joinedEvents with', String(eventId));
+        userUpdated = true;
+        const pre = await getDoc(trybeRef);
+        console.debug('persistJoin: trybe pre-state', { id: String(ev.id), exists: pre.exists(), data: pre.exists() ? pre.data() : null });
+
+          console.debug('persistJoin: attempting transaction update on trybe', String(ev.id));
           try {
-            const snap = await getDoc(trybeRef);
-            const data: any = snap.exists() ? snap.data() : {};
-            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
-            if (!existingIds.map(String).includes(String(user.uid))) {
+            await runTransaction(db, async (tx) => {
+              const doc = await tx.get(trybeRef);
+              const data: any = doc.exists() ? doc.data() : {};
+              const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+              if (!existingIds.map(String).includes(String(user.uid))) {
+                if (doc.exists()) {
+                  tx.update(trybeRef, {
+                    attendees: increment(1),
+                    attendeeIds: arrayUnion(user.uid),
+                  } as any);
+                } else {
+                  tx.set(trybeRef, { attendees: 1, attendeeIds: [user.uid] }, { merge: true } as any);
+                }
+              } else {
+                // Ensure attendees numeric field is at least 1
+                if (!data || typeof data.attendees !== 'number' || Number(data.attendees) < 1) {
+                  if (doc.exists()) tx.update(trybeRef, { attendees: 1 } as any);
+                  else tx.set(trybeRef, { attendees: 1 }, { merge: true } as any);
+                }
+              }
+            });
+            trybeUpdated = true;
+            try {
+              const post = await getDoc(trybeRef);
+              console.debug('persistJoin: trybe post-state', { id: String(ev.id), exists: post.exists(), data: post.exists() ? post.data() : null });
+            } catch (e) { console.debug('persistJoin: failed to read trybe post-state', e); }
+          } catch (err) {
+            console.debug('persistJoin: failed to update trybe doc with transaction, falling back', err);
+            try {
               await updateDoc(trybeRef, {
                 attendees: increment(1),
                 attendeeIds: arrayUnion(user.uid),
               });
-            } else {
-              // Ensure attendees numeric field is at least 1 (in case it was left undefined)
-              if (!data || typeof data.attendees !== 'number' || Number(data.attendees) < 1) {
-                try { await updateDoc(trybeRef, { attendees: 1 }); } catch (e) {}
-              }
+              trybeUpdated = true;
+              try {
+                const post2 = await getDoc(trybeRef);
+                console.debug('persistJoin: trybe post-state (fallback)', { id: String(ev.id), exists: post2.exists(), data: post2.exists() ? post2.data() : null });
+              } catch (e) { console.debug('persistJoin: failed to read trybe post-state after fallback', e); }
+            } catch (err2) {
+              console.error('persistJoin: fallback update failed', { code: (err2 as any)?.code, message: (err2 as any)?.message, error: err2 });
+              try { toast?.({ title: 'Join failed', description: (err2 as any)?.message || 'Permission denied while updating server.', variant: 'destructive' }); } catch (e) {}
+              // Propagate so caller can detect permission-denied at a higher level
+              throw err2;
             }
-          } catch (readErr) {
-            // If we can't read the doc, fall back to attempting the update (best-effort)
-            await updateDoc(trybeRef, {
-              attendees: increment(1),
-              attendeeIds: arrayUnion(user.uid),
-            });
           }
-        } catch (err) {
-          console.debug('persistJoin: failed to update trybe doc', err);
-        }
-        // Also ensure chat doc exists and participants includes this user so they can read messages
-        try {
-          const chatRef = firestoreDoc(db, 'chats', `trybe-${String(ev.id)}`);
-          const chatSnap = await getDoc(chatRef);
-          if (!chatSnap.exists()) {
-            const payload: any = {
-              eventId: String(ev.id),
-              eventName: ev.eventName || ev.name || '',
-              createdAt: serverTimestamp(),
-              participants: [user.uid],
-              participantsMap: { [user.uid]: true },
-            };
-            await setDoc(chatRef, payload, { merge: true });
-          } else {
-            try {
-              // Keep both shapes in sync: array union and map update
-              await updateDoc(chatRef, {
-                participants: arrayUnion(user.uid),
-                [`participantsMap.${user.uid}`]: true,
-              } as any);
-            } catch (e) { console.debug('persistJoin: failed to update participantsMap', e); }
-          }
-        } catch (err) {
-          // ignore if permission denied
-          console.debug('persistJoin: failed to ensure chat participants', err);
-        }
+        // Note: In the new model messages live under trybes/{trybeId}/messages.
+        // We no longer create or maintain a separate `chats` document here to avoid
+        // duplication and permission races. The canonical membership is kept on
+        // trybes/{trybeId}.attendeeIds which rules will consult for message access.
       } else {
         // Fallback: try updating by the passed id (may be string id)
         try {
           const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
-          // Same guard: avoid double increment if user already in attendeeIds
           try {
-            const snap = await getDoc(trybeRef);
-            const data: any = snap.exists() ? snap.data() : {};
-            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
-            if (!existingIds.map(String).includes(String(user.uid))) {
-              await updateDoc(trybeRef, {
-                attendees: increment(1),
-                attendeeIds: arrayUnion(user.uid),
-              });
-            }
-          } catch (readErr) {
-            await updateDoc(trybeRef, {
-              attendees: increment(1),
-              attendeeIds: arrayUnion(user.uid),
+            await runTransaction(db, async (tx) => {
+              const doc = await tx.get(trybeRef);
+              const data: any = doc.exists() ? doc.data() : {};
+              const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+              if (!existingIds.map(String).includes(String(user.uid))) {
+                if (doc.exists()) {
+                  tx.update(trybeRef, {
+                    attendees: increment(1),
+                    attendeeIds: arrayUnion(user.uid),
+                  } as any);
+                } else {
+                  tx.set(trybeRef, { attendees: 1, attendeeIds: [user.uid] }, { merge: true } as any);
+                }
+              }
             });
+          } catch (readErr) {
+              // fallback best-effort update
+              try {
+                await updateDoc(trybeRef, {
+                  attendees: increment(1),
+                  attendeeIds: arrayUnion(user.uid),
+                });
+                trybeUpdated = true;
+          } catch (e) {
+            console.error('persistJoin: fallback update failed', { code: (e as any)?.code, message: (e as any)?.message, error: e });
+            try { toast?.({ title: 'Join failed', description: (e as any)?.message || 'Permission denied while updating server.', variant: 'destructive' }); } catch (err) {}
+            throw e;
           }
+            }
         } catch (err) {
           console.debug('persistJoin: fallback failed to update trybe doc', err);
         }
-        // Also attempt to create/update the chat doc and add participant
-        try {
-          const chatRef = firestoreDoc(db, 'chats', `trybe-${String(eventId)}`);
-          const chatSnap = await getDoc(chatRef);
-          if (!chatSnap.exists()) {
-            const payload: any = {
-              eventId: String(eventId),
-              eventName: '',
-              createdAt: serverTimestamp(),
-              participants: [user.uid],
-              participantsMap: { [user.uid]: true },
-            };
-            await setDoc(chatRef, payload, { merge: true });
-          } else {
-            try {
-              await updateDoc(chatRef, {
-                participants: arrayUnion(user.uid),
-                [`participantsMap.${user.uid}`]: true,
-              } as any);
-            } catch (e) { console.debug('persistJoin: failed to update participantsMap fallback', e); }
-          }
-        } catch (err) {
-          console.debug('persistJoin: failed to ensure chat doc by id', err);
-        }
+        // In the parent-anchored model we do not create or update a separate `chats` document here.
+        // Membership and message access are managed via trybes/{trybeId}.attendeeIds and
+        // messages in trybes/{trybeId}/messages.
       }
+
+      // Refresh the local event data for this trybe from Firestore so UI shows updated attendee count
+      try {
+        const refreshId = String(eventId);
+        const refreshRef = firestoreDoc(db, 'trybes', refreshId);
+        const refreshedSnap = await getDoc(refreshRef);
+        if (refreshedSnap.exists()) {
+          const refreshed: any = { id: refreshedSnap.id, ...(refreshedSnap.data() || {}) };
+          // Normalize and patch local events list with authoritative counts and attendeeIds
+          setEvents((prev) => prev.map((e) => String(e.id) === String(refreshed.id) ? { ...e, attendees: typeof refreshed.attendees === 'number' ? refreshed.attendees : e.attendees, attendeeIds: Array.isArray(refreshed.attendeeIds) ? refreshed.attendeeIds : (e as any).attendeeIds } : e));
+        }
+      } catch (err) {
+        console.debug('persistJoin: failed to refresh local trybe after join', err);
+  try { toast?.({ title: 'Join warning', description: 'Joined locally but could not refresh server data. Changes may not be persisted.', variant: 'default' }); } catch (e) {}
+      }
+
+      // NOTE: Do not remove chat participants here — this function persists a join.
+      // Participant removal is handled by `persistLeave` when the user explicitly leaves an event.
 
       const userRef = firestoreDoc(db, 'users', user.uid);
       try {
         // Try to update existing user doc
         await updateDoc(userRef, { joinedEvents: arrayUnion(String(eventId)) });
+        console.debug('persistJoin: updated user joinedEvents with', String(eventId));
       } catch (err) {
         // If update fails (doc may not exist), create or merge the doc with joinedEvents
         try {
           await setDoc(userRef, { joinedEvents: [String(eventId)] }, { merge: true });
+          console.debug('persistJoin: set user joinedEvents (merge) with', String(eventId));
         } catch (e) {
           console.debug('persistJoin: failed to update or create user joinedEvents', err, e);
         }
@@ -1320,6 +1152,14 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         try { unsub(); } catch (e) {}
         try { delete chatListenersRef.current[key]; } catch (e) {}
       }
+    try {
+      const metaKey = `trybe-meta-${idKey}`;
+      const metaUnsub = chatListenersRef.current[metaKey];
+      if (metaUnsub) {
+        try { metaUnsub(); } catch (e) {}
+        try { delete chatListenersRef.current[metaKey]; } catch (e) {}
+      }
+    } catch (e) {}
     } catch (err) {}
 
     // Remove associated chat from local state
@@ -1336,29 +1176,60 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       const user = auth.currentUser;
       if (!user) {
         console.debug('persistLeave: no authenticated user, aborting leave for', String(eventId));
+        try { toast?.({ title: 'Leave failed', description: 'You must be signed in to leave events.', variant: 'destructive' }); } catch (e) {}
         return;
       }
-      console.debug('persistLeave: currentUser.uid=', user.uid, 'eventId=', String(eventId));
+      try {
+        const token = await (user as any).getIdToken?.();
+        console.debug('persistLeave: auth.currentUser', { uid: user.uid, email: user.email, tokenLength: token ? token.length : 0, eventId: String(eventId) });
+      } catch (e) {
+        console.debug('persistLeave: getIdToken failed', e);
+      }
   const ev = events.find((e) => String(e.id) === String(eventId) || String(e.id) === String(eventId));
       if (ev) {
         try {
           const trybeRef = firestoreDoc(db, 'trybes', String(ev.id));
-          await updateDoc(trybeRef, {
-            attendees: increment(-1),
-            attendeeIds: arrayRemove(user.uid),
+          await runTransaction(db, async (tx) => {
+            const doc = await tx.get(trybeRef);
+            const data: any = doc.exists() ? doc.data() : {};
+            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+            if (existingIds.map(String).includes(String(user.uid))) {
+              const current = typeof data.attendees === 'number' ? data.attendees : existingIds.length || 1;
+              const newCount = Math.max(0, current - 1);
+              tx.update(trybeRef, {
+                attendees: newCount,
+                attendeeIds: arrayRemove(user.uid),
+              } as any);
+            } else {
+              // user not present in attendeeIds: ensure attendees not negative
+              if (doc.exists() && (typeof data.attendees !== 'number' || data.attendees < 0)) {
+                tx.update(trybeRef, { attendees: 0 } as any);
+              }
+            }
           });
         } catch (err) {
-          console.debug('persistLeave: failed to update trybe doc', err);
+          console.error('persistLeave: failed to update trybe doc', { code: (err as any)?.code, message: (err as any)?.message, error: err });
+          try { toast?.({ title: 'Leave failed', description: 'Could not update attendee count on server.', variant: 'destructive' }); } catch (e) {}
         }
       } else {
         try {
           const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
-          await updateDoc(trybeRef, {
-            attendees: increment(-1),
-            attendeeIds: arrayRemove(user.uid),
+          await runTransaction(db, async (tx) => {
+            const doc = await tx.get(trybeRef);
+            const data: any = doc.exists() ? doc.data() : {};
+            const existingIds: string[] = Array.isArray(data?.attendeeIds) ? data.attendeeIds : [];
+            if (existingIds.map(String).includes(String(user.uid))) {
+              const current = typeof data.attendees === 'number' ? data.attendees : existingIds.length || 1;
+              const newCount = Math.max(0, current - 1);
+              tx.update(trybeRef, {
+                attendees: newCount,
+                attendeeIds: arrayRemove(user.uid),
+              } as any);
+            }
           });
         } catch (err) {
-          console.debug('persistLeave: fallback failed to update trybe doc', err);
+          console.error('persistLeave: fallback failed to update trybe doc', { code: (err as any)?.code, message: (err as any)?.message, error: err });
+          try { toast?.({ title: 'Leave failed', description: 'Could not update attendee count on server.', variant: 'destructive' }); } catch (e) {}
         }
       }
 
@@ -1379,6 +1250,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       console.debug('persistLeave: unexpected error', err);
+      try { toast?.({ title: 'Leave failed', description: err?.message || 'Unexpected error while leaving event.', variant: 'destructive' }); } catch (e) {}
     }
   };
 
@@ -1433,7 +1305,38 @@ export function EventsProvider({ children }: { children: ReactNode }) {
                     else if (typeof createChatForEvent === 'function') createChatForEvent(String(t.id) as any);
                   } catch (e) {}
                 });
-              } catch (err) {}
+              } catch (err) {
+                console.debug('onUserChanged: subscribe loop failed', err);
+              }
+            }
+            // If the user doc exists but has no joinedEvents array, fall back to querying trybes
+          } else {
+            try {
+              const q = query(collection(db, 'trybes'), where('attendeeIds', 'array-contains', u.uid));
+              const snaps = await getDocs(q);
+              const joinedFromTrybes: string[] = [];
+              const fetchedTrybes: any[] = [];
+              snaps.forEach(s => {
+                joinedFromTrybes.push(s.id);
+                fetchedTrybes.push({ id: s.id, ...(s.data() || {}) } as any);
+              });
+              if (joinedFromTrybes.length > 0) {
+                setJoinedEvents(joinedFromTrybes as any[]);
+                const normalized = fetchedTrybes.map((t) => normalizeEvent(t as any));
+                setEvents((prev) => {
+                  const existingIds = new Set(prev.map((p) => String(p.id)));
+                  const toAdd = normalized.filter((n) => !existingIds.has(String(n.id)));
+                  return [...toAdd, ...prev];
+                });
+                void resolveStorageImages(fetchedTrybes as any[]);
+                try {
+                  fetchedTrybes.forEach((t: any) => {
+                    try { if (typeof subscribeToChat === 'function') subscribeToChat(String(t.id)); } catch (e) {}
+                  });
+                } catch (e) {}
+              }
+            } catch (err) {
+              console.debug('onUserChanged: fallback query for joined trybes failed', err);
             }
           }
         }
@@ -1494,6 +1397,49 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   };
 
   // Subscribe to a Firestore-backed chat for the given event so messages sync in real-time
+  // Consolidated join helper: ensure trybe attendee state and chat participant, then subscribe.
+  const joinTrybeAndSubscribe = async (trybeId: string) => {
+    try {
+      // wait for auth if needed
+      if (!auth.currentUser) {
+        await new Promise<void>((resolve) => {
+          const unsub = onUserChanged((u) => { try { unsub(); } catch (e) {} ; resolve(); });
+          setTimeout(() => resolve(), 2000);
+        });
+      }
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not signed in');
+      const uid = user.uid;
+
+
+  const trybeRef = firestoreDoc(db, 'trybes', trybeId);
+
+      // 1) Transactionally ensure trybe has attendeeIds + attendees
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(trybeRef);
+        if (!snap.exists()) {
+          tx.set(trybeRef, { createdBy: uid, attendees: 1, attendeeIds: [uid] });
+        } else {
+          const data = snap.data() || {};
+          if (!Array.isArray(data.attendeeIds) || !data.attendeeIds.includes(uid)) {
+            tx.update(trybeRef, {
+              attendeeIds: arrayUnion(uid),
+              attendees: increment(1),
+            } as any);
+          }
+        }
+      });
+
+      // 2) (no separate chat document in new model) Attach the local onSnapshot listener so UI updates
+      if (typeof subscribeToChat === 'function') {
+        subscribeToChat(trybeId);
+      }
+    } catch (err) {
+      console.debug('joinTrybeAndSubscribe: failed', err);
+      throw err;
+    }
+  };
+
   const subscribeToChat = async (eventId: string | number) => {
     try {
       const idKey = String(eventId);
@@ -1502,97 +1448,168 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         console.debug('subscribeToChat: invalid eventId', eventId);
         return;
       }
-      const chatDocRef = firestoreDoc(db, 'chats', `trybe-${idKey}`);
-
-      const currentUid = auth.currentUser?.uid;
+  const trybeRef = firestoreDoc(db, 'trybes', idKey);
+  // Wait for auth to resolve if necessary. This avoids races where auth.currentUser is undefined
+      // and causes permission-denied when attempting to create/update chat documents.
+      let currentUid = auth.currentUser?.uid;
       if (!currentUid) {
-        // If no signed-in user is available yet, don't attempt to create/subscribe — auth must be present for rules
+        try {
+          currentUid = await new Promise<string | null>((resolve) => {
+            const unsub = onUserChanged((u) => {
+              try { unsub(); } catch (e) {}
+              resolve(u ? (u as any).uid : null);
+            });
+            // safety timeout: resolve null after 2s so we don't hang forever
+            setTimeout(() => resolve(null), 2000);
+          });
+        } catch (e) {
+          currentUid = auth.currentUser?.uid ?? null;
+        }
+      }
+
+      if (!currentUid) {
         console.debug('subscribeToChat: no authenticated user available yet, will retry after auth change', eventId);
         return;
       }
 
-      // Ensure chat doc exists and includes this user as a participant. Use setDoc with merge so creation passes rules when participants includes uid.
-      let chatMeta: any = {};
+      // Prefer authoritative check on trybe.attendeeIds instead of chat.participants.
+      // If the trybe doesn't list the current user, attempt to persist the join (persistJoin handles the trybe transaction).
       try {
-        const chatSnap = await getDoc(chatDocRef);
-        if (!chatSnap.exists()) {
-          const initialName = events.find(e => String(e.id) === idKey)?.eventName || events.find(e => String(e.id) === idKey)?.name || '';
-          await setDoc(chatDocRef, {
-            eventId: idKey,
-            createdAt: serverTimestamp(),
-            eventName: initialName,
-            participants: [currentUid],
-          }, { merge: true });
-          // read back
-          const fresh = await getDoc(chatDocRef);
-          chatMeta = fresh.exists() ? fresh.data() : {};
-        } else {
-          chatMeta = chatSnap.data() || {};
-          // If exists but doesn't include current user, add them to participantsMap
-          const has = chatMeta && chatMeta.participantsMap && chatMeta.participantsMap[currentUid];
-          if (!has) {
-            try {
-              await updateDoc(chatDocRef, {
-                participants: arrayUnion(currentUid),
-                [`participantsMap.${currentUid}`]: true,
-              } as any);
-            } catch (e) { console.debug('subscribeToChat: failed to update participantsMap', e); }
+        const trybeRef = firestoreDoc(db, 'trybes', idKey);
+        let trybeSnap = await getDoc(trybeRef);
+        console.debug('subscribeToChat: trybe snapshot for attendee check', { idKey, data: trybeSnap.exists() ? trybeSnap.data() : null });
+        const hasAttendee = trybeSnap.exists() && Array.isArray((trybeSnap.data() || {}).attendeeIds) && (trybeSnap.data() || {}).attendeeIds.map(String).includes(String(currentUid));
+        console.debug('subscribeToChat: hasAttendee?', { currentUid, hasAttendee });
+        if (!hasAttendee) {
+          try {
+            await persistJoin(idKey);
+          } catch (err) {
+            console.debug('subscribeToChat: persistJoin failed while ensuring trybe attendee', err);
+          }
+          trybeSnap = await getDoc(trybeRef);
+          const hasAttendee2 = trybeSnap.exists() && Array.isArray((trybeSnap.data() || {}).attendeeIds) && (trybeSnap.data() || {}).attendeeIds.map(String).includes(String(currentUid));
+          console.debug('subscribeToChat: post-persistJoin attendeeIds', { idKey, attendeeIds: trybeSnap.exists() ? (trybeSnap.data() || {}).attendeeIds : null, hasAttendee2 });
+          if (!hasAttendee2) {
+            try { toast?.({ title: 'Chat permission denied', description: 'You are not listed as an attendee of this trybe.', variant: 'destructive' }); } catch (e) {}
+            return;
           }
         }
+
+        // No separate chat document to update in parent-anchored model. Metadata is kept on the trybe doc.
       } catch (err) {
-        console.debug('subscribeToChat: create/update chat doc failed', err);
-        // If we can't ensure the chat doc exists, bail out to avoid onSnapshot permission errors
+        console.debug('subscribeToChat: failed while verifying trybe attendee status', err);
         return;
       }
 
-      // If chatMeta doesn't include eventImage or eventName, try to source it from the trybe doc and resolve storage refs
+      // Diagnostic: log auth state and token fingerprint immediately before attempting read
       try {
-        const needImage = !chatMeta?.eventImage;
-        const needName = !chatMeta?.eventName;
-        if (needImage || needName) {
-          try {
-            const trybeRef = firestoreDoc(db, 'trybes', idKey);
-            const trybeSnap = await getDoc(trybeRef);
-            if (trybeSnap.exists()) {
-              const td: any = trybeSnap.data();
-              const candidate = td._resolvedImage || (Array.isArray(td.photos) && td.photos.length ? td.photos[0] : td.image);
-              let resolvedImage = candidate;
-              if (resolvedImage && typeof resolvedImage === 'string' && !isHttpDataOrRelative(resolvedImage)) {
-                try {
-                  const storage = getStorage(app);
-                  const refPath = normalizeStorageRefPath(String(resolvedImage));
-                  resolvedImage = await getDownloadURL(storageRef(storage, refPath));
-                } catch (err) {
-                  console.debug('subscribeToChat: failed to resolve trybe image', err);
-                }
-              }
-
-              const updatePayload: any = {};
-              if (needName && (td.eventName || td.name)) updatePayload.eventName = td.eventName || td.name;
-              if (needImage && resolvedImage) updatePayload.eventImage = resolvedImage;
-              if (Object.keys(updatePayload).length > 0) {
-                try {
-                  await setDoc(chatDocRef, updatePayload, { merge: true });
-                  // also merge into local chatMeta so onSnapshot uses it
-                  chatMeta = { ...chatMeta, ...updatePayload };
-                } catch (err) {
-                  console.debug('subscribeToChat: failed to merge event metadata into chat doc', err);
-                }
-              }
-            }
-          } catch (err) {
-            console.debug('subscribeToChat: error while sourcing trybe doc for chat metadata', err);
-          }
+        const diagUser = auth.currentUser;
+        console.log('[DIAG] before chat read - currentUser:', diagUser ? diagUser.uid : null);
+        if (diagUser) {
+          diagUser.getIdToken(/* forceRefresh= */ true).then((token: string) => {
+            console.log('[DIAG] idToken length:', token ? token.length : 0);
+            try { console.log('[DIAG] idToken head:', token.substring(0, 40)); } catch (e) {}
+          }).catch((e: any) => console.error('[DIAG] getIdToken failed', e));
+        } else {
+          console.warn('[DIAG] user is null; read will 403');
         }
-      } catch (err) {
-        console.debug('subscribeToChat: unexpected error while preparing chat metadata', err);
+      } catch (e) {
+        console.debug('subscribeToChat: diag getIdToken unexpected error', e);
       }
+
+      // read parent trybe doc for metadata; no separate chat doc exists in the new model
+      let chatMeta: any = {};
+      try {
+        const trybeSnap = await getDoc(trybeRef);
+        chatMeta = trybeSnap.exists() ? trybeSnap.data() : {};
+      } catch (err: any) {
+        console.debug('subscribeToChat: failed to read trybe doc for metadata', err);
+        try { toast?.({ title: 'Chat access failed', description: 'Could not read trybe metadata.', variant: 'destructive' }); } catch (e) {}
+        return;
+      }
+
+        // chatMeta was read from trybe doc above; resolve any storage refs for images if needed
+        try {
+          const td: any = chatMeta || {};
+          const candidate = td._resolvedImage || (Array.isArray(td.photos) && td.photos.length ? td.photos[0] : td.image);
+          let resolvedImage = candidate;
+          if (resolvedImage && typeof resolvedImage === 'string' && !isHttpDataOrRelative(resolvedImage)) {
+            try {
+              const storage = getStorage(app);
+              const refPath = normalizeStorageRefPath(String(resolvedImage));
+              resolvedImage = await getDownloadURL(storageRef(storage, refPath));
+            } catch (err) {
+              console.debug('subscribeToChat: failed to resolve trybe image', err);
+            }
+          }
+          if (resolvedImage) chatMeta.eventImage = resolvedImage;
+          if (!chatMeta.eventName && (td.eventName || td.name)) chatMeta.eventName = td.eventName || td.name;
+        } catch (err) {
+          console.debug('subscribeToChat: unexpected error while preparing chat metadata', err);
+        }
 
   // If a listener is already registered, skip
   if (chatListenersRef.current[`trybe-${idKey}`]) return;
 
-  // Listen for messages subcollection in order
-  const msgsQuery = query(collection(db, `chats/trybe-${idKey}/messages`), orderBy('createdAt'));
+  // Listen for messages subcollection in order (parent-anchored under trybes)
+  const msgsQuery = query(collection(db, 'trybes', idKey, 'messages'), orderBy('createdAt'));
+
+  // Also attach a listener to the parent trybe doc so we stay in sync with attendees
+  // and other metadata (attendeeIds, attendees, lastMessage). This ensures the
+  // chat UI shows accurate participant counts and names when membership changes.
+  const metaUnsub = onSnapshot(trybeRef, async (metaSnap) => {
+    try {
+      const td: any = metaSnap.exists() ? metaSnap.data() : {};
+  // Update provider events list with authoritative counts and attendeeIds
+  setEvents((prev) => prev.map((e) => String(e.id) === String(idKey) ? { ...e, attendees: typeof td.attendees === 'number' ? td.attendees : e.attendees, attendeeIds: Array.isArray(td.attendeeIds) ? td.attendeeIds : (e as any).attendeeIds } : e));
+
+      // Update local chat participant count and lastMessage where applicable
+      setChats((prev) => prev.map((c) => {
+        if (String(c.eventId) !== String(eventId)) return c;
+        return {
+          ...c,
+          participants: typeof td.attendees === 'number' ? td.attendees : c.participants,
+          lastMessage: td.lastMessage || c.lastMessage,
+        };
+      }));
+
+      // Fetch attendee profiles (best-effort, limit to first 20 to avoid heavy reads)
+      try {
+        if (Array.isArray(td.attendeeIds) && td.attendeeIds.length > 0) {
+          const ids = td.attendeeIds.slice(0, 20).map(String);
+          const profilePromises = ids.map(async (uid: string) => {
+            try {
+              const ud = await getDoc(firestoreDoc(db, 'users', uid));
+              if (ud.exists()) {
+                const u = ud.data() as any;
+                const img = u.photoURL || u.avatar || u.profilePicture || undefined;
+                // If the stored image is already a public HTTP(S) download URL, mark it as resolved
+                const imageResolved = typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')) ? img : undefined;
+                return { id: uid, name: u.displayName || u.firstName || u.name || uid, image: img, imageResolved };
+              }
+            } catch (e) {}
+            // Fallback minimal profile
+            return { id: uid, name: uid, image: undefined, imageResolved: undefined };
+          });
+          const profiles = await Promise.all(profilePromises);
+
+          // Keep profile image references as-stored (data:, http, or storage path). UI components
+          // will resolve storage paths into download URLs like we do for trybe images.
+          setChats((prev) => prev.map((c) => String(c.eventId) === String(eventId) ? { ...c, participantProfiles: profiles } : c));
+        }
+      } catch (e) {
+        // ignore participant profile resolution failures
+      }
+    } catch (e) {
+      console.debug('subscribeToChat: trybe meta listener unexpected error', e);
+    }
+  }, (err) => {
+    console.debug('subscribeToChat: trybe meta listener error', err);
+  });
+
+  // store meta listener so we can cleanup later
+  chatListenersRef.current[`trybe-meta-${idKey}`] = metaUnsub;
+
   const unsub = onSnapshot(msgsQuery, (snap) => {
         const serverMsgs: Message[] = snap.docs.map(d => {
           const data: any = d.data();
@@ -1602,7 +1619,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             senderId: data.senderId,
             senderName: data.senderName,
             senderImage: data.senderImage || undefined,
-            content: data.content,
+            content: data.text,
             attachmentUrl: data.attachmentUrl || null,
             timestamp: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date(data.createdAt).toISOString()) : new Date().toISOString(),
             isCurrentUser: data.senderId === auth.currentUser?.uid,
@@ -1656,6 +1673,33 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }, (err) => {
         // Handle permission or other snapshot errors gracefully so they don't bubble to the global handler
         console.error('subscribeToChat:onSnapshot error for', `trybe-${idKey}`, { uid: auth.currentUser?.uid, err });
+        // If permission denied, try one best-effort attempt to persist join and re-subscribe after a short backoff.
+        try {
+          const msg = (err && err.message) || '';
+          if (msg.toLowerCase().includes('permission') || (err && err.code === 'permission-denied')) {
+            console.debug('subscribeToChat:onSnapshot detected permission-denied; attempting persistJoin then retry subscribe', { idKey, uid: auth.currentUser?.uid });
+            // attempt to persist join, then re-run subscribe after 600ms
+            try {
+              persistJoin(idKey).catch((joinErr) => {
+                console.debug('subscribeToChat:onSnapshot persistJoin retry failed', joinErr);
+              }).finally(() => {
+                setTimeout(() => {
+                  try {
+                    // cleanup any existing listener ref and retry
+                    try { delete chatListenersRef.current[`trybe-${idKey}`]; } catch (e) {}
+                    subscribeToChat(idKey as any);
+                  } catch (e) {}
+                }, 600);
+              });
+            } catch (e) {}
+          }
+        } catch (e) {}
+        try {
+          const msg = err?.message || '';
+          if (msg.toLowerCase().includes('permission') || (err && err.code === 'permission-denied')) {
+            try { toast?.({ title: 'Chat permission denied', description: 'Real-time access to this chat was denied by server rules.', variant: 'destructive' }); } catch (e) {}
+          }
+        } catch (e) {}
         // Ensure we remove any dangling listener ref
         try { delete chatListenersRef.current[`trybe-${idKey}`]; } catch (e) {}
       });
@@ -1683,8 +1727,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const chatDocId = `trybe-${idKey}`;
-      const messagesColRef = collection(db, 'chats', chatDocId, 'messages');
+  const messagesColRef = collection(db, 'trybes', idKey, 'messages');
       const user = auth.currentUser;
 
       // Resolve senderName from users/{uid} for accuracy
@@ -1736,7 +1779,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           senderId: user?.uid || 'anon',
           senderName,
           senderImage: (user as any)?.photoURL || null,
-          content,
+          text: content,
           attachmentUrl: attachmentUrl || null,
           createdAt: serverTimestamp(),
         };
@@ -1748,6 +1791,19 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         // leave optimistic message in place; UI will show it. Optionally we could mark it failed.
       }
     })();
+  };
+
+  // Mark messages as read for the current user under trybes/{trybeId}/reads/{uid}
+  const markRead = async (trybeId: string | number, uid?: string) => {
+    try {
+      const user = auth.currentUser;
+      const userId = uid || user?.uid;
+      if (!userId) return;
+      const readRef = firestoreDoc(db, 'trybes', String(trybeId), 'reads', userId);
+      await setDoc(readRef, { lastReadAt: serverTimestamp() }, { merge: true } as any);
+    } catch (err) {
+      console.debug('markRead: failed', err);
+    }
   };
 
   const isEventFinished = (eventId: number): boolean => {
@@ -1974,6 +2030,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         addFriendRelation,
         getFriendsOf,
         setSharePreferenceForUser,
+        markRead,
       }}
     >
       {children}

@@ -21,6 +21,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { auth } from '@/auth';
 import { Textarea } from "@/components/ui/textarea";
 import SafeImg from '@/components/SafeImg';
 
@@ -42,6 +43,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     getFriendRequestStatus,
     canSendMessage,
     leaveEvent,
+    markRead,
   } = useEvents();
   const [messageText, setMessageText] = useState("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -56,11 +58,34 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const chat = chats.find((c) => String(c.id) === String(chatId));
   const event = chat ? events.find(e => String(e.id) === String(chat.eventId)) : null;
   const [resolvedEventImage, setResolvedEventImage] = useState<string | undefined>(chat?.eventImage || event?.image || undefined);
+  const [resolvedProfileImages, setResolvedProfileImages] = useState<Record<string, string>>({});
 
-  // Generate group members based on the event's actual attendees and joined users
+  // Generate group members from resolved participantProfiles when available.
   const groupMembers = React.useMemo(() => {
     if (!event) return [];
 
+    const currentUid = auth.currentUser?.uid;
+
+    // Prefer resolved participantProfiles set by EventsContext meta listener
+  if (chat?.participantProfiles && Array.isArray(chat.participantProfiles) && chat.participantProfiles.length > 0) {
+      // We prefer to use the raw stored image reference (data:, http(s), or storage path)
+      // and resolve storage paths on-demand below. Map to a normalized profile shape.
+      const profiles = chat.participantProfiles.map((p) => ({
+        id: p.id,
+        name: p.id === currentUid ? 'You' : (p.name || p.id),
+        // Prefer an already-resolved public URL if EventsContext provided one
+        image: (p as any).imageResolved || p.image || undefined,
+        status: p.id === currentUid ? 'online' : 'online',
+        isHost: String(p.id) === String(event.host) || String(p.id) === String((event as any).createdBy),
+        isCurrentUser: p.id === currentUid,
+      }));
+
+      // Ensure host appears first
+      profiles.sort((a, b) => (a.isHost === b.isHost ? 0 : a.isHost ? -1 : 1));
+      return profiles;
+    }
+
+    // Fallback to previous host + local current-user + mock attendees if profiles not yet resolved
     const members = [
       // Event host
       {
@@ -70,44 +95,57 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         status: "online",
         isHost: true,
       },
-      // Current user (if joined)
-  ...(joinedEvents.map(String).includes(String(event.id)) ? [{
-        id: "current-user",
-        name: "You",
+      ...(joinedEvents.map(String).includes(String(event.id)) ? [{
+        id: currentUid ? currentUid : 'current-user',
+        name: currentUid ? 'You' : 'You',
         image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
         status: "online",
         isHost: false,
-        isCurrentUser: true,
+        isCurrentUser: Boolean(currentUid),
       }] : []),
-      // Other mock attendees based on event capacity
-  ...Array.from({ length: Math.min(event.attendees - (joinedEvents.map(String).includes(String(event.id)) ? 2 : 1), 6) }, (_, index) => {
-        const mockUsers = [
-          { name: "Sarah Chen", image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop" },
-          { name: "Mike Johnson", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
-          { name: "Alex Rivera", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop" },
-          { name: "Emma Davis", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop" },
-          { name: "James Wilson", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-          { name: "Lisa Garcia", image: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop" },
-        ];
-        const user = mockUsers[index % mockUsers.length];
-        return {
-          id: `attendee-${index}`,
-          name: user.name,
-          image: user.image,
-          status: Math.random() > 0.3 ? "online" : "offline",
-          isHost: false,
-        };
-      }),
     ];
 
+    // small set of mock attendees for UI density (no more than capacity)
+    const mockCount = Math.max(0, Math.min(6, (event.attendees || 1) - members.length));
+    for (let i = 0; i < mockCount; i++) {
+      const mockUsers = [
+        { name: "Sarah Chen", image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop" },
+        { name: "Mike Johnson", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
+        { name: "Alex Rivera", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop" },
+        { name: "Emma Davis", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop" },
+        { name: "James Wilson", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
+        { name: "Lisa Garcia", image: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop" },
+      ];
+      const u = mockUsers[i % mockUsers.length];
+      members.push({ id: `attendee-${i}`, name: u.name, image: u.image, status: 'online', isHost: false });
+    }
+
     return members;
-  }, [event, joinedEvents]);
+  }, [event, joinedEvents, chat?.participantProfiles]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chat?.messages]);
+
+  // Helpers to resolve message ownership and sender display name at render time
+  const isFromCurrentUser = (m: any) => String(m.senderId) === String(auth.currentUser?.uid);
+  const resolveSenderName = (m: any) => {
+    if (!m) return '';
+    if (m.senderId === 'system') return 'System';
+    if (m.senderName) return m.senderName;
+    const gm = groupMembers.find((g) => String(g.id) === String(m.senderId));
+    if (gm) return gm.name;
+    return isFromCurrentUser(m) ? 'You' : String(m.senderId || '');
+  };
+
+  // mark messages read when opening the chat
+  useEffect(() => {
+    if (isOpen && chat) {
+      try { markRead(chat.eventId); } catch (e) {}
+    }
+  }, [isOpen, chat]);
 
   // Try to resolve storage-based or encoded event image URLs into a usable https URL
   useEffect(() => {
@@ -137,6 +175,55 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     })();
     return () => { mounted = false; };
   }, [chat?.eventImage, event?.image]);
+
+  // Resolve participant profile images (storage paths) to download URLs on-demand and cache locally
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const profiles = chat?.participantProfiles || [];
+        if (!profiles.length) return;
+        const storage = getStorage(app);
+        const next: Record<string, string> = { ...resolvedProfileImages };
+        for (const p of profiles) {
+          try {
+            // Prefer an already-resolved URL if present on the profile
+            const img = (p as any).imageResolved || p.image;
+            if (!img) continue;
+            if (next[p.id]) continue; // already resolved
+            if (typeof img === 'string' && (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://'))) {
+              next[p.id] = img;
+              continue;
+            }
+            try {
+              const path = normalizeStorageRefPath(String(img));
+              const url = await getDownloadURL(storageRef(storage, path));
+              if (!mounted) break;
+              next[p.id] = url;
+            } catch (e) {
+              // leave unresolved (don't set an empty string which masks fallback logic)
+              // simply don't assign next[p.id] so UI will fall back to stored member.image
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (mounted) setResolvedProfileImages(next);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [chat?.participantProfiles]);
+
+  // Log group members and resolved images when members panel opens to help debug rendering
+  useEffect(() => {
+    if (showMembers) {
+      try {
+        console.debug('ChatModal: opening members panel', { groupMembers, resolvedProfileImages });
+      } catch (e) {}
+    }
+  }, [showMembers]);
 
   if (!isOpen || !chat) return null;
 
@@ -264,8 +351,11 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             >
               <button
                 onClick={() => {
-                  if (event) {
-                      leaveEvent(event.id as any);
+                  try {
+                    const idToLeave = event?.id ?? chat.eventId;
+                    if (idToLeave) leaveEvent(idToLeave as any);
+                  } catch (e) {
+                    console.debug('ChatModal: leave button handler failed', e);
                   }
                   setShowOptions(false);
                   onClose();
@@ -305,7 +395,10 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="relative flex-shrink-0">
                     <SafeImg
-                      src={member.image}
+                      src={
+                        (resolvedProfileImages[String(member.id)] || resolvedProfileImages[member.id] || member.image) as string | undefined
+                        || ''
+                      }
                       alt={member.name}
                       className="w-10 h-10 rounded-full object-cover"
                       debugContext={`ChatModal:member:${String(member.id)}`}
@@ -317,9 +410,10 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{member.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {member.isHost ? "Host" : member.status}
-                    </p>
+                    {/* Only show Host label; remove online/status text per design */}
+                    {member.isHost && (
+                      <p className="text-xs text-muted-foreground">Host</p>
+                    )}
                   </div>
                 </div>
 
@@ -334,103 +428,18 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                     >
                       <Users className="w-4 h-4" />
                     </Button>
-                    {(() => {
-                      const requestStatus = getFriendRequestStatus(member.id, Number(event?.id || 0));
-                      const canChat = canSendMessage(member.id, Number(event?.id || 0));
-
-                      if (member.isHost) {
-                        // Host can always be messaged
-                        return (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleStartPrivateChat(member)}
-                            className="h-8 w-8 p-0"
-                            title="Message Host"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </Button>
-                        );
-                      }
-
-                      if (canChat) {
-                        // Friend request accepted - can message
-                        return (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleStartPrivateChat(member)}
-                              className="h-8 w-8 p-0"
-                              title="Send Message"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                            <Badge variant="default" className="text-xs bg-green-500 text-white">
-                              Friends
-                            </Badge>
-                          </>
-                        );
-                      }
-
-                      if (requestStatus === 'pending') {
-                        // Request pending
-                        return (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled
-                              className="h-8 w-8 p-0"
-                              title="Request Pending"
-                            >
-                              <Clock className="w-4 h-4 text-yellow-500" />
-                            </Button>
-                            <Badge variant="secondary" className="text-xs">
-                              Pending
-                            </Badge>
-                          </>
-                        );
-                      }
-
-                      if (requestStatus === 'declined') {
-                        // Request declined
-                        return (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled
-                              className="h-8 w-8 p-0"
-                              title="Request Declined"
-                            >
-                              <XIcon className="w-4 h-4 text-red-500" />
-                            </Button>
-                            <Badge variant="secondary" className="text-xs text-red-600">
-                              Declined
-                            </Badge>
-                          </>
-                        );
-                      }
-
-                      // No request sent yet - show send request button
-                      return (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleSendFriendRequest(member)}
-                            className="h-8 w-8 p-0"
-                            title="Send Friend Request"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                          </Button>
-                          <Badge variant="outline" className="text-xs">
-                            Send Request
-                          </Badge>
-                        </>
-                      );
-                    })()}
+                    {/* Allow direct private message if permitted or if member is host */}
+                    {((member.isHost) || canSendMessage(member.id, Number(event?.id || 0))) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleStartPrivateChat(member)}
+                        className="h-8 w-8 p-0"
+                        title="Message"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <Badge variant="secondary" className="text-xs flex-shrink-0">
@@ -450,13 +459,13 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             key={message.id}
             className={cn(
               "flex",
-              message.isCurrentUser ? "justify-end" : "justify-start",
+              isFromCurrentUser(message) ? "justify-end" : "justify-start",
             )}
           >
             <div
               className={cn(
                 "max-w-[80%] rounded-2xl px-4 py-2 break-words",
-                message.isCurrentUser
+                isFromCurrentUser(message)
                   ? "bg-primary text-primary-foreground rounded-br-sm"
                   : "bg-muted text-muted-foreground rounded-bl-sm",
                 message.senderId === "system" &&
@@ -464,7 +473,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               )}
             >
               {message.senderId !== "system" && (
-                <p className="text-xs opacity-70 mb-1">{message.senderName}</p>
+                <p className="text-xs opacity-70 mb-1">{resolveSenderName(message)}</p>
               )}
               <p>{message.content}</p>
               {message.attachmentUrl && (
@@ -475,7 +484,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               <p
                 className={cn(
                   "text-xs mt-1 opacity-70",
-                  message.isCurrentUser ? "text-right" : "text-left",
+                  isFromCurrentUser(message) ? "text-right" : "text-left",
                   message.senderId === "system" && "text-center",
                 )}
               >

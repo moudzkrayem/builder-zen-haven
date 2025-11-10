@@ -80,4 +80,44 @@ const App = () => {
   );
 };
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootEl = document.getElementById('root')!;
+const root = createRoot(rootEl);
+
+// Delay mounting until Firebase Auth state is known to avoid races where
+// parts of the app try to read/write Firestore before the user is identified.
+// This prevents issues where `auth.currentUser` is undefined during
+// subscribe/create chat flows.
+import { auth as _auth, onUserChanged } from './auth';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
+
+// Try to enable persistent auth so refresh keeps the user signed in.
+try {
+  void setPersistence(_auth, browserLocalPersistence).catch((e) => {
+    // Non-blocking; log for debugging
+    console.warn('[auth] setPersistence failed', e);
+  });
+} catch (e) {
+  // ignore in environments where persistence cannot be set
+}
+
+let mounted = false;
+function mountApp() {
+  if (mounted) return;
+  mounted = true;
+  root.render(<App />);
+}
+
+// Use our auth helper to wait until auth state is known before mounting.
+// This avoids races where components call Firestore writes/reads expecting
+// a signed-in user immediately.
+onUserChanged((user) => {
+  // expose for quick debugging in development
+  try { (window as any)._currentUser = user || null; } catch (e) {}
+  console.log('[auth] state changed ->', user ? user.uid : 'not-signed-in');
+  mountApp();
+});
+
+// Fallback: if onUserChanged doesn't fire for some reason, mount after a short timeout
+setTimeout(() => {
+  mountApp();
+}, 2000);

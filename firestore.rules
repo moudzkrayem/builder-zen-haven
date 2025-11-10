@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // small helper
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // -------------------
+    // USERS
+    // -------------------
+    match /users/{userId} {
+      // only signed-in users can read user profiles
+      allow read: if isSignedIn();
+      // users can create/update only their own profile
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // -------------------
+    // TRYBES (events)
+    // -------------------
+    match /trybes/{trybeId} {
+      // public read for listing (adjust to false if you want private events)
+      allow read: if true;
+
+      // create: must be signed in and createdBy must match auth
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        // basic sanity checks
+        && request.resource.data.attendees is int
+        && request.resource.data.attendeeIds is list
+        && request.resource.data.attendees == request.resource.data.attendeeIds.size()
+        && request.resource.data.attendeeIds.hasAny([request.auth.uid]);
+
+      // owner can update full trybe
+      allow update: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+
+      // join by non-owner: strictly allow only the "arrayUnion + increment"
+      allow update: if isSignedIn()
+        && resource.data.createdBy != request.auth.uid
+        // must have attendeeIds before and after as lists
+        && resource.data.attendeeIds is list
+        && request.resource.data.attendeeIds is list
+        // new attendeeIds must include all previous ones
+        && request.resource.data.attendeeIds.hasAll(resource.data.attendeeIds)
+        // attendeeIds changed by exactly +1
+        && request.resource.data.attendeeIds.size() == resource.data.attendeeIds.size() + 1
+        // new array must include the caller uid
+        && request.resource.data.attendeeIds.hasAny([request.auth.uid])
+        // attendees numeric must have increased by exactly 1
+        && request.resource.data.attendees == resource.data.attendees + 1
+        // prevent deletion of existing keys during join
+        && request.resource.data.keys().hasAll(resource.data.keys());
+
+      allow delete: if false;
+
+      // -------------------
+      // MESSAGES subcollection (group chat messages)
+      // -------------------
+      match /messages/{messageId} {
+        // helper: is caller an attendee of the parent trybe?
+        function isAttendeeOfTrybe() {
+          return exists(/databases/$(database)/documents/trybes/$(trybeId))
+            && get(/databases/$(database)/documents/trybes/$(trybeId)).data.attendeeIds is list
+            && get(/databases/$(database)/documents/trybes/$(trybeId)).data.attendeeIds.hasAny([request.auth.uid]);
+        }
+
+        // create: authenticated attendee may create a message;
+        // require the senderId equals the caller and basic field types
+        allow create: if isSignedIn()
+          && isAttendeeOfTrybe()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          // optional: attachments (if present must be a list)
+          && ( !('attachments' in request.resource.data) || request.resource.data.attachments is list );
+
+        // read: only attendees can read messages
+        allow read: if isSignedIn() && isAttendeeOfTrybe();
+
+        // no client-side edits or deletes to messages
+        allow update, delete: if false;
+      }
+
+      // -------------------
+      // READS subcollection (per-user read markers)
+      // -------------------
+      match /reads/{uid} {
+        // helper: parent trybe attendee check (same as above)
+        function isAttendeeOfTrybe() {
+          return exists(/databases/$(database)/documents/trybes/$(trybeId))
+            && get(/databases/$(database)/documents/trybes/$(trybeId)).data.attendeeIds is list
+            && get(/databases/$(database)/documents/trybes/$(trybeId)).data.attendeeIds.hasAny([request.auth.uid]);
+        }
+
+        // only the user themself may create/update their read marker,
+        // and they must be an attendee of the trybe
+        allow create, update: if isSignedIn()
+          && request.auth.uid == uid
+          && isAttendeeOfTrybe()
+          // the read marker should contain at least lastReadAt (timestamp) if provided
+          && ( !('lastReadAt' in request.resource.data) || request.resource.data.lastReadAt is timestamp );
+
+        // attendees may read read-markers (so UIs can show who read what)
+        allow read: if isSignedIn() && isAttendeeOfTrybe();
+
+        allow delete: if false;
+      }
+    }
+
+    // -------------------
+    // fallback deny
+    // -------------------
+    match /{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
