@@ -416,7 +416,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     const resolvedCandidate = (ev._resolvedImage && typeof ev._resolvedImage === 'string') ? String(ev._resolvedImage).trim() : undefined;
     const img = imgCandidate || (resolvedCandidate && isTrustedExternalImage(resolvedCandidate) ? resolvedCandidate : undefined) || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
     const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
-  // Prefer explicit creator fields if present. Show 'You' only when current user is the host/creator.
+    // Prefer explicit creator fields if present. Show 'You' only when the current user is the host/creator.
   const currentUid = typeof auth !== 'undefined' ? auth.currentUser?.uid : undefined;
   const hostIsCurrent = currentUid && (String(ev.createdBy) === String(currentUid) || String(ev.host) === String(currentUid));
   const hostName = hostIsCurrent ? 'You' : (ev.createdByName || ev.hostName || ev.host || 'Event Host');
@@ -1430,16 +1430,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       lastMessage: `Welcome to the ${event.eventName || event.name} group chat! Say hello to everyone.`,
       time: "now",
       unreadCount: 0,
-      messages: [
-        {
-          id: 1,
-          senderId: "system",
-          senderName: "System",
-          content: `Welcome to ${event.eventName || event.name} group chat! All event participants can chat here. Current participants: ${event.attendees}`,
-          timestamp: new Date().toISOString(),
-          isCurrentUser: false,
-        },
-      ],
+      // Messages will be populated by the server-side messages subcollection via subscribeToChat.
+      // Avoid seeding a local initial system message here to prevent duplication with server-published messages.
+      messages: [],
     };
 
     setChats((prev) => [newChat, ...prev]);
@@ -1778,12 +1771,55 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             return !(typeof m.id === 'string' && String(m.id).startsWith('local-'));
           });
 
-          // Merge server messages and leftover local optimistic messages, sort by timestamp
-          const mergedMessages = [...serverMsgs, ...leftoverLocal].sort((a, b) => {
-            const ta = new Date(a.timestamp).getTime();
-            const tb = new Date(b.timestamp).getTime();
-            return ta - tb;
-          });
+          // Merge server messages and leftover local optimistic messages, with defensive dedupe.
+          // Prefer server messages (they are authoritative). Keep optimistic local messages only
+          // when they don't match any server message by clientId or by normalized content+sender+time.
+          const mergedMessages = (() => {
+            // Index server clientIds and a normalized key for quick lookup
+            const serverClientIds = new Set(serverMsgs.map(m => String(m.clientId || '')));
+            const serverIdSet = new Set(serverMsgs.map(m => String(m.id)));
+
+            const normalizeKey = (m: Message) => {
+              // Round timestamp to 2s buckets to tolerate small clock discrepancies
+              const t = Math.round(new Date(m.timestamp).getTime() / 2000);
+              return `${String(m.senderId || '')}::${String((m as any).content || m.content || '')}::${t}`;
+            };
+
+            const serverKeys = new Set(serverMsgs.map(normalizeKey));
+
+            // Start with server messages (authoritative)
+            const merged: Message[] = [...serverMsgs];
+
+            // Append leftover local optimistic messages only if they are not represented by server messages
+            for (const lm of leftoverLocal) {
+              const clientId = String((lm as any).clientId || '');
+              const lmKey = normalizeKey(lm);
+
+              // If server has the clientId, it's been acknowledged — skip optimistic message
+              if (clientId && serverClientIds.has(clientId)) continue;
+
+              // If server contains an equivalent message by normalized key, skip duplicate optimistic
+              if (serverKeys.has(lmKey)) continue;
+
+              // Otherwise preserve the optimistic local message
+              merged.push(lm);
+            }
+
+            // Final sort by timestamp (oldest -> newest)
+            merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            // As an extra safety, remove any accidental exact-duplicates by server id or clientId
+            const seen = new Set<string>();
+            const deduped: Message[] = [];
+            for (const m of merged) {
+              const key = m.id ? `id:${String(m.id)}` : (m.clientId ? `cid:${String(m.clientId)}` : `k:${normalizeKey(m)}`);
+              if (seen.has(key)) continue;
+              seen.add(key);
+              deduped.push(m);
+            }
+
+            return deduped;
+          })();
 
           const chatObj: Chat = {
             id: `trybe-${idKey}` as any,
@@ -1960,8 +1996,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isEventFinished = (eventId: number): boolean => {
-    const event = events.find(e => e.id === eventId);
+  const isEventFinished = (eventId: string | number): boolean => {
+    const event = events.find(e => String(e.id) === String(eventId));
     if (!event) return false;
 
     try {
@@ -1997,9 +2033,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const canRateEvent = (eventId: number): boolean => {
+  const canRateEvent = (eventId: string | number): boolean => {
     // User must have joined the event AND the event must be finished
-    const hasAttended = joinedEvents.includes(eventId);
+    // Normalize comparisons to strings to avoid type mismatches between stored ids
+    const hasAttended = joinedEvents.map(String).includes(String(eventId));
     const eventFinished = isEventFinished(eventId);
     return hasAttended && eventFinished;
   };

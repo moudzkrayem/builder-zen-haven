@@ -272,63 +272,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
               </div>
             )}
 
-            {/* Rating Section: show only for previous (expired) events that the user actually attended */}
-            {isJoined && isEventFinished(eventId) && (
-              <div>
-                <h3 className="font-semibold mb-2">Your Rating</h3>
-                <div className="flex items-center space-x-1">
-                  {[1, 2, 3, 4, 5].map((starValue) => {
-                    const currentRating = getUserRating(eventId) || 0;
-                    return (
-                      <button
-                        key={starValue}
-                        onClick={() => rateEvent(eventId, starValue)}
-                        className="transition-colors hover:scale-110"
-                      >
-                        <Star
-                          className={cn(
-                            "w-5 h-5",
-                            starValue <= currentRating
-                              ? "text-yellow-500 fill-current"
-                              : "text-gray-300 hover:text-yellow-400"
-                          )}
-                        />
-                      </button>
-                    );
-                  })}
-                  <span className="text-sm text-muted-foreground ml-2">
-                    {getUserRating(eventId) ? `${getUserRating(eventId)}/5` : "Rate this event"}
-                  </span>
-                </div>
-
-                {/* Host rating (only after event and attendance) */}
-                <div className="mt-4">
-                  <h4 className="font-semibold mb-2">Rate Host</h4>
-                  <div className="flex items-center space-x-1">
-                    {[1, 2, 3, 4, 5].map((starValue) => {
-                      const current = getHostRating(eventId) || 0;
-                      return (
-                        <button
-                          key={starValue}
-                          onClick={() => rateHost(eventId, starValue)}
-                          className="transition-colors hover:scale-110"
-                        >
-                          <Star
-                            className={cn(
-                              "w-5 h-5",
-                              starValue <= current
-                                ? "text-yellow-500 fill-current"
-                                : "text-gray-300 hover:text-yellow-400"
-                            )}
-                          />
-                        </button>
-                      );
-                    })}
-                    <span className="text-sm text-muted-foreground ml-2">{getHostRating(eventId) ? `${getHostRating(eventId)}/5` : 'Rate host'}</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Ratings are intentionally shown only in Profile → Previous Events. Removed from event detail modal. */}
           </div>
         </div>
 
