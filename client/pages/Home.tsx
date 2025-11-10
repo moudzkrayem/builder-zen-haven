@@ -21,13 +21,10 @@ import {
   MapPin,
   Clock,
   Users,
-  Heart,
   Calendar,
   Plus,
   TrendingUp,
   DollarSign,
-  Star,
-  UserPlus,
   Check,
   Share,
 } from "lucide-react";
@@ -701,55 +698,36 @@ export default function Home() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleFavorite(trybe.id);
-                            }}
-                            className={cn(
-                              "w-7 h-7 transition-colors",
-                              isFavorite(trybe.id)
-                                ? "text-red-500"
-                                : "text-gray-700"
-                            )}
-                          >
-                            <Heart className={cn(
-                              "w-3 h-3 transition-all",
-                              isFavorite(trybe.id) && "fill-current"
-                            )} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
                               handleShareEvent(trybe);
                             }}
                             className="w-7 h-7 text-gray-700 hover:text-primary transition-colors"
                           >
                             <Share className="w-3 h-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (trybe.isPremium && PREMIUM_ENABLED) {
-                                setPremiumEventName(trybe.eventName || trybe.name);
-                                setShowPremiumUpgradeModal(true);
-                              } else {
-                                addConnection(trybe.id);
-                              }
-                            }}
-                            disabled={!trybe.isPremium && isConnected(trybe.id)}
-                            className={cn(
-                              "w-7 h-7 transition-colors",
-                              isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
-                            )}
-                          >
-                            {isConnected(trybe.id) && !trybe.isPremium ? (
-                              <Check className="w-3 h-3" />
-                            ) : (
-                              <UserPlus className="w-3 h-3" />
-                            )}
-                          </Button>
+                          {(isConnected(trybe.id) || trybe.isPremium) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (trybe.isPremium && PREMIUM_ENABLED) {
+                                  setPremiumEventName(trybe.eventName || trybe.name);
+                                  setShowPremiumUpgradeModal(true);
+                                } else {
+                                  addConnection(trybe.id);
+                                }
+                              }}
+                              disabled={!trybe.isPremium && isConnected(trybe.id)}
+                              className={cn(
+                                "w-7 h-7 transition-colors",
+                                isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
+                              )}
+                            >
+                              {isConnected(trybe.id) && !trybe.isPremium ? (
+                                <Check className="w-3 h-3" />
+                              ) : null}
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             onClick={(e) => {
@@ -863,55 +841,36 @@ export default function Home() {
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleFavorite(trybe.id);
-                              }}
-                              className={cn(
-                                "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
-                                isFavorite(trybe.id)
-                                  ? "text-red-500"
-                                  : "text-gray-700"
-                              )}
-                            >
-                              <Heart className={cn(
-                                "w-3 h-3 transition-all",
-                                isFavorite(trybe.id) && "fill-current"
-                              )} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 handleShareEvent(trybe);
                               }}
                               className="w-7 h-7 bg-white/80 hover:bg-white text-gray-700 hover:text-primary transition-colors"
                             >
                               <Share className="w-3 h-3" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (trybe.isPremium && PREMIUM_ENABLED) {
-                                  setPremiumEventName(trybe.eventName || trybe.name);
-                                  setShowPremiumUpgradeModal(true);
-                                } else {
-                                  addConnection(trybe.id);
-                                }
-                              }}
-                              disabled={!trybe.isPremium && isConnected(trybe.id)}
-                              className={cn(
-                                "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
-                                isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
-                              )}
-                            >
-                              {isConnected(trybe.id) && !trybe.isPremium ? (
-                                <Check className="w-3 h-3" />
-                              ) : (
-                                <UserPlus className="w-3 h-3" />
-                              )}
-                            </Button>
+                            {(isConnected(trybe.id) || trybe.isPremium) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (trybe.isPremium && PREMIUM_ENABLED) {
+                                    setPremiumEventName(trybe.eventName || trybe.name);
+                                    setShowPremiumUpgradeModal(true);
+                                  } else {
+                                    addConnection(trybe.id);
+                                  }
+                                }}
+                                disabled={!trybe.isPremium && isConnected(trybe.id)}
+                                className={cn(
+                                  "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
+                                  isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
+                                )}
+                              >
+                                {isConnected(trybe.id) && !trybe.isPremium ? (
+                                  <Check className="w-3 h-3" />
+                                ) : null}
+                              </Button>
+                            )}
                           </div>
                           <Button
                             size="sm"
@@ -1030,55 +989,36 @@ export default function Home() {
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleFavorite(trybe.id);
-                          }}
-                          className={cn(
-                            "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
-                            isFavorite(trybe.id)
-                              ? "text-red-500"
-                              : "text-gray-700"
-                          )}
-                        >
-                          <Heart className={cn(
-                            "w-3 h-3 transition-all",
-                            isFavorite(trybe.id) && "fill-current"
-                          )} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
                             handleShareEvent(trybe);
                           }}
                           className="w-7 h-7 bg-white/80 hover:bg-white text-gray-700 hover:text-primary transition-colors"
                         >
                           <Share className="w-3 h-3" />
                         </Button>
+                        {(isConnected(trybe.id) || trybe.isPremium) && (
                           <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (trybe.isPremium && PREMIUM_ENABLED) {
-                              setPremiumEventName(trybe.eventName || trybe.name);
-                              setShowPremiumUpgradeModal(true);
-                            } else {
-                              addConnection(trybe.id);
-                            }
-                          }}
-                          disabled={!trybe.isPremium && isConnected(trybe.id)}
-                          className={cn(
-                            "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
-                            isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
-                          )}
-                        >
-                          {isConnected(trybe.id) && !trybe.isPremium ? (
-                            <Check className="w-3 h-3" />
-                          ) : (
-                            <UserPlus className="w-3 h-3" />
-                          )}
-                        </Button>
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (trybe.isPremium && PREMIUM_ENABLED) {
+                                setPremiumEventName(trybe.eventName || trybe.name);
+                                setShowPremiumUpgradeModal(true);
+                              } else {
+                                addConnection(trybe.id);
+                              }
+                            }}
+                            disabled={!trybe.isPremium && isConnected(trybe.id)}
+                            className={cn(
+                              "w-7 h-7 bg-white/80 hover:bg-white transition-colors",
+                              isConnected(trybe.id) && !trybe.isPremium ? "text-green-600" : "text-gray-700 hover:text-primary"
+                            )}
+                          >
+                            {isConnected(trybe.id) && !trybe.isPremium ? (
+                              <Check className="w-3 h-3" />
+                            ) : null}
+                          </Button>
+                        )}
                       </div>
                       <Button
                         size="sm"
@@ -1121,14 +1061,8 @@ export default function Home() {
                           {trybe.location}
                         </span>
                       </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {trybe.date}
-                      </span>
-                      <div className="flex items-center space-x-1 text-xs text-primary">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span>{trybe.rating}</span>
-                      </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">{trybe.date}</span>
                     </div>
                   </div>
                 </div>

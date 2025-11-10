@@ -9,15 +9,29 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const [extraHideBottomNav, setExtraHideBottomNav] = React.useState(false);
 
   // Hide bottom nav on welcome/onboarding screens and some auth routes
   const hideBottomNav =
+    extraHideBottomNav ||
     location.pathname === "/" ||
     location.pathname.startsWith("/onboarding") ||
     location.pathname === "/create-profile" ||
     location.pathname === "/login" ||
     location.pathname === "/signup" ||
     location.pathname === "/verify-email";
+
+  // Listen for programmatic requests to hide/show the bottom nav (e.g., modals)
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail as boolean | undefined;
+        setExtraHideBottomNav(Boolean(detail));
+      } catch (err) {}
+    };
+    window.addEventListener('layout:hideBottomNav', handler as EventListener);
+    return () => window.removeEventListener('layout:hideBottomNav', handler as EventListener);
+  }, []);
 
   useEffect(() => {
     initAnalytics();

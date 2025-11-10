@@ -21,6 +21,11 @@ export default function Map({ onClose }: MapProps) {
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [zoom, setZoom] = useState<number>(1);
 
+  // Keep selected distance (in km) for UI active state
+  const [selectedKm, setSelectedKm] = useState<number>(50);
+  // viewBounds controls mapping of lat/lng to screen percent so the map stays full-size
+  const [viewBounds, setViewBounds] = useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(null);
+
   const zoomIn = () => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)));
   const zoomOut = () => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
   const fitZoom = () => setZoom(0.65);
@@ -58,7 +63,41 @@ export default function Map({ onClose }: MapProps) {
 
     // Nearby filtering: show only events within this radius (km) when userLocation is available
     const [showAll, setShowAll] = useState<boolean>(false);
-    const nearbyRadiusKm = 50; // configurable: 50 km radius
+  // Make radius configurable by the UI (units are km)
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState<number>(50); // default 50 km
+
+    // Fit-to-bounds: compute bounding box that includes event markers and user location +/- radius
+    const computeAndFitBounds = (radiusKm: number, userLoc?: {lat:number,lng:number}) => {
+      // start from candidateRealCoords (events) and optionally include user bounds
+      const pts = candidateRealCoords.slice();
+      if (userLoc) {
+        // Convert radius km to degree deltas
+        const latDelta = (radiusKm / 6371) * (180 / Math.PI); // approx
+        const lngDelta = (radiusKm / (6371 * Math.cos((userLoc.lat * Math.PI) / 180))) * (180 / Math.PI);
+        pts.push({ lat: userLoc.lat - latDelta, lng: userLoc.lng - lngDelta });
+        pts.push({ lat: userLoc.lat + latDelta, lng: userLoc.lng + lngDelta });
+      }
+
+      if (pts.length === 0) return;
+
+      let bMinLat = 90, bMaxLat = -90, bMinLng = 180, bMaxLng = -180;
+      for (const p of pts) {
+        if (p.lat < bMinLat) bMinLat = p.lat;
+        if (p.lat > bMaxLat) bMaxLat = p.lat;
+        if (p.lng < bMinLng) bMinLng = p.lng;
+        if (p.lng > bMaxLng) bMaxLng = p.lng;
+      }
+      // small padding
+      const padLat = Math.max(0.01, (bMaxLat - bMinLat) * 0.15);
+      const padLng = Math.max(0.01, (bMaxLng - bMinLng) * 0.15);
+      bMinLat -= padLat; bMaxLat += padLat; bMinLng -= padLng; bMaxLng += padLng;
+
+      const latSpan = bMaxLat - bMinLat || 0.01;
+      const lngSpan = bMaxLng - bMinLng || 0.01;
+
+      // Set the view bounds for mapping lat/lng into the full map area
+      setViewBounds({ minLat: bMinLat, maxLat: bMaxLat, minLng: bMinLng, maxLng: bMaxLng });
+    };
 
     function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       const toRad = (v: number) => (v * Math.PI) / 180;
@@ -100,11 +139,12 @@ export default function Map({ onClose }: MapProps) {
 
   const mapEvents = candidateEvents.map((event, index) => {
     const c = (event as any).coordinates;
-    if ((event as any)._coordsSource === 'real' && candidateRealCoords.length > 0) {
-      const latSpan = cMaxLat - cMinLat || 0.01;
-      const lngSpan = cMaxLng - cMinLng || 0.01;
-      const topPercent = ((cMaxLat - c.lat) / latSpan) * 100;
-      const leftPercent = ((c.lng - cMinLng) / lngSpan) * 100;
+    if ((event as any)._coordsSource === 'real' && (candidateRealCoords.length > 0 || viewBounds)) {
+      const bounds = viewBounds ?? { minLat: cMinLat, maxLat: cMaxLat, minLng: cMinLng, maxLng: cMaxLng };
+      const latSpan = bounds.maxLat - bounds.minLat || 0.01;
+      const lngSpan = bounds.maxLng - bounds.minLng || 0.01;
+      const topPercent = ((bounds.maxLat - c.lat) / latSpan) * 100;
+      const leftPercent = ((c.lng - bounds.minLng) / lngSpan) * 100;
       return { ...event, _screenPos: { top: `${Math.min(98, Math.max(2, topPercent))}%`, left: `${Math.min(98, Math.max(2, leftPercent))}%` } };
     }
     // simulated or no coords: place them using the earlier layout scheme (but only when not filtering by nearby)
@@ -127,6 +167,8 @@ export default function Map({ onClose }: MapProps) {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        // After acquiring location, fit map to show user + nearby radius
+        computeAndFitBounds(nearbyRadiusKm, { lat: position.coords.latitude, lng: position.coords.longitude });
         setIsLoadingLocation(false);
       },
       (error) => {
@@ -154,6 +196,20 @@ export default function Map({ onClose }: MapProps) {
     );
   };
 
+  // When this Map mounts, notify layout to hide the bottom navigation so the map has more room.
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent('layout:hideBottomNav', { detail: true }));
+    } catch (err) {}
+    return () => {
+      try {
+        window.dispatchEvent(new CustomEvent('layout:hideBottomNav', { detail: false }));
+      } catch (err) {}
+    };
+    // run once on mount/unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // NOTE: Do NOT request geolocation on mount. Browsers may suppress permission
   // prompts when not triggered by a user gesture. Instead, request location only
   // when the user clicks the "Refresh location" / compass button which calls
@@ -169,9 +225,22 @@ export default function Map({ onClose }: MapProps) {
     }
   };
 
+  // Compute user's screen position (percent) using viewBounds when available
+  let userScreenPos: { top: string; left: string } | null = null;
+  if (userLocation && (candidateRealCoords.length > 0 || viewBounds)) {
+    const bounds = viewBounds ?? { minLat: cMinLat, maxLat: cMaxLat, minLng: cMinLng, maxLng: cMaxLng };
+    const latSpan = bounds.maxLat - bounds.minLat || 0.01;
+    const lngSpan = bounds.maxLng - bounds.minLng || 0.01;
+    const topPercent = ((bounds.maxLat - userLocation.lat) / latSpan) * 100;
+    const leftPercent = ((userLocation.lng - bounds.minLng) / lngSpan) * 100;
+    userScreenPos = { top: `${Math.min(98, Math.max(2, topPercent))}%`, left: `${Math.min(98, Math.max(2, leftPercent))}%` };
+  }
+
   
   return (
-    <div className="fixed inset-0 z-50 bg-background">
+    // Ensure map overlay sits above the bottom navigation and other fixed chrome.
+    // Use a higher z-index than the BottomNavigation (z-50) and keep full-bleed background.
+    <div className="fixed inset-0 z-[60] bg-background">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center space-x-3">
@@ -214,7 +283,7 @@ export default function Map({ onClose }: MapProps) {
         {/* Simulated map background */}
         <div className="w-full h-full relative overflow-hidden">
           {/* Apply zoom by scaling the inner map; transform-origin center keeps it centered */}
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: '50% 50%' }} className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative">
+          <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative">
           {/* Grid pattern to simulate map */}
           <div className="absolute inset-0 opacity-20">
             <div className="grid grid-cols-8 grid-rows-12 h-full w-full">
@@ -236,25 +305,73 @@ export default function Map({ onClose }: MapProps) {
           <div className="absolute top-0 bottom-0 left-3/4 w-1 bg-gray-400 dark:bg-gray-600" />
 
           {/* Current location */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${userLocation ? 'bg-blue-500' : 'bg-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full absolute -top-2 -left-2 ${userLocation ? 'bg-blue-500/30 animate-pulse' : 'bg-gray-400/30'}`} />
-            </div>
-            {userLocation && (
+          {userLocation ? (
+            // If we computed a screen position, place the marker there; otherwise center it
+            <div
+              className="absolute transform -translate-x-1/2 -translate-y-1/2"
+              style={userScreenPos ? { top: userScreenPos.top, left: userScreenPos.left } : { top: '50%', left: '50%' }}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg bg-blue-500`}>
+                <div className={`w-8 h-8 rounded-full absolute -top-2 -left-2 bg-blue-500/30 animate-pulse`} />
+              </div>
               <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-center">
                 <div className="bg-blue-500 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
                   You are here
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg bg-gray-400`}>
+                <div className={`w-8 h-8 rounded-full absolute -top-2 -left-2 bg-gray-400/30`} />
+              </div>
+            </div>
+          )}
+
+          {/* Radius ring (visualizes selected nearby radius around the user) */}
+          {userLocation && viewBounds && nearbyRadiusKm && userScreenPos && (
+            (() => {
+              try {
+                const latDelta = (nearbyRadiusKm / 6371) * (180 / Math.PI);
+                const lngDelta = (nearbyRadiusKm / (6371 * Math.cos((userLocation.lat * Math.PI) / 180))) * (180 / Math.PI);
+                const bounds = viewBounds;
+                const latSpan = bounds.maxLat - bounds.minLat || 0.01;
+                const lngSpan = bounds.maxLng - bounds.minLng || 0.01;
+                const diameterPercentX = (Math.abs(lngDelta) * 2 / lngSpan) * 100;
+                const diameterPercentY = (Math.abs(latDelta) * 2 / latSpan) * 100;
+                const diameterPercent = Math.max( Math.min(200, diameterPercentX), Math.min(200, diameterPercentY) );
+                return (
+                  <div
+                    aria-hidden
+                    className="absolute rounded-full pointer-events-none z-10"
+                    style={{
+                      top: userScreenPos.top,
+                      left: userScreenPos.left,
+                      width: `${diameterPercent}%`,
+                      height: `${diameterPercent}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    {/* ring background + border (more prominent): thicker dashed border and subtle fill matching app theme */}
+                    <div className="absolute inset-0 rounded-full bg-primary/10" style={{ border: '3px solid', borderColor: 'rgba(59,130,246,0.35)', borderStyle: 'dashed' }} />
+                    {/* label showing selected distance */}
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-card/90 text-xs text-foreground px-2 py-1 rounded-full shadow z-20">
+                      {selectedKm} km
+                    </div>
+                  </div>
+                );
+              } catch (err) {
+                return null;
+              }
+            })()
+          )}
 
           {/* Event markers */}
           {mapEvents.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="bg-card/80 p-4 rounded-lg border border-border text-center">
                 <div className="font-medium mb-2">No nearby Trybes found</div>
-                <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {nearbyRadiusKm} km of your location.</div>
+                <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {Math.round(nearbyRadiusKm)} km of your location.</div>
                 <div className="flex justify-center">
                   <Button size="sm" onClick={() => setShowAll(true)}>Show all Trybes</Button>
                 </div>
@@ -293,7 +410,10 @@ export default function Map({ onClose }: MapProps) {
 
         {/* Event details popup */}
         {selectedEvent && (
-          <div className="absolute bottom-4 left-4 right-4 bg-card rounded-2xl p-4 shadow-lg border border-border">
+          // Ensure popup is visually above the bottom navigation and always shows
+          // its action buttons on laptop/desktop. Use a higher z-index and a
+          // larger bottom offset to avoid overlap with the nav (h-20).
+          <div className="absolute bottom-[6rem] left-1/2 transform -translate-x-1/2 w-[calc(100%-2rem)] md:w-[720px] max-w-[92%] bg-card rounded-2xl p-4 shadow-lg border border-border z-[70]">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-foreground mb-1">
@@ -392,14 +512,21 @@ export default function Map({ onClose }: MapProps) {
             Distance
           </div>
           <div className="flex space-x-2">
-            {["1 mi", "5 mi", "10 mi"].map((distance) => (
+            {[1, 50, 100].map((m) => (
               <Button
-                key={distance}
+                key={m}
                 variant="outline"
                 size="sm"
-                className="h-8 px-3 text-xs"
+                className={cn("h-8 px-3 text-xs", selectedKm === m ? "bg-primary text-primary-foreground" : "")}
+                onClick={() => {
+                  const km = m; // now m represents kilometers directly
+                  setNearbyRadiusKm(km);
+                  setSelectedKm(m);
+                  setShowAll(false);
+                  if (userLocation) computeAndFitBounds(km, userLocation);
+                }}
               >
-                {distance}
+                {m} km
               </Button>
             ))}
           </div>

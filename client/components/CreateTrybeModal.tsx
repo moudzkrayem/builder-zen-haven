@@ -446,7 +446,9 @@ export default function CreateTrybeModal({
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto pb-24">
+      {/* Keep the rounded container and hide native overflow so the scrollbar is drawn inside the rounded box */}
+      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+        <div className="modal-scroll overflow-y-auto max-h-[90vh] pb-24">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-2xl font-bold">Create Trybe</h2>
@@ -529,7 +531,7 @@ export default function CreateTrybeModal({
               }
               placeholder="What's your trybe about?"
               required
-              className="rounded-xl"
+              className="rounded-xl h-10 text-sm"
             />
           </div>
 
@@ -560,7 +562,7 @@ export default function CreateTrybeModal({
                           }
                           placeholder="Where will this happen?"
                           required
-                          className="pl-10 rounded-xl"
+                          className="pl-10 rounded-xl h-10 text-sm"
                         />
                       </div>
                     </div>
@@ -621,7 +623,7 @@ export default function CreateTrybeModal({
             <Label htmlFor="time">Time *</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+                <Input
                 id="time"
                 type="datetime-local"
                 value={formData.time}
@@ -629,7 +631,8 @@ export default function CreateTrybeModal({
                   setFormData({ ...formData, time: e.target.value })
                 }
                 required
-                className="pl-10 rounded-xl"
+                  className="pl-10 rounded-xl h-10 bg-transparent placeholder:text-muted-foreground appearance-none text-sm create-trybe-datetime"
+                  style={{ WebkitAppearance: 'none', MozAppearance: 'textfield', WebkitTextFillColor: 'inherit', backgroundColor: 'transparent' }}
               />
             </div>
           </div>
@@ -637,46 +640,52 @@ export default function CreateTrybeModal({
           {/* Event Duration */}
           <div className="space-y-2">
             <Label htmlFor="duration">Event Duration</Label>
-              <div className="flex items-center">
-                <div className="pl-3 pr-3">
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <select
-                  id="duration"
-                  value={formData.duration}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    console.debug('[CreateTrybeModal] duration selected', v);
-                    setFormData({ ...formData, duration: v });
-                  }}
-                  className="flex-1 pl-4 pr-4 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                >
-                  <option value="" disabled>Select duration</option>
-                  <option value="0.5">30 minutes</option>
-                  <option value="1">1 hour</option>
-                  <option value="1.5">1.5 hours</option>
-                  <option value="2">2 hours</option>
-                  <option value="3">3 hours</option>
-                  <option value="4">4 hours</option>
-                  <option value="6">6 hours</option>
-                  <option value="8">8 hours</option>
-                  <option value="12">12 hours</option>
-                  <option value="24">All day</option>
-                </select>
-              </div>
+                <div className="relative">
+                  <select
+                id="duration"
+                value={formData.duration}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  console.debug('[CreateTrybeModal] duration selected', v);
+                  setFormData({ ...formData, duration: v });
+                }}
+                  className="w-full pl-10 pr-12 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent create-trybe-select"
+              >
+                <option value="" disabled>Select duration</option>
+                <option value="0.5">30 minutes</option>
+                <option value="1">1 hour</option>
+                <option value="1.5">1.5 hours</option>
+                <option value="2">2 hours</option>
+                <option value="3">3 hours</option>
+                <option value="4">4 hours</option>
+                <option value="6">6 hours</option>
+                <option value="8">8 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">All day</option>
+              </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+            </div>
           </div>
 
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
+              <Textarea
               id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
               placeholder="Tell people what to expect at your event..."
-              className="rounded-xl min-h-[100px] resize-none"
+              className="rounded-xl min-h-[100px] resize-none text-sm"
               maxLength={500}
             />
             <div className="text-xs text-muted-foreground text-right">
@@ -686,15 +695,16 @@ export default function CreateTrybeModal({
           {/* Category */}
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
-            <select
-              id="category"
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
-              }
-              required
-              className="w-full rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent p-2"
-            >
+            <div className="relative">
+              <select
+                id="category"
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+                required
+                className="w-full pl-3 pr-12 py-2 h-10 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent create-trybe-select"
+              >
               <option value="">Select a category</option>
               <option value="fitness">🏋️ Fitness</option>
               <option value="music">🎶 Music</option>
@@ -706,14 +716,21 @@ export default function CreateTrybeModal({
               <option value="travel">✈️ Travel</option>
               <option value="education">📚 Education</option>
               <option value="gaming">🎮 Gaming</option>
-            </select>
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+            </div>
           </div>
+
           {/* Capacity */}
           <div className="space-y-2">
             <Label htmlFor="maxCapacity">Capacity *</Label>
             <div className="relative">
               <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+                <Input
                 id="maxCapacity"
                 type="number"
                 min="1"
@@ -721,11 +738,10 @@ export default function CreateTrybeModal({
                 value={formData.maxCapacity}
                 onChange={(e) => {
                   const raw = e.target.value;
-                  // Allow clearing the field (empty string) while editing; coerce to number on submit.
                   setFormData({ ...formData, maxCapacity: raw === '' ? '' : parseInt(raw, 10) });
                 }}
                 required
-                className="pl-10 rounded-xl"
+                  className="pl-10 rounded-xl h-10 text-sm"
               />
             </div>
           </div>
@@ -735,7 +751,7 @@ export default function CreateTrybeModal({
             <Label htmlFor="fee">Fee *</Label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+                <Input
                 id="fee"
                 value={formData.fee}
                 onChange={(e) =>
@@ -743,7 +759,7 @@ export default function CreateTrybeModal({
                 }
                 placeholder="Free, $10, $25, etc."
                 required
-                className="pl-10 rounded-xl"
+                  className="pl-10 rounded-xl h-10 text-sm"
               />
             </div>
           </div>
@@ -754,14 +770,15 @@ export default function CreateTrybeModal({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Who can join this event</span>
-                <span className="font-semibold">{formData.ageRange[0]} - {formData.ageRange[1]} years</span>
+                <span className="font-semibold text-sm">{formData.ageRange[0]} - {formData.ageRange[1]} years</span>
+                </div>
               </div>
 
               {/* Min age slider (single-thumb, same pattern as max distance slider) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">Minimum age</span>
-                  <span className="font-medium">{formData.ageRange[0]} years</span>
+                  <span className="font-medium text-sm">{formData.ageRange[0]} years</span>
                 </div>
                 <Slider
                   value={[formData.ageRange[0]]}
@@ -781,7 +798,7 @@ export default function CreateTrybeModal({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">Maximum age</span>
-                  <span className="font-medium">{formData.ageRange[1]} years</span>
+                  <span className="font-medium text-sm">{formData.ageRange[1]} years</span>
                 </div>
                 <Slider
                   value={[formData.ageRange[1]]}
@@ -901,6 +918,7 @@ export default function CreateTrybeModal({
             </Button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
