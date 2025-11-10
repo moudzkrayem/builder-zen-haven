@@ -807,10 +807,7 @@ export default function Home() {
                             <DollarSign className="w-3 h-3" />
                             <span>{trybe.fee}</span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-3 h-3 fill-current text-yellow-500" />
-                            <span>{trybe.rating}</span>
-                          </div>
+                          {/* Rating removed from Home cards per UX: rating only collected after event is finished in Previous Events */}
                         </div>
                         <Badge variant="outline" className="text-xs">
                           {trybe.category}

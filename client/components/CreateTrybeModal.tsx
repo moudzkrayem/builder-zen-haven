@@ -221,6 +221,29 @@ export default function CreateTrybeModal({
     }
 
     // Prepare Trybe data (use resolved photo URLs). Coerce maxCapacity to a number.
+    // Prefer authoritative profile from localStorage.usersProfile (keeps createdBy fields in sync
+    // with the app's profile editing flow which writes to Firestore users/{uid} and localStorage).
+    let createdByName: string | undefined = user.displayName || undefined;
+    let createdByImage: string | undefined = user.photoURL || undefined;
+    try {
+      const raw = localStorage.getItem('userProfile');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p) {
+          if (!createdByName) {
+            if (p.displayName) createdByName = p.displayName;
+            else if (p.firstName) createdByName = `${p.firstName}${p.lastName ? ' ' + p.lastName : ''}`;
+          }
+          if (!createdByImage) {
+            if (Array.isArray(p.photos) && p.photos.length) createdByImage = p.photos[0];
+            else if (p.photoURL) createdByImage = p.photoURL;
+          }
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse/localStorage failures and fall back to auth values
+    }
+
     const trybeDataToSave = {
       ...formData,
       photos: photosToSave,
@@ -228,8 +251,8 @@ export default function CreateTrybeModal({
       attendeeIds: [user.uid],
       createdBy: user.uid,
       createdAt: serverTimestamp(),
-      createdByName: (user.displayName) || undefined,
-      createdByImage: (user.photoURL) || undefined,
+      createdByName,
+      createdByImage,
     };
 
     // Ensure numeric fields are properly typed for Firestore

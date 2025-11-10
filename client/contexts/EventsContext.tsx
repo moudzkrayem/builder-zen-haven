@@ -416,9 +416,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     const resolvedCandidate = (ev._resolvedImage && typeof ev._resolvedImage === 'string') ? String(ev._resolvedImage).trim() : undefined;
     const img = imgCandidate || (resolvedCandidate && isTrustedExternalImage(resolvedCandidate) ? resolvedCandidate : undefined) || (DEFAULT_IMAGES[ev.category] || DEFAULT_IMAGES.default);
     const eventImages = ev.eventImages && ev.eventImages.length ? ev.eventImages : [img];
-  // Prefer explicit creator fields if present
-  const hostName = ev.createdByName || ev.hostName || ev.host || 'You';
-  const hostImage = (ev.createdByImage && String(ev.createdByImage).trim()) ? String(ev.createdByImage) : (ev.hostImage && String(ev.hostImage).trim() ? String(ev.hostImage) : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop");
+  // Prefer explicit creator fields if present. Show 'You' only when current user is the host/creator.
+  const currentUid = typeof auth !== 'undefined' ? auth.currentUser?.uid : undefined;
+  const hostIsCurrent = currentUid && (String(ev.createdBy) === String(currentUid) || String(ev.host) === String(currentUid));
+  const hostName = hostIsCurrent ? 'You' : (ev.createdByName || ev.hostName || ev.host || 'Event Host');
+  const hostImage = (ev.createdByImage && String(ev.createdByImage).trim())
+    ? String(ev.createdByImage)
+    : (ev.hostImage && String(ev.hostImage).trim() ? String(ev.hostImage) : "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop");
     // Ensure numeric fields are numbers and have sensible defaults
     const attendees = typeof ev.attendees === 'number' ? ev.attendees : Number(ev.attendees) || 1;
     const maxCapacity = typeof ev.maxCapacity === 'number' ? ev.maxCapacity : Number(ev.maxCapacity) || 10;
@@ -470,6 +474,30 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           } catch (e) {
             // ignore persistence errors (permission rules etc.) but log for debugging
             console.log('EventsContext: failed to persist resolved image to trybe doc', doc.id, e);
+          }
+          // Additionally, try to resolve host info from users/{createdBy} when the trybe does not have createdByName/createdByImage
+          try {
+            const uid = doc.createdBy || doc.createdById || doc.createdByUser || null;
+            if (uid && (!doc.createdByName || !doc.createdByImage)) {
+              const ud = await getDoc(firestoreDoc(db, 'users', String(uid)));
+              if (ud.exists()) {
+                const udv: any = ud.data();
+                const hostName = (udv.firstName || udv.displayName || udv.name) + (udv.lastName ? ` ${udv.lastName}` : '');
+                let hostImage: any = udv.avatar || udv.photoURL || (Array.isArray(udv.photos) && udv.photos[0]) || udv.profilePicture || undefined;
+                if (hostImage && typeof hostImage === 'string' && !isHttpDataOrRelative(hostImage)) {
+                  try {
+                    const refP = normalizeStorageRefPath(String(hostImage));
+                    const resolved = await getDownloadURL(storageRef(storage, refP));
+                    hostImage = resolved;
+                  } catch (e) {
+                    // ignore resolution error
+                  }
+                }
+                setEvents((prev) => (prev || []).map((p: any) => (String(p.id) === String(doc.id) ? { ...p, hostName: hostName || p.hostName, hostImage: hostImage || p.hostImage } : p)));
+              }
+            }
+          } catch (e) {
+            // ignore host resolution errors
           }
         } catch (err) {
           console.log('EventsContext: failed to resolve storage image for', doc.id, candidate, err);
@@ -567,6 +595,30 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     // Determine host info: prefer eventData.createdBy (uid) -> fetch user profile, else use auth.currentUser
     const determineHostInfo = async () => {
       try {
+        // 1) Prefer explicit createdByName / createdByImage passed by the creator (fast path)
+        if (eventData && (eventData.createdByName || eventData.createdByImage)) {
+          return {
+            name: eventData.createdByName || eventData.createdBy || 'You',
+            image: eventData.createdByImage || undefined,
+          };
+        }
+
+        // 2) Next prefer the app's local cached profile (localStorage.userProfile)
+        try {
+          const raw = localStorage.getItem('userProfile');
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p) {
+              const name = (p.firstName || p.displayName || p.name) + (p.lastName ? ` ${p.lastName}` : '');
+              const image = p.photoURL || (Array.isArray(p.photos) && p.photos.length ? p.photos[0] : undefined) || p.avatar;
+              if (name || image) return { name: name || 'You', image };
+            }
+          }
+        } catch (e) {
+          // ignore localStorage parsing issues
+        }
+
+        // 3) Try to fetch authoritative user profile from Firestore users/{uid}
         const uid = eventData.createdBy || auth.currentUser?.uid;
         if (uid) {
           try {
@@ -597,7 +649,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {}
-      // Fallback to auth.currentUser
+
+      // 4) Fallback to auth.currentUser
       const au = auth.currentUser as any | null;
       if (au) return { name: au.displayName || au.email || 'You', image: au.photoURL || undefined };
       return { name: 'You', image: undefined };
@@ -1580,11 +1633,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           const profilePromises = ids.map(async (uid: string) => {
             try {
               const ud = await getDoc(firestoreDoc(db, 'users', uid));
-              if (ud.exists()) {
+                if (ud.exists()) {
                 const u = ud.data() as any;
-                const img = u.photoURL || u.avatar || u.profilePicture || undefined;
+                // Prefer common image fields: photoURL, avatar, photos[0], profilePicture
+                const img = u.photoURL || u.avatar || (Array.isArray(u.photos) && u.photos.length ? u.photos[0] : undefined) || u.profilePicture || undefined;
                 // If the stored image is already a public HTTP(S) download URL, mark it as resolved
-                const imageResolved = typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')) ? img : undefined;
+                const imageResolved = typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:')) ? img : undefined;
                 return { id: uid, name: u.displayName || u.firstName || u.name || uid, image: img, imageResolved };
               }
             } catch (e) {}
@@ -1625,6 +1679,84 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             isCurrentUser: data.senderId === auth.currentUser?.uid,
           } as Message;
         });
+        // For any server messages missing senderImage, attempt to resolve from users/{uid} or cached participantProfiles
+        (async () => {
+          try {
+            const missing = new Set<string>();
+            for (const m of serverMsgs) {
+              if (!m.senderImage && m.senderId) missing.add(String(m.senderId));
+            }
+            if (missing.size === 0) return;
+            const storage = getStorage(app);
+            for (const uid of Array.from(missing)) {
+              try {
+                // Try to find in participantProfiles from chats state
+                let resolved: string | undefined = undefined;
+                const chat = chats.find(c => String(c.eventId) === String(eventId));
+                const prof = chat?.participantProfiles?.find((p: any) => String(p.id) === String(uid));
+                if (prof && prof.imageResolved) resolved = prof.imageResolved;
+                else if (prof && prof.image) {
+                  const img = prof.image;
+                  if (typeof img === 'string' && !isHttpDataOrRelative(img)) {
+                    try {
+                      const refP = normalizeStorageRefPath(String(img));
+                      resolved = await getDownloadURL(storageRef(storage, refP));
+                    } catch (e) {
+                      resolved = String(img);
+                    }
+                  } else {
+                    resolved = String(img);
+                  }
+                }
+
+                if (!resolved) {
+                  // Fetch authoritative user doc
+                  try {
+                    const ud = await getDoc(firestoreDoc(db, 'users', uid));
+                    if (ud.exists()) {
+                      const u = ud.data() as any;
+                      const imgCandidate = u.photoURL || u.avatar || (Array.isArray(u.photos) && u.photos.length ? u.photos[0] : undefined);
+                      if (imgCandidate) {
+                        if (typeof imgCandidate === 'string' && !isHttpDataOrRelative(imgCandidate)) {
+                          try {
+                            const refP = normalizeStorageRefPath(String(imgCandidate));
+                            resolved = await getDownloadURL(storageRef(storage, refP));
+                          } catch (e) {
+                            resolved = String(imgCandidate);
+                          }
+                        } else {
+                          resolved = String(imgCandidate);
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // ignore
+                  }
+                }
+
+                if (resolved) {
+                  // Patch serverMsgs in memory
+                  for (const m of serverMsgs) {
+                    if (String(m.senderId) === String(uid) && !m.senderImage) {
+                      m.senderImage = resolved;
+                    }
+                  }
+                }
+              } catch (e) {
+                // ignore per-user resolution errors
+              }
+            }
+            // After attempting resolution, update chat state to include senderImage on messages
+            setChats(prev => prev.map(c => {
+              if (String(c.eventId) !== String(eventId)) return c;
+              // merge serverMsgs replacing by id
+              const nextMsgs = serverMsgs;
+              return { ...c, messages: nextMsgs };
+            }));
+          } catch (e) {
+            console.debug('subscribeToChat: failed to resolve sender images for messages', e);
+          }
+        })();
 
         // Upsert chat into local state, merging optimistic local messages that haven't been replaced by server messages
         setChats(prev => {
@@ -1732,12 +1864,34 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       // Resolve senderName from users/{uid} for accuracy
       let senderName = user?.displayName || user?.email || 'You';
+      // Resolve senderImage from users/{uid} (preferred), local cache, or auth.profile
+      let senderImage: string | null = (user as any)?.photoURL || null;
       try {
         if (user?.uid) {
           const udoc = await getDoc(firestoreDoc(db, 'users', user.uid));
           if (udoc.exists()) {
             const ud = udoc.data() as any;
             senderName = ud.displayName || ud.firstName || ud.name || senderName;
+            // prefer fields kept by EditProfileModal: photoURL, avatar, photos[0]
+            const imgCandidate = ud.photoURL || ud.avatar || (Array.isArray(ud.photos) && ud.photos.length ? ud.photos[0] : undefined) || null;
+            if (imgCandidate) {
+              try {
+                if (typeof imgCandidate === 'string' && !isHttpDataOrRelative(imgCandidate)) {
+                  const storage = getStorage(app);
+                  const refPath = normalizeStorageRefPath(String(imgCandidate));
+                  try {
+                    senderImage = await getDownloadURL(storageRef(storage, refPath));
+                  } catch (err) {
+                    console.debug('addMessage: failed to resolve user image from storage', refPath, err);
+                    senderImage = String(imgCandidate);
+                  }
+                } else {
+                  senderImage = String(imgCandidate);
+                }
+              } catch (e) {
+                // fallback to auth.photoURL
+              }
+            }
           }
         }
       } catch (err) {
@@ -1752,7 +1906,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         clientId,
         senderId: user?.uid || 'anon',
         senderName,
-        senderImage: (user as any)?.photoURL || null,
+        senderImage: senderImage || null,
         content,
         attachmentUrl: attachmentUrl || null,
         timestamp: new Date().toISOString(),
@@ -1778,7 +1932,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           clientId,
           senderId: user?.uid || 'anon',
           senderName,
-          senderImage: (user as any)?.photoURL || null,
+          senderImage: senderImage || null,
           text: content,
           attachmentUrl: attachmentUrl || null,
           createdAt: serverTimestamp(),

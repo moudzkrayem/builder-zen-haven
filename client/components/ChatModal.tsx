@@ -186,6 +186,17 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
         if (!profiles.length) return;
         const storage = getStorage(app);
         const next: Record<string, string> = { ...resolvedProfileImages };
+        // Also seed from recent messages: message.senderImage may already contain a resolved URL.
+        try {
+          if (Array.isArray(chat?.messages) && chat.messages.length) {
+            for (const m of chat.messages.slice(-10)) {
+              if (m && m.senderId && m.senderImage) {
+                // Only set if we don't already have a resolved image for that id
+                if (!next[String(m.senderId)]) next[String(m.senderId)] = m.senderImage;
+              }
+            }
+          }
+        } catch (e) {}
         for (const p of profiles) {
           try {
             // Prefer an already-resolved URL if present on the profile
@@ -215,7 +226,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
       }
     })();
     return () => { mounted = false; };
-  }, [chat?.participantProfiles]);
+  }, [chat?.participantProfiles, chat?.messages]);
 
   // Log group members and resolved images when members panel opens to help debug rendering
   useEffect(() => {

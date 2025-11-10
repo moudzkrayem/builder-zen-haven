@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { auth, db } from "@/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -81,9 +83,55 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
   };
 
   const handleSave = () => {
-    // Here you would typically save the data to your backend/context
-    console.log("Saving profile data:", { ...formData, interests: selectedInterests });
-    onClose();
+    // Persist edits to Firestore users/{uid} and update localStorage.userProfile
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        alert('You must be logged in to save your profile');
+        return;
+      }
+
+      // Build payload
+      const nameParts = (formData.name || '').toString().trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const payload: any = {
+        firstName,
+        lastName,
+        age: Number(formData.age) || 0,
+        occupation: formData.profession || '',
+        education: formData.education || '',
+        location: formData.location || '',
+        bio: formData.bio || '',
+        thingsYouDoGreat: selectedInterests || [],
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Merge into Firestore user doc
+      const userRef = doc(db, 'users', user.uid);
+      // setDoc with merge true to avoid clobbering other fields
+      void setDoc(userRef, payload, { merge: true }).then(() => {
+        try {
+          // Update local cache in localStorage so UI reflects changes immediately
+          const stored = localStorage.getItem('userProfile');
+          const existing = stored ? JSON.parse(stored) : {};
+          const merged = { ...existing, ...payload };
+          // Keep legacy name field too
+          merged.name = `${merged.firstName || ''}${merged.lastName ? ' ' + merged.lastName : ''}`.trim();
+          localStorage.setItem('userProfile', JSON.stringify(merged));
+        } catch (err) {
+          // ignore localStorage errors
+        }
+        onClose();
+      }).catch((err) => {
+        console.error('Failed to save profile to Firestore', err);
+        alert('Failed to save profile. Please try again.');
+      });
+    } catch (err) {
+      console.error('EditProfileModal: unexpected save error', err);
+      alert('Failed to save profile.');
+    }
   };
 
   return (

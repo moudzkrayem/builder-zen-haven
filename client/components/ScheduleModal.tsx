@@ -239,13 +239,9 @@ export default function ScheduleModal({
           {eventsToShow.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <Calendar className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                {scheduleFilter === 'host' ? "No hosted events yet" : "No events yet"}
-              </h3>
+              <h3 className="text-lg font-semibold mb-2">No events yet</h3>
               <p className="text-muted-foreground">
-                {scheduleFilter === 'host'
-                  ? "You're not hosting any events right now. Create one to get started."
-                  : "Join some events to see them in your schedule!"}
+                {scheduleFilter === 'host' ? 'You are not hosting any events right now.' : 'Join some events to see them in your schedule!'}
               </p>
             </div>
           ) : (
@@ -288,7 +284,9 @@ export default function ScheduleModal({
                         <h3 className="font-semibold text-lg line-clamp-1">
                           {event.eventName || event.name}
                         </h3>
-                        <Badge className="bg-green-500 text-white ml-2">
+                        <Badge className={cn(
+                          scheduleFilter === 'host' ? 'bg-primary text-primary-foreground ml-2' : 'bg-green-500 text-white ml-2'
+                        )}>
                           {scheduleFilter === 'host' ? 'Hosting' : 'Joined'}
                         </Badge>
                       </div>

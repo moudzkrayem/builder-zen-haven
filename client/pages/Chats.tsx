@@ -33,6 +33,7 @@ export default function Chats() {
         const storage = getStorage(app);
         const next = { ...resolvedProfileImages };
         // Collect up to first 3 participant images from visible chats to resolve
+        // Also include senderImage present on recent messages as a fast path.
         const candidates: Array<{ id: string; img?: string }> = [];
         for (const chat of chats.slice(0, 20)) {
           const p = chat.participantProfiles;
@@ -41,6 +42,16 @@ export default function Chats() {
               candidates.push({ id: prof.id, img: prof.image });
             }
           }
+          // include recent messages' senderImage values as they are authoritative when present
+          try {
+            if (Array.isArray(chat.messages) && chat.messages.length) {
+              for (const m of chat.messages.slice(-6)) {
+                if (m && m.senderId && m.senderImage) {
+                  candidates.push({ id: String(m.senderId), img: m.senderImage });
+                }
+              }
+            }
+          } catch (e) {}
         }
         for (const c of candidates) {
           if (!c.img || next[String(c.id)]) continue;
