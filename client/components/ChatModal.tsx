@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getDoc, doc as firestoreDoc } from 'firebase/firestore';
 import { isHttpDataOrRelative, normalizeStorageRefPath } from '@/lib/imageUtils';
-import { app } from "../firebase";
+import { app, db } from "../firebase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -241,8 +242,50 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   };
 
   const handleViewProfile = (member: any) => {
-    setSelectedMember(member);
-    setShowProfileModal(true);
+    // If member appears to be a mock id (host- or attendee-), just show the local member info
+    try {
+      const uid = String(member.id || '');
+      if (!uid || uid.startsWith('attendee-') || uid.startsWith('host-') || uid.startsWith('attendee') || uid.startsWith('host')) {
+        setSelectedMember(member);
+        setShowProfileModal(true);
+        return;
+      }
+
+      // Fetch the authoritative user profile from Firestore
+      (async () => {
+        try {
+          const snap = await getDoc(firestoreDoc(db, 'users', uid));
+          if (snap.exists()) {
+            const data: any = snap.data() || {};
+            const name = data.displayName || data.firstName || data.name || data.email || member.name || uid;
+            const image = resolvedProfileImages[uid] || data.imageResolved || data.photoURL || data.avatar || (Array.isArray(data.photos) && data.photos[0]) || member.image;
+            const profile = {
+              id: uid,
+              name,
+              image,
+              status: data.status || member.status || 'online',
+              isHost: member.isHost,
+              isCurrentUser: member.isCurrentUser,
+              // include raw data for richer modal fields (bio, photos, interests, etc.) if present
+              ...data,
+            };
+            setSelectedMember(profile);
+            setShowProfileModal(true);
+            return;
+          }
+        } catch (err) {
+          console.debug('ChatModal: failed to fetch user profile for', uid, err);
+        }
+
+        // Fallback to provided member object
+        setSelectedMember(member);
+        setShowProfileModal(true);
+      })();
+    } catch (err) {
+      console.debug('ChatModal.handleViewProfile unexpected error', err);
+      setSelectedMember(member);
+      setShowProfileModal(true);
+    }
   };
 
   const handleSendMessage = () => {

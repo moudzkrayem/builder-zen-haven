@@ -34,24 +34,33 @@ export default function UserProfileModal({
 
   if (!isOpen || !user) return null;
 
-  // Mock user profile data
+  // Build a profile object that prefers real user fields (from Firestore) and falls back
+  // to lightweight defaults only when a field is missing. This avoids overwriting
+  // authoritative user data with static mock values.
   const userProfile = {
     ...user,
-    age: 28,
-    profession: "Product Designer",
-    education: "UC Berkeley",
-    location: "San Francisco, CA",
-    bio: "Love exploring new places and meeting creative minds. Always up for a good conversation about design, travel, or life! ✨",
-    interests: ["Design", "Coffee", "Travel", "Photography", "Hiking", "Art"],
-    photos: [
-      user.image,
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop",
-    ],
+    age: user?.age ?? 28,
+  // Only set profession when user provided it; do not use a static placeholder.
+  profession: user?.profession ?? user?.jobTitle ?? undefined,
+    education: user?.education ?? user?.school ?? "UC Berkeley",
+    location: user?.location ?? user?.city ?? "San Francisco, CA",
+    bio:
+      user?.bio ??
+      "Love exploring new places and meeting creative minds. Always up for a good conversation about design, travel, or life! ✨",
+    interests: Array.isArray(user?.interests) && user.interests.length > 0
+      ? user.interests
+      : ["Design", "Coffee", "Travel", "Photography", "Hiking", "Art"],
+    photos:
+      Array.isArray(user?.photos) && user.photos.length > 0
+        ? user.photos
+        : [user?.image].filter(Boolean).concat([
+            "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop",
+            "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop",
+          ]),
     stats: {
-      eventsAttended: 23,
-      connections: 89,
-      rating: 4.8,
+      eventsAttended: user?.stats?.eventsAttended ?? user?.eventsAttended ?? 23,
+      connections: user?.stats?.connections ?? user?.connections ?? 89,
+      rating: user?.stats?.rating ?? user?.rating ?? 4.8,
     },
   };
 
@@ -64,11 +73,24 @@ export default function UserProfileModal({
     onClose();
   };
 
+  // Compute footer offset so on small screens the footer sits above any fixed bottom nav.
+  const isLargeScreen = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : true;
+  const footerBottomStyle = isLargeScreen ? '0px' : 'calc(env(safe-area-inset-bottom, 0px) + 72px)';
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="relative h-32 bg-gradient-to-r from-primary/20 to-accent/20">
+    // Anchor to bottom on small screens, but center on large (desktop/laptop).
+    // Also allow the overlay to scroll on small devices and leave extra bottom padding on large screens
+    // to avoid overlapping fixed bottom nav.
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end lg:items-center justify-center p-0 lg:p-4 lg:pb-16 overflow-y-auto overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y', height: '100dvh' }}
+    >
+      <div
+        className="bg-card rounded-t-3xl lg:rounded-3xl w-full max-w-lg lg:max-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] overflow-hidden mx-4 lg:mx-0 flex flex-col"
+        style={{ maxHeight: 'min(85vh, 100dvh)' }}
+      >
+        {/* Header: place the profile image in normal flow so the modal can scroll correctly */}
+        <div className="relative bg-gradient-to-r from-primary/20 to-accent/20">
           <Button 
             variant="ghost" 
             size="icon" 
@@ -77,8 +99,8 @@ export default function UserProfileModal({
           >
             <X className="w-5 h-5" />
           </Button>
-          <div className="absolute -bottom-12 left-6">
-            <div className="relative">
+          <div className="pt-6 pb-4 pl-6">
+            <div className="relative inline-block -translate-y-3">
               <img
                 src={userProfile.image}
                 alt={userProfile.name}
@@ -93,7 +115,7 @@ export default function UserProfileModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 pt-16 overflow-y-auto max-h-[calc(90vh-200px)]">
+  <div className="p-6 pt-6 lg:pt-6 overflow-y-auto flex-1 pb-24 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)' }}>
           {/* Basic Info */}
           <div className="mb-6">
             <div className="flex items-start justify-between mb-2">
@@ -102,10 +124,12 @@ export default function UserProfileModal({
                   {userProfile.name}, {userProfile.age}
                 </h2>
                 <div className="flex items-center space-x-4 mt-1 text-muted-foreground">
-                  <div className="flex items-center space-x-1">
-                    <Briefcase className="w-4 h-4" />
-                    <span className="text-sm">{userProfile.profession}</span>
-                  </div>
+                  {userProfile.profession && (
+                    <div className="flex items-center space-x-1">
+                      <Briefcase className="w-4 h-4" />
+                      <span className="text-sm">{userProfile.profession}</span>
+                    </div>
+                  )}
                   <div className="flex items-center space-x-1">
                     <MapPin className="w-4 h-4" />
                     <span className="text-sm">{userProfile.location}</span>
@@ -131,30 +155,7 @@ export default function UserProfileModal({
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="text-center p-3 bg-accent/20 rounded-xl">
-              <div className="text-lg font-bold text-primary">
-                {userProfile.stats.eventsAttended}
-              </div>
-              <div className="text-xs text-muted-foreground">Events</div>
-            </div>
-            <div className="text-center p-3 bg-accent/20 rounded-xl">
-              <div className="text-lg font-bold text-primary">
-                {userProfile.stats.connections}
-              </div>
-              <div className="text-xs text-muted-foreground">Connections</div>
-            </div>
-            <div className="text-center p-3 bg-accent/20 rounded-xl">
-              <div className="flex items-center justify-center space-x-1">
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                <span className="text-lg font-bold text-primary">
-                  {userProfile.stats.rating}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground">Rating</div>
-            </div>
-          </div>
+          {/* Stats removed per design: events, connections, rating are hidden for chat participant profiles */}
 
           {/* Photos */}
           <div className="mb-6">
@@ -193,7 +194,7 @@ export default function UserProfileModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-border bg-muted/20">
+  <div className="p-6 border-t border-border bg-muted/20 sticky z-50" style={{ bottom: footerBottomStyle }}>
           <div className="flex space-x-3">
             <Button
               onClick={handleConnect}
