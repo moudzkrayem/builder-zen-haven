@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -552,11 +552,8 @@ export default function Home() {
                 onClick={() => setShowAIBotModal(true)}
                 className="relative"
               >
-                <span
-                  className="pointer-events-none absolute inset-0 rounded-full p-[2px] animate-spin"
-                  style={{ background: "conic-gradient(#F59E0B, #EC4899, #8B5CF6, #10B981, #F59E0B)" }}
-                >
-                  <span className="block w-full h-full rounded-full bg-background" />
+                <span className="pointer-events-none absolute inset-0 rounded-full p-[2px]">
+                  <span className="block w-full h-full rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
                 </span>
                 <img
                   src="https://cdn.builder.io/api/v1/image/assets%2F5c6becf7cef04a3db5d3620ce9b103bd%2F0880b93857be41f7bd6c705364449846?format=webp&width=800"

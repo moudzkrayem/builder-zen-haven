@@ -1,20 +1,8 @@
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
-import {
-  X,
-  MapPin,
-  Briefcase,
-  GraduationCap,
-  Star,
-  Heart,
-  Users,
-  MessageSquare,
-  UserPlus,
-  Check,
-  Calendar,
-} from "lucide-react";
+import { X, MapPin, Briefcase, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UserProfileModalProps {
@@ -64,38 +52,45 @@ export default function UserProfileModal({
     },
   };
 
-  const handleConnect = () => {
-    addConnection(user.id);
-  };
+  // Adaptive bottom padding: measure the app's fixed bottom nav (if present)
+  // and add a small gap so the modal content always clears it on small screens.
+  const [contentPaddingBottom, setContentPaddingBottom] = useState<string>('calc(env(safe-area-inset-bottom, 0px) + 8rem)');
+  const [detectedNavHeight, setDetectedNavHeight] = useState<number | null>(null);
 
-  const handleStartChat = () => {
-    onStartPrivateChat(user);
-    onClose();
-  };
+  useEffect(() => {
+    const gap = 12; // px gap so content isn't flush to the nav
 
-  // Measure footer height and apply equivalent bottom padding to the scrollable content
-  // so the footer never overlaps the scrollable area on small screens.
-  const footerRef = useRef<HTMLDivElement | null>(null);
-  const [contentPaddingBottom, setContentPaddingBottom] = useState<string>('calc(env(safe-area-inset-bottom, 0px) + 6rem)');
-
-  useLayoutEffect(() => {
     const update = () => {
       try {
-        const footerHeight = footerRef.current ? footerRef.current.getBoundingClientRect().height : 0;
-        // Add a small gap (12px) so buttons aren't flush to the nav
-        const gap = 12;
-        setContentPaddingBottom(`calc(env(safe-area-inset-bottom, 0px) + ${Math.ceil(footerHeight + gap)}px)`);
-      } catch (err) {
-        // ignore measurement errors
+        // Prefer the explicit BottomNavigation root by matching the fixed bottom container
+        let navEl: Element | null = document.querySelector('div.fixed.bottom-0.left-0.right-0');
+
+        // Fallback to detecting the grid container inside the nav (class-based)
+        if (!navEl) navEl = document.querySelector('.grid.grid-cols-5.h-20');
+
+        let h = 0;
+        if (navEl instanceof HTMLElement) {
+          const rect = navEl.getBoundingClientRect();
+          // only use the measurement if element is visible and attached
+          if (rect.height > 0) h = Math.ceil(rect.height);
+        }
+
+        setDetectedNavHeight(h || null);
+        setContentPaddingBottom(`calc(env(safe-area-inset-bottom, 0px) + ${h + gap}px)`);
+      } catch (e) {
+        // noop: keep the fallback padding
       }
     };
-    // Initial measurement and on resize/orientation change
+
     update();
     window.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
+    // Also update when the page becomes visible (e.g., switching tabs/devtools)
+    document.addEventListener('visibilitychange', update);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
+      document.removeEventListener('visibilitychange', update);
     };
   }, []);
 
@@ -133,6 +128,8 @@ export default function UserProfileModal({
                 userProfile.status === "online" ? "bg-green-500" : "bg-gray-400"
               )} />
             </div>
+            {/* Spacer to guarantee scrollable content can clear fixed bottom nav on small screens */}
+            <div className="h-32 lg:hidden" aria-hidden />
           </div>
         </div>
 
@@ -215,37 +212,8 @@ export default function UserProfileModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
-  <div ref={footerRef} className="p-6 border-t border-border bg-muted/20 z-50 absolute left-0 right-0" style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          <div className="flex space-x-3">
-            <Button
-              onClick={handleConnect}
-              disabled={isConnected(user.id)}
-              variant={isConnected(user.id) ? "outline" : "default"}
-              className="flex-1 rounded-xl"
-            >
-              {isConnected(user.id) ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Connect+
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleStartChat}
-              variant="outline"
-              className="flex-1 rounded-xl"
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Message
-            </Button>
-          </div>
-        </div>
+        {/* Footer spacer removed: actions (Connect / Message) intentionally omitted for chat participant profiles.
+            We keep a safe bottom padding on the scrollable content so the modal never overlaps the app's fixed nav on small screens. */}
       </div>
     </div>
   );
