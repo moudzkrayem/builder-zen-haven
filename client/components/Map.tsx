@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useEvents } from "@/contexts/EventsContext";
 import PremiumUpgradeModal from "./PremiumUpgradeModal";
 import { X, MapPin, Users, DollarSign, Clock, Navigation, RefreshCw, Check } from "lucide-react";
@@ -17,9 +18,22 @@ export default function Map({ onClose }: MapProps) {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [lastLocationAt, setLastLocationAt] = useState<number | null>(null);
+  // tick so we can mark location 'stale' after a threshold
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
   const [showPremiumUpgradeModal, setShowPremiumUpgradeModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [zoom, setZoom] = useState<number>(1);
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [connector, setConnector] = useState<{ ux: number; uy: number; ex: number; ey: number; midX: number; midY: number; distKm: number | null; width: number; height: number } | null>(null);
+  // keep a pinnedEventId so the connector can persist after the popup is closed
+  const [pinnedEventId, setPinnedEventId] = useState<string | number | null>(null);
 
   // Keep selected distance (in km) for UI active state
   const [selectedKm, setSelectedKm] = useState<number>(50);
@@ -61,10 +75,11 @@ export default function Map({ onClose }: MapProps) {
     minLat -= latPad; maxLat += latPad; minLng -= lngPad; maxLng += lngPad;
   }
 
-    // Nearby filtering: show only events within this radius (km) when userLocation is available
-    const [showAll, setShowAll] = useState<boolean>(false);
+  // Nearby filtering: show only events within this radius (km) when userLocation is available
   // Make radius configurable by the UI (units are km)
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState<number>(50); // default 50 km
+  // allow user to expand to see all trybes when no nearby results
+  const [showAll, setShowAll] = useState<boolean>(false);
 
     // Fit-to-bounds: compute bounding box that includes event markers and user location +/- radius
     const computeAndFitBounds = (radiusKm: number, userLoc?: {lat:number,lng:number}) => {
@@ -167,6 +182,7 @@ export default function Map({ onClose }: MapProps) {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        setLastLocationAt(Date.now());
         // After acquiring location, fit map to show user + nearby radius
         computeAndFitBounds(nearbyRadiusKm, { lat: position.coords.latitude, lng: position.coords.longitude });
         setIsLoadingLocation(false);
@@ -210,6 +226,52 @@ export default function Map({ onClose }: MapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // compute connector endpoints (pixel-perfect) between the user marker and the selected event marker
+  useEffect(() => {
+    const compute = () => {
+      try {
+        const container = mapContainerRef.current;
+        if (!container || !pinnedEventId) { setConnector(null); return; }
+        const containerRect = container.getBoundingClientRect();
+
+        const userEl = container.querySelector('[data-marker="user"]') as HTMLElement | null;
+        if (!userEl) { setConnector(null); return; }
+        const uRect = userEl.getBoundingClientRect();
+        const ux = uRect.left - containerRect.left + uRect.width / 2;
+        const uy = uRect.top - containerRect.top + uRect.height / 2;
+
+        const evEl = container.querySelector(`[data-marker="event-${String(pinnedEventId)}"]`) as HTMLElement | null;
+        if (!evEl) { setConnector(null); return; }
+        const eRect = evEl.getBoundingClientRect();
+        const ex = eRect.left - containerRect.left + eRect.width / 2;
+        const ey = eRect.top - containerRect.top + eRect.height / 2;
+
+        const midX = (ux + ex) / 2;
+        const midY = (uy + ey) / 2;
+
+  const pinned = mapEvents.find((m) => m.id === pinnedEventId);
+  const coords = pinned ? (pinned as any).coordinates : null;
+        const distKm = coords && userLocation ? haversineKm(userLocation.lat, userLocation.lng, coords.lat, coords.lng) : null;
+
+  // log connector coordinates for debugging distance calculations
+  // (leave as debug; harmless in production but useful to validate values)
+  // eslint-disable-next-line no-console
+  console.debug('[Map] connector compute', { ux, uy, ex, ey, midX, midY, distKm, coords, userLocation });
+  setConnector({ ux, uy, ex, ey, midX, midY, distKm, width: containerRect.width, height: containerRect.height });
+      } catch (err) {
+        setConnector(null);
+      }
+    };
+
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, true);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, true);
+    };
+  }, [pinnedEventId, userLocation, now, mapEvents]);
+
   // NOTE: Do NOT request geolocation on mount. Browsers may suppress permission
   // prompts when not triggered by a user gesture. Instead, request location only
   // when the user clicks the "Refresh location" / compass button which calls
@@ -240,9 +302,11 @@ export default function Map({ onClose }: MapProps) {
   return (
     // Ensure map overlay sits above the bottom navigation and other fixed chrome.
     // Use a higher z-index than the BottomNavigation (z-50) and keep full-bleed background.
-    <div className="fixed inset-0 z-[60] bg-background">
+  <div className="fixed inset-0 z-[60] bg-background flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
+        {/* Header area: no Distance control on small screens (we render it on the map). Keep header clean with title and icons. */}
+        <div className="hidden" />
         <div className="flex items-center space-x-3">
           <h1 className="text-xl font-bold">Nearby Trybes</h1>
           {userLocation && (
@@ -251,27 +315,69 @@ export default function Map({ onClose }: MapProps) {
               Live Location
             </Badge>
           )}
+
+          {/* small-screen distance removed from header; map retains its own control if present */}
+
+          {/* Locate control moved next to the Live Location badge for discoverability */}
+          {(() => {
+            const isLocationStale = !lastLocationAt || (now - lastLocationAt > 120000);
+            return (
+              <div className="relative">
+                {isLocationStale && (
+                  <span className="absolute -inset-2 rounded-full bg-blue-500/20 animate-ping" aria-hidden />
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="inline-flex">
+                      <div className="inline-flex md:hidden">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={getCurrentLocation}
+                          disabled={isLoadingLocation}
+                          aria-label="Refresh location"
+                          className="locate-cta"
+                        >
+                          <Navigation className={`w-4 h-4 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </div>
+                      <div className="hidden md:inline-flex">
+                        <Button
+                          onClick={getCurrentLocation}
+                          disabled={isLoadingLocation}
+                          aria-label="Refresh location"
+                          className={`locate-cta bg-primary text-primary-foreground ${isLoadingLocation ? 'animate-pulse' : ''}`}
+                        >
+                          <Navigation className={`w-4 h-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                          {isLoadingLocation ? 'Locating...' : 'Refresh location'}
+                        </Button>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Refresh location — centers the map on your device
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            );
+          })()}
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={getCurrentLocation}
-            disabled={isLoadingLocation}
-            title="Refresh location"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+
+        {/* Zoom-out control: allow quick fit to 150 km when trybes are far */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 md:left-auto md:bottom-6 md:right-6 z-40">
+          <Button size="sm" variant="outline" onClick={() => {
+            const km = 150;
+            setNearbyRadiusKm(km);
+            setSelectedKm(km);
+            setShowAll(false);
+            if (userLocation) computeAndFitBounds(km, userLocation);
+            else computeAndFitBounds(km);
+          }}>
+            Zoom out (150 km)
           </Button>
-          {userLocation && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAll((v) => !v)}
-              className="mr-2"
-            >
-              {showAll ? 'Show nearby' : 'Show all'}
-            </Button>
-          )}
+        </div>
+
+        <div className="flex items-center space-x-2">
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
@@ -279,13 +385,13 @@ export default function Map({ onClose }: MapProps) {
       </div>
 
       {/* Map area */}
-      <div className="relative flex-1 h-[calc(100vh-80px)]">
+      <div className="relative flex-1 h-[calc(100vh-80px)] overflow-auto">
         {/* Simulated map background */}
-        <div className="w-full h-full relative overflow-hidden">
+        <div className="w-full h-full relative overflow-auto" style={{ touchAction: 'pan-y' }}>
           {/* Apply zoom by scaling the inner map; transform-origin center keeps it centered */}
-          <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative">
+          <div ref={mapContainerRef} className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 relative">
           {/* Grid pattern to simulate map */}
-          <div className="absolute inset-0 opacity-20">
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
             <div className="grid grid-cols-8 grid-rows-12 h-full w-full">
               {Array.from({ length: 96 }).map((_, i) => (
                 <div
@@ -297,18 +403,19 @@ export default function Map({ onClose }: MapProps) {
           </div>
 
           {/* Streets simulation */}
-          <div className="absolute top-1/4 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600" />
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600" />
-          <div className="absolute top-3/4 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600" />
-          <div className="absolute top-0 bottom-0 left-1/4 w-1 bg-gray-400 dark:bg-gray-600" />
-          <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-gray-400 dark:bg-gray-600" />
-          <div className="absolute top-0 bottom-0 left-3/4 w-1 bg-gray-400 dark:bg-gray-600" />
+          <div className="absolute top-1/4 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
+          <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
+          <div className="absolute top-3/4 left-0 right-0 h-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-1/4 w-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-3/4 w-1 bg-gray-400 dark:bg-gray-600 pointer-events-none" />
 
           {/* Current location */}
           {userLocation ? (
             // If we computed a screen position, place the marker there; otherwise center it
             <div
-              className="absolute transform -translate-x-1/2 -translate-y-1/2"
+              data-marker="user"
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
               style={userScreenPos ? { top: userScreenPos.top, left: userScreenPos.left } : { top: '50%', left: '50%' }}
             >
               <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg bg-blue-500`}>
@@ -370,19 +477,20 @@ export default function Map({ onClose }: MapProps) {
           {mapEvents.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="bg-card/80 p-4 rounded-lg border border-border text-center">
-                <div className="font-medium mb-2">No nearby Trybes found</div>
-                <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {Math.round(nearbyRadiusKm)} km of your location.</div>
-                <div className="flex justify-center">
+                <div className="font-medium mb-3">No nearby Trybes found</div>
+                <div className="flex justify-center mb-3">
                   <Button size="sm" onClick={() => setShowAll(true)}>Show all Trybes</Button>
                 </div>
+                <div className="text-sm text-muted-foreground">There are no Trybes within {Math.round(nearbyRadiusKm)} km of your location.</div>
               </div>
             </div>
           )}
           {mapEvents.length > 0 && mapEvents.map((event, index) => (
             <button
               key={event.id}
-              onClick={() => setSelectedEvent(event)}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
+              data-marker={`event-${event.id}`}
+              onClick={() => { setSelectedEvent(event); setPinnedEventId((event as any).id); }}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform z-20"
               style={{
                 top: (event as any)._screenPos?.top || `${40 + index * 15}%`,
                 left: (event as any)._screenPos?.left || `${30 + index * 20}%`,
@@ -405,6 +513,42 @@ export default function Map({ onClose }: MapProps) {
               </div>
             </button>
           ))}
+
+          {/* Connector SVG (drawn between user marker and selected event marker). */}
+          {connector && (
+            <svg className="absolute inset-0 pointer-events-none z-0" width={connector.width} height={connector.height} viewBox={`0 0 ${connector.width} ${connector.height}`} preserveAspectRatio="none">
+              {(() => {
+                if (!pinnedEventId) return null;
+                const pathId = `map-connector-${String(pinnedEventId)}`;
+                const d = `M ${connector.ux} ${connector.uy} L ${connector.ex} ${connector.ey}`;
+                return (
+                  <>
+                    <path id={pathId} d={d} className="map-line" stroke={"rgba(59,130,246,0.95)"} strokeWidth={1.2} strokeLinecap="butt" strokeDasharray="6 4" fill="none" style={{ animationDuration: '1.6s' }} />
+                    <circle r={4} className="map-line-dot" fill={"rgba(59,130,246,0.95)"} style={{ animationDuration: '1.6s' }}>
+                      <animateMotion dur="2s" repeatCount="indefinite">
+                        <mpath href={`#${pathId}`} />
+                      </animateMotion>
+                    </circle>
+                  </>
+                );
+              })()}
+              </svg>
+
+      )}
+
+          {connector && connector.distKm != null && (
+            <div className="absolute pointer-events-none z-30" style={{ left: connector.midX, top: connector.midY, transform: 'translate(-50%, -50%)' }}>
+              <div className="bg-card/90 text-xs text-foreground px-2 py-1 rounded-full shadow">
+                {/* Show meters for distances under 1 km, one decimal for <10 km, otherwise rounded km */}
+                {connector.distKm < 1
+                  ? `${Math.round(connector.distKm * 1000)} m`
+                  : connector.distKm < 10
+                    ? `${connector.distKm.toFixed(1)} km`
+                    : `${Math.round(connector.distKm)} km`}
+              </div>
+            </div>
+          )}
+
           </div>
         </div>
 
@@ -506,13 +650,14 @@ export default function Map({ onClose }: MapProps) {
           </div>
         )}
 
-        {/* Distance filter */}
-        <div className="absolute top-4 left-4 bg-card rounded-xl p-3 shadow-lg border border-border">
+          {/* Distance filter (responsive: full-width centered on small screens, pinned on larger screens) */}
+  {/* Floating controls removed — we show Distance & Legend under the header now */}
+  <div className="absolute md:top-4 md:left-4 top-20 left-1/2 transform -translate-x-1/2 md:transform-none md:-translate-x-0 w-[calc(100%-2rem)] md:w-auto bg-card rounded-xl p-3 shadow-lg border border-border z-40">
           <div className="text-sm font-medium text-foreground mb-2">
             Distance
           </div>
-          <div className="flex space-x-2">
-            {[1, 50, 100].map((m) => (
+          <div className="flex space-x-2 overflow-x-auto">
+            {[1, 25, 50, 100].map((m) => (
               <Button
                 key={m}
                 variant="outline"
@@ -523,6 +668,8 @@ export default function Map({ onClose }: MapProps) {
                   setNearbyRadiusKm(km);
                   setSelectedKm(m);
                   setShowAll(false);
+                  // clear any selected event so the connector line is removed when distance changes
+                  setSelectedEvent(null);
                   if (userLocation) computeAndFitBounds(km, userLocation);
                 }}
               >
@@ -532,8 +679,8 @@ export default function Map({ onClose }: MapProps) {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="absolute top-4 right-4 bg-card rounded-xl p-3 shadow-lg border border-border">
+  {/* Legend */}
+  <div className="hidden md:block absolute md:top-4 md:right-4 top-[6.5rem] left-1/2 transform -translate-x-1/2 md:transform-none md:-translate-x-0 w-[calc(100%-2rem)] md:w-auto bg-card rounded-xl p-3 shadow-lg border border-border z-40">
           <div className="text-sm font-medium text-foreground mb-2">Legend</div>
           <div className="space-y-2 text-xs">
             <div className="flex items-center space-x-2">
