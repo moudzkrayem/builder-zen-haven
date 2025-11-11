@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 interface SwipeFiltersModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onApply?: (filters: any) => void;
 }
 
 import { CATEGORIES } from '@/config/categories';
@@ -25,12 +26,69 @@ const activityTypes = [
   { name: "Indoor Activities", icon: MapPin },
 ];
 
-export default function SwipeFiltersModal({ isOpen, onClose }: SwipeFiltersModalProps) {
+export default function SwipeFiltersModal({ isOpen, onClose, onApply }: SwipeFiltersModalProps) {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [distance, setDistance] = useState([25]);
   const [maxPrice, setMaxPrice] = useState([100]);
   const [selectedActivityTypes, setSelectedActivityTypes] = useState<string[]>([]);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+  const [dateRange, setDateRange] = useState<'any' | 'today' | 'week' | 'month'>('any');
+  const [detectedNavHeight, setDetectedNavHeight] = useState<number | null>(null);
+  const [contentPaddingBottom, setContentPaddingBottom] = useState<string>('env(safe-area-inset-bottom, 0px)');
+  const [bottomOffsetPx, setBottomOffsetPx] = useState<number>(96);
+
+  // Prevent background scrolling when modal is open and ensure modal content scrolls
+  useEffect(() => {
+    if (!isOpen) return;
+    // reference previous overflow so we can restore when all modals close
+    const prev = document.body.style.overflow;
+    // increment global lock counter so multiple modals don't stomp each other
+    (window as any).__modalLockCount = ((window as any).__modalLockCount || 0) + 1;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      try {
+        (window as any).__modalLockCount = Math.max(0, ((window as any).__modalLockCount || 1) - 1);
+        if (!((window as any).__modalLockCount)) {
+          document.body.style.overflow = prev || '';
+          try { delete (window as any).__modalLockCount; } catch (e) {}
+        }
+      } catch (e) {
+        document.body.style.overflow = prev || '';
+      }
+    };
+  }, [isOpen]);
+
+  // Measure bottom nav and compute padding so footer and modal sit above the nav
+  useEffect(() => {
+    const gap = 12;
+    const update = () => {
+      try {
+        let navEl: Element | null = document.querySelector('div.fixed.bottom-0.left-0.right-0');
+        if (!navEl) navEl = document.querySelector('.grid.grid-cols-5.h-20');
+        let h = 0;
+        if (navEl instanceof HTMLElement) {
+          const rect = navEl.getBoundingClientRect();
+          if (rect.height > 0) h = Math.ceil(rect.height);
+        }
+        const minFooterSpace = 96;
+        const computed = Math.max(h + gap, minFooterSpace);
+        setDetectedNavHeight(h || null);
+        setBottomOffsetPx(computed);
+        setContentPaddingBottom(`calc(env(safe-area-inset-bottom, 0px) + ${computed}px)`);
+      } catch (e) {
+        // noop
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -56,11 +114,12 @@ export default function SwipeFiltersModal({ isOpen, onClose }: SwipeFiltersModal
     setMaxPrice([100]);
     setSelectedActivityTypes([]);
     setShowOnlyAvailable(true);
+    setDateRange('any');
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="absolute inset-x-4 top-8 bottom-8 bg-card rounded-3xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[99999] bg-background/80 backdrop-blur-sm">
+      <div className="absolute inset-x-4 top-8 bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col" style={{ bottom: `${bottomOffsetPx}px` }}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
@@ -72,8 +131,8 @@ export default function SwipeFiltersModal({ isOpen, onClose }: SwipeFiltersModal
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+    {/* Content */}
+  <div className="flex-1 overflow-y-auto p-6 space-y-8 overscroll-contain" style={{ paddingBottom: contentPaddingBottom, ['--modal-bottom-space' as any]: contentPaddingBottom, WebkitOverflowScrolling: 'touch' as any }}>
           {/* Distance */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Distance</h3>
@@ -167,6 +226,30 @@ export default function SwipeFiltersModal({ isOpen, onClose }: SwipeFiltersModal
             </div>
           </div>
 
+          {/* Date */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Date</h3>
+            <div className="flex gap-2">
+              {[
+                { key: 'any', label: 'Any' },
+                { key: 'today', label: 'Today' },
+                { key: 'week', label: 'This Week' },
+                { key: 'month', label: 'This Month' },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setDateRange(opt.key as any)}
+                  className={cn(
+                    "px-3 py-2 rounded-lg border",
+                    dateRange === (opt.key as any) ? 'bg-primary text-primary-foreground border-primary' : 'border-border'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Additional Options */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Options</h3>
@@ -185,17 +268,35 @@ export default function SwipeFiltersModal({ isOpen, onClose }: SwipeFiltersModal
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-border bg-muted/20">
-          <div className="flex space-x-3">
-            <Button variant="outline" onClick={clearAllFilters} className="flex-1">
-              Clear All
-            </Button>
-            <Button onClick={onClose} className="flex-1">
-              Apply Filters
-            </Button>
+          {/* Inline action buttons so they are part of the scrollable content */}
+          <div className="pt-2" />
+          <div className="p-6 border-t border-border bg-muted/20">
+            <div className="flex space-x-3">
+              <Button variant="outline" onClick={clearAllFilters} className="flex-1">
+                Clear All
+              </Button>
+              <Button
+                onClick={() => {
+                  const payload = {
+                    selectedInterests,
+                    distance: distance[0],
+                    maxPrice: maxPrice[0],
+                    selectedActivityTypes,
+                    showOnlyAvailable,
+                    dateRange,
+                  };
+                  try {
+                    if (typeof onApply === 'function') onApply(payload);
+                  } catch (e) {
+                    console.debug('SwipeFiltersModal: onApply callback threw', e);
+                  }
+                  onClose();
+                }}
+                className="flex-1"
+              >
+                Apply Filters
+              </Button>
+            </div>
           </div>
         </div>
       </div>

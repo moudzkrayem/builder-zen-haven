@@ -9,6 +9,7 @@ import ChatModal from "@/components/ChatModal";
 import EventDetailModal from "@/components/EventDetailModal";
 import PremiumUpgradeModal from "@/components/PremiumUpgradeModal";
 import AIBotModal from "@/components/AIBotModal";
+import SwipeFiltersModal from "@/components/SwipeFiltersModal";
 import { useEvents } from "@/contexts/EventsContext";
 import { auth } from "@/auth";
 import { collection, getDocs } from "firebase/firestore";
@@ -66,6 +67,8 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [showAllNearby, setShowAllNearby] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>(null);
 
   // Preload first 2 event images to improve perceived first-paint speed
   useEffect(() => {
@@ -124,6 +127,11 @@ export default function Home() {
       setActiveEventId(eventId);
       setShowEventDetailModal(true);
     }
+  };
+
+  const applyFilters = (filters: any) => {
+    setActiveFilters(filters);
+    setShowFiltersModal(false);
   };
 
   const handleShareEvent = (event: any) => {
@@ -314,6 +322,9 @@ export default function Home() {
       eventName: data.eventName || data.name || "Untitled Trybe",
   hostName: data.createdByName || data.hostName || data.createdBy || "Unknown",
       location: data.location || "",
+      // Preserve coordinates when provided by the trybe document so Nearby filtering works
+      locationCoords: data.locationCoords || data.coords || (data.locationLat && data.locationLng ? { lat: Number(data.locationLat), lng: Number(data.locationLng) } : undefined),
+      coords: data.locationCoords || data.coords || (data.locationLat && data.locationLng ? { lat: Number(data.locationLat), lng: Number(data.locationLng) } : undefined),
       date: dateStr,
       time: data.time,
       duration: data.duration,
@@ -376,13 +387,69 @@ export default function Home() {
     .filter((t: any) => {
       // Category filter
       if (!categoryMatches(t.category)) return false;
-      // Search filter (simple name search)
+
+      // Search filter (simple name or location search)
       if (searchQuery && searchQuery.trim().length > 0) {
         const q = searchQuery.trim().toLowerCase();
         const name = (t.eventName || t.name || '').toString().toLowerCase();
         const loc = (t.location || '').toString().toLowerCase();
-        return name.includes(q) || loc.includes(q);
+        if (!(name.includes(q) || loc.includes(q))) return false;
       }
+
+      // Apply active discovery filters if present
+      if (activeFilters) {
+        try {
+          // Free-only detection: user selected 'Free Events' in activity types
+          const freeOnly = Array.isArray(activeFilters.selectedActivityTypes) && activeFilters.selectedActivityTypes.includes('Free Events');
+
+          // Price filtering: parse numeric value from event.fee (e.g., "$12") or treat "Free" as 0
+          const parseFee = (fee: any) => {
+            if (!fee) return null;
+            try {
+              if (typeof fee === 'number') return fee;
+              const s = String(fee).toLowerCase().trim();
+              if (s.includes('free')) return 0;
+              const num = parseFloat(s.replace(/[^0-9.]/g, ''));
+              return isNaN(num) ? null : num;
+            } catch (e) { return null; }
+          };
+
+          const eventFee = parseFee(t.fee);
+
+          if (freeOnly) {
+            // If event isn't explicitly free, exclude
+            if (!(typeof t.fee === 'string' && String(t.fee).toLowerCase().includes('free')) && eventFee !== 0) return false;
+          }
+
+          if (typeof activeFilters.maxPrice === 'number') {
+            if (eventFee !== null && eventFee !== undefined) {
+              if (eventFee > Number(activeFilters.maxPrice)) return false;
+            }
+          }
+
+          // Date range filtering: activeFilters.dateRange in ('any'|'today'|'week'|'month')
+          if (activeFilters.dateRange && activeFilters.dateRange !== 'any') {
+            const d = tryParseDate(t.time || t.date || t);
+            if (d) {
+              const now = new Date();
+              const diffMs = d.getTime() - now.getTime();
+              const diffDays = diffMs / (1000 * 60 * 60 * 24);
+              if (activeFilters.dateRange === 'today') {
+                if (d.toDateString() !== now.toDateString()) return false;
+              } else if (activeFilters.dateRange === 'week') {
+                if (diffDays < 0 || diffDays > 7) return false;
+              } else if (activeFilters.dateRange === 'month') {
+                if (diffDays < 0 || diffDays > 30) return false;
+              }
+            } else {
+              // If we can't parse the trybe date, be permissive and keep it
+            }
+          }
+        } catch (e) {
+          // If filters throwing, ignore and continue
+        }
+      }
+
       return true;
     });
 
@@ -404,6 +471,17 @@ export default function Home() {
       }
     } catch (err) {}
     return false;
+  };
+
+  // Helper to parse a date-like value into Date or null
+  const tryParseDate = (value: any): Date | null => {
+    if (!value) return null;
+    try {
+      if (typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) return d;
+    } catch (e) {}
+    return null;
   };
 
   // Remove expired trybes from Home's main listing
@@ -561,7 +639,7 @@ export default function Home() {
                   className="relative z-10 w-5 h-5 object-contain"
                 />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => setShowFiltersModal(true)}>
                 <Filter className="w-5 h-5" />
               </Button>
             </div>
@@ -1140,6 +1218,12 @@ export default function Home() {
       />
 
       {/* AI Bot Modal */}
+      <SwipeFiltersModal
+        isOpen={showFiltersModal}
+        onClose={() => setShowFiltersModal(false)}
+        onApply={applyFilters}
+      />
+
       <AIBotModal
         isOpen={showAIBotModal}
         onClose={() => setShowAIBotModal(false)}

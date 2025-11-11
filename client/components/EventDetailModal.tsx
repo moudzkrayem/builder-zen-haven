@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
@@ -125,6 +125,22 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
     }
   };
 
+  // Body scroll lock while event detail modal is open (ref-counted to support nested modals)
+  useEffect(() => {
+    const w = window as any;
+    w.__modalOpenCount = w.__modalOpenCount || 0;
+    if (isOpen) {
+      w.__modalOpenCount += 1;
+      if (w.__modalOpenCount === 1) document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      if (isOpen) {
+        w.__modalOpenCount = Math.max(0, (w.__modalOpenCount || 1) - 1);
+        if (w.__modalOpenCount === 0) document.body.style.overflow = '';
+      }
+    };
+  }, [isOpen]);
+
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
       <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col">
@@ -146,8 +162,8 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+  {/* Content */}
+  <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' as any }}>
           {/* Event Images */}
           <div className="relative h-64">
             <img

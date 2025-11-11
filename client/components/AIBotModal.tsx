@@ -134,6 +134,23 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     scrollToBottom();
   }, [messages]);
 
+  // Body scroll lock while AI modal is open. Use a global counter so other modals
+  // won't accidentally re-enable body scrolling while this is open.
+  useEffect(() => {
+    const w = window as any;
+    w.__modalOpenCount = w.__modalOpenCount || 0;
+    if (isOpen) {
+      w.__modalOpenCount += 1;
+      if (w.__modalOpenCount === 1) document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      if (isOpen) {
+        w.__modalOpenCount = Math.max(0, (w.__modalOpenCount || 1) - 1);
+        if (w.__modalOpenCount === 0) document.body.style.overflow = '';
+      }
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       // Initial greeting
@@ -932,8 +949,8 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           </Button>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+  {/* Messages */}
+  <div className="flex-1 overflow-y-auto p-4 space-y-4 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' as any }}>
           {messages.map((message) => (
             <div key={message.id} className={cn(
               "flex",

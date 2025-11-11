@@ -94,6 +94,22 @@ export default function UserProfileModal({
     };
   }, []);
 
+  // Body scroll lock while profile modal is open (ref-counted)
+  useEffect(() => {
+    const w = window as any;
+    w.__modalOpenCount = w.__modalOpenCount || 0;
+    if (isOpen) {
+      w.__modalOpenCount += 1;
+      if (w.__modalOpenCount === 1) document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      if (isOpen) {
+        w.__modalOpenCount = Math.max(0, (w.__modalOpenCount || 1) - 1);
+        if (w.__modalOpenCount === 0) document.body.style.overflow = '';
+      }
+    };
+  }, [isOpen]);
+
   return (
     // Anchor to bottom on small screens, but center on large (desktop/laptop).
     // Also allow the overlay to scroll on small devices and leave extra bottom padding on large screens
