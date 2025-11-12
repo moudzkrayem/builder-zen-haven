@@ -59,6 +59,7 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     });
   }, [event]);
 
+  // Early return AFTER all hooks
   if (!isOpen || !event) return null;
 
   const handleSubmit = (e: React.FormEvent) => {

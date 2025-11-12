@@ -46,10 +46,28 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
 
+  // Body scroll lock while event detail modal is open (ref-counted to support nested modals)
+  useEffect(() => {
+    const w = window as any;
+    w.__modalOpenCount = w.__modalOpenCount || 0;
+    if (isOpen) {
+      w.__modalOpenCount += 1;
+      if (w.__modalOpenCount === 1) document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      if (isOpen) {
+        w.__modalOpenCount = Math.max(0, (w.__modalOpenCount || 1) - 1);
+        if (w.__modalOpenCount === 0) document.body.style.overflow = '';
+      }
+    };
+  }, [isOpen]);
+
+  // Early returns AFTER all hooks
   if (!isOpen || eventId == null) return null;
 
   const event = events.find(e => String(e.id) === String(eventId));
   if (!event) return null;
+  
   const isJoined = joinedEvents.map(String).includes(String(event.id));
   const eventImages = event.eventImages || [event.image];
 
@@ -124,22 +142,6 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
       alert('Event link copied to clipboard!');
     }
   };
-
-  // Body scroll lock while event detail modal is open (ref-counted to support nested modals)
-  useEffect(() => {
-    const w = window as any;
-    w.__modalOpenCount = w.__modalOpenCount || 0;
-    if (isOpen) {
-      w.__modalOpenCount += 1;
-      if (w.__modalOpenCount === 1) document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      if (isOpen) {
-        w.__modalOpenCount = Math.max(0, (w.__modalOpenCount || 1) - 1);
-        if (w.__modalOpenCount === 0) document.body.style.overflow = '';
-      }
-    };
-  }, [isOpen]);
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">

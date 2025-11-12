@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -377,81 +377,83 @@ export default function Home() {
 
   // Derive displayed trybes by merging Firestore results with provider events (featuredTrybes)
   // This ensures newly-created trybes added via the provider (addEvent) appear immediately
-  const mergedTrybes = [
-    ...(mappedFirestoreTrybes || []),
-    // add provider events that aren't present in Firestore results yet
-    ...(featuredTrybes || []).filter((f: any) => !(mappedFirestoreTrybes || []).some((m: any) => String(m.id) === String(f.id)))
-  ];
+  const displayedTrybes = useMemo(() => {
+    const mergedTrybes = [
+      ...(mappedFirestoreTrybes || []),
+      // add provider events that aren't present in Firestore results yet
+      ...(featuredTrybes || []).filter((f: any) => !(mappedFirestoreTrybes || []).some((m: any) => String(m.id) === String(f.id)))
+    ];
 
-  const displayedTrybes = (mergedTrybes || [])
-    .filter((t: any) => {
-      // Category filter
-      if (!categoryMatches(t.category)) return false;
+    return (mergedTrybes || [])
+      .filter((t: any) => {
+        // Category filter
+        if (!categoryMatches(t.category)) return false;
 
-      // Search filter (simple name or location search)
-      if (searchQuery && searchQuery.trim().length > 0) {
-        const q = searchQuery.trim().toLowerCase();
-        const name = (t.eventName || t.name || '').toString().toLowerCase();
-        const loc = (t.location || '').toString().toLowerCase();
-        if (!(name.includes(q) || loc.includes(q))) return false;
-      }
-
-      // Apply active discovery filters if present
-      if (activeFilters) {
-        try {
-          // Free-only detection: user selected 'Free Events' in activity types
-          const freeOnly = Array.isArray(activeFilters.selectedActivityTypes) && activeFilters.selectedActivityTypes.includes('Free Events');
-
-          // Price filtering: parse numeric value from event.fee (e.g., "$12") or treat "Free" as 0
-          const parseFee = (fee: any) => {
-            if (!fee) return null;
-            try {
-              if (typeof fee === 'number') return fee;
-              const s = String(fee).toLowerCase().trim();
-              if (s.includes('free')) return 0;
-              const num = parseFloat(s.replace(/[^0-9.]/g, ''));
-              return isNaN(num) ? null : num;
-            } catch (e) { return null; }
-          };
-
-          const eventFee = parseFee(t.fee);
-
-          if (freeOnly) {
-            // If event isn't explicitly free, exclude
-            if (!(typeof t.fee === 'string' && String(t.fee).toLowerCase().includes('free')) && eventFee !== 0) return false;
-          }
-
-          if (typeof activeFilters.maxPrice === 'number') {
-            if (eventFee !== null && eventFee !== undefined) {
-              if (eventFee > Number(activeFilters.maxPrice)) return false;
-            }
-          }
-
-          // Date range filtering: activeFilters.dateRange in ('any'|'today'|'week'|'month')
-          if (activeFilters.dateRange && activeFilters.dateRange !== 'any') {
-            const d = tryParseDate(t.time || t.date || t);
-            if (d) {
-              const now = new Date();
-              const diffMs = d.getTime() - now.getTime();
-              const diffDays = diffMs / (1000 * 60 * 60 * 24);
-              if (activeFilters.dateRange === 'today') {
-                if (d.toDateString() !== now.toDateString()) return false;
-              } else if (activeFilters.dateRange === 'week') {
-                if (diffDays < 0 || diffDays > 7) return false;
-              } else if (activeFilters.dateRange === 'month') {
-                if (diffDays < 0 || diffDays > 30) return false;
-              }
-            } else {
-              // If we can't parse the trybe date, be permissive and keep it
-            }
-          }
-        } catch (e) {
-          // If filters throwing, ignore and continue
+        // Search filter (simple name or location search)
+        if (searchQuery && searchQuery.trim().length > 0) {
+          const q = searchQuery.trim().toLowerCase();
+          const name = (t.eventName || t.name || '').toString().toLowerCase();
+          const loc = (t.location || '').toString().toLowerCase();
+          if (!(name.includes(q) || loc.includes(q))) return false;
         }
-      }
 
-      return true;
-    });
+        // Apply active discovery filters if present
+        if (activeFilters) {
+          try {
+            // Free-only detection: user selected 'Free Events' in activity types
+            const freeOnly = Array.isArray(activeFilters.selectedActivityTypes) && activeFilters.selectedActivityTypes.includes('Free Events');
+
+            // Price filtering: parse numeric value from event.fee (e.g., "$12") or treat "Free" as 0
+            const parseFee = (fee: any) => {
+              if (!fee) return null;
+              try {
+                if (typeof fee === 'number') return fee;
+                const s = String(fee).toLowerCase().trim();
+                if (s.includes('free')) return 0;
+                const num = parseFloat(s.replace(/[^0-9.]/g, ''));
+                return isNaN(num) ? null : num;
+              } catch (e) { return null; }
+            };
+
+            const eventFee = parseFee(t.fee);
+
+            if (freeOnly) {
+              // If event isn't explicitly free, exclude
+              if (!(typeof t.fee === 'string' && String(t.fee).toLowerCase().includes('free')) && eventFee !== 0) return false;
+            }
+
+            if (typeof activeFilters.maxPrice === 'number') {
+              if (eventFee !== null && eventFee !== undefined) {
+                if (eventFee > Number(activeFilters.maxPrice)) return false;
+              }
+            }
+
+            // Date range filtering: activeFilters.dateRange in ('any'|'today'|'week'|'month')
+            if (activeFilters.dateRange && activeFilters.dateRange !== 'any') {
+              const d = tryParseDate(t.time || t.date || t);
+              if (d) {
+                const now = new Date();
+                const diffMs = d.getTime() - now.getTime();
+                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                if (activeFilters.dateRange === 'today') {
+                  if (d.toDateString() !== now.toDateString()) return false;
+                } else if (activeFilters.dateRange === 'week') {
+                  if (diffDays < 0 || diffDays > 7) return false;
+                } else if (activeFilters.dateRange === 'month') {
+                  if (diffDays < 0 || diffDays > 30) return false;
+                }
+              } else {
+                // If we can't parse the trybe date, be permissive and keep it
+              }
+            }
+          } catch (e) {
+            // If filters throwing, ignore and continue
+          }
+        }
+
+        return true;
+      });
+  }, [mappedFirestoreTrybes, featuredTrybes, selectedCategory, searchQuery, activeFilters]);
 
   // Helper to detect expired trybes (events whose time/date is in the past)
   const isExpired = (event: any) => {
