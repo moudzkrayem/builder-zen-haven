@@ -162,6 +162,13 @@ export default function CreateTrybeModal({
       return;
     }
 
+    // Validate that at least one photo is uploaded
+    if (!formData.photos || formData.photos.length === 0) {
+      setIsSubmitting(false);
+      alert("Please upload at least one photo for your Trybe.");
+      return;
+    }
+
     // Fast-path: generate small low-quality inline thumbnails for immediate UI render
     // and upload originals in the background after the trybe doc is created.
     const storage = getStorage(app);
@@ -856,7 +863,7 @@ export default function CreateTrybeModal({
             <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-6 text-center">
               <Camera className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-muted-foreground text-sm mb-3">
-                Add photos to showcase your event
+                Add photos to showcase your event <span className="text-destructive">*</span>
               </p>
               <input
                 type="file"

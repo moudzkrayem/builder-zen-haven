@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEvents } from "@/contexts/EventsContext";
+import MapPicker from './MapPicker';
+import { createTrybeWithMessage } from '@/lib/createTrybeWithMessage';
 import {
   X,
   Send,
@@ -42,7 +44,7 @@ interface AIMessage {
   recommendations?: Array<string | number>;
   type: 'text' | 'recommendations' | 'notification';
   actions?: { label: string; value: string; style?: 'primary' | 'secondary' }[];
-  control?: 'datetime' | 'age' | 'upload';
+  control?: 'datetime' | 'age' | 'upload' | 'map';
 }
 
 const AI_PERSONALITY = {
@@ -81,6 +83,9 @@ const INTEREST_ICONS: { [key: string]: any } = {
 type TrybeDraft = {
   eventName: string;
   location: string;
+  locationCoords?: { lat: number; lng: number };
+  placeId?: string;
+  formattedAddress?: string;
   time: string;
   duration: string;
   description: string;
@@ -88,7 +93,6 @@ type TrybeDraft = {
   fee: string;
   photos: string[];
   ageRange: [number, number];
-  isPremium: boolean;
 };
 
 type CreateStep =
@@ -102,7 +106,6 @@ type CreateStep =
   | 'description'
   | 'ageRange'
   | 'photos'
-  | 'isPremium'
   | 'confirm';
 
 export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModalProps) {
@@ -116,6 +119,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
   const [ageInputs, setAgeInputs] = useState<Record<string, { min: number; max: number }>>({});
   const [isPersisting, setIsPersisting] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   // Get user profile for personalization
   const userProfile = React.useMemo(() => {
@@ -128,6 +132,25 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleLocationSelect = (payload: { lat: number; lng: number; formattedAddress?: string; placeId?: string }) => {
+    const locationText = payload.formattedAddress || `${payload.lat.toFixed(4)}, ${payload.lng.toFixed(4)}`;
+    setDraft(d => d ? { 
+      ...d, 
+      location: locationText,
+      locationCoords: { lat: payload.lat, lng: payload.lng },
+      placeId: payload.placeId,
+      formattedAddress: payload.formattedAddress
+    } : d);
+    setShowMapPicker(false);
+    setMessages(prev => [...prev, {
+      id: `ai-${Date.now()}`,
+      content: `Great! Location set to: ${locationText}. Now click "Continue" when ready.`,
+      isBot: true,
+      timestamp: new Date(),
+      type: 'text'
+    }]);
   };
 
   useEffect(() => {
@@ -239,7 +262,6 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       fee: "Free",
       photos: [],
       ageRange: [18, 65],
-      isPremium: false,
     });
     setCreateStep('eventName');
     const msg: AIMessage = {
@@ -343,10 +365,13 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         return;
       }
       if (createStep === 'photos') {
-        setCreateStep('isPremium');
-        sendActionMessage("Make it Premium?", [
-          { label: 'Yes', value: 'yes', style: 'primary' },
-          { label: 'No', value: 'no', style: 'secondary' },
+        // Skip premium, go directly to confirm
+        setCreateStep('confirm');
+        const updated = draft;
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
+        sendActionMessage(summary + "\n\nReady to go?", [
+          { label: 'Confirm', value: 'confirm', style: 'primary' },
+          { label: 'Cancel', value: 'cancel', style: 'secondary' },
         ]);
         return;
       }
@@ -361,16 +386,25 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         }
         setDraft({ ...draft, eventName: val });
         setCreateStep('location');
-        ask("Great! Where will it take place? (City or venue)");
+        const mapId = `ai-${Date.now()}`;
+        const mapMsg: AIMessage = { 
+          id: mapId, 
+          content: "Great! Where will it take place? Use the map to search for a location or use your current location.", 
+          isBot: true, 
+          timestamp: new Date(), 
+          type: 'text', 
+          control: 'map' 
+        };
+        setMessages(prev => [...prev, mapMsg]);
         break;
       }
       case 'location': {
-        const val = raw.trim();
-        if (!val) {
-          ask("What's the location?");
+        // Location is set via MapPicker callback, not text input
+        // User input here means they clicked Continue after selecting location
+        if (!draft.location) {
+          ask("Please select a location on the map first.");
           break;
         }
-        setDraft({ ...draft, location: val });
         setCreateStep('time');
         sendDateTimePrompt("When is it happening? Pick a date & time:");
         break;
@@ -448,27 +482,22 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
         // Any input here continues; if skipped, defaults are kept
         setCreateStep('photos');
         const upId = `ai-${Date.now()}`;
-        const photoMsg: AIMessage = { id: upId, content: "Add event photos (optional).", isBot: true, timestamp: new Date(), type: 'text', control: 'upload' };
+        const photoMsg: AIMessage = { id: upId, content: "Add event photos (at least one is required).", isBot: true, timestamp: new Date(), type: 'text', control: 'upload' };
         setMessages(prev => [...prev, photoMsg]);
         break;
       }
   // repeatOption removed — recurrence is no longer supported
       case 'photos': {
-        // After adding photos via UI, user clicks Continue or Skip
-        setCreateStep('isPremium');
-        sendActionMessage("Make it Premium?", [
-          { label: 'Yes', value: 'yes', style: 'primary' },
-          { label: 'No', value: 'no', style: 'secondary' },
-        ]);
-        break;
-      }
-      case 'isPremium': {
-        const t = raw.trim().toLowerCase();
-        const premium = /^(y|yes|premium|true)$/i.test(t) ? true : /^(n|no|false)$/i.test(t) ? false : false;
-  const updated = { ...draft, isPremium: premium };
-        setDraft(updated);
+        // After adding photos via UI, user clicks Continue
+        // Validate that at least one photo is uploaded
+        if (!draft.photos || draft.photos.length === 0) {
+          ask("Please upload at least one photo for your Trybe.");
+          break;
+        }
+        // Go directly to confirm
         setCreateStep('confirm');
-  const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}\n• Premium: ${updated.isPremium ? 'Yes' : 'No'}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
+        const updated = draft;
+        const summary = `Here's your Trybe:\n• Name: ${updated.eventName}\n• Location: ${updated.location}\n• When: ${new Date(updated.time).toLocaleString()}\n• Duration: ${updated.duration} hr(s)\n• Capacity: ${updated.maxCapacity}\n• Fee: ${updated.fee}${updated.description ? `\n• About: ${updated.description}` : ''}${updated.ageRange ? `\n• Age: ${updated.ageRange[0]}-${updated.ageRange[1]}` : ''}${updated.photos?.length ? `\n• Photos: ${updated.photos.length}` : ''}`;
         sendActionMessage(summary + "\n\nReady to go?", [
           { label: 'Confirm', value: 'confirm', style: 'primary' },
           { label: 'Cancel', value: 'cancel', style: 'secondary' },
@@ -598,149 +627,34 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
               } catch (e) { return false; }
             });
 
-            // Sanitize similar to CreateTrybeModal
-            const sanitizeForFirestore = (obj: any): any => {
-              if (obj === null) return null;
-              if (['string','number','boolean'].includes(typeof obj)) return obj;
-              if (Array.isArray(obj)) return obj.map(sanitizeForFirestore).filter(v => typeof v !== 'undefined');
-              if (typeof obj === 'object') {
-                try { if (obj && typeof obj.toMillis === 'function') return obj; } catch(e){}
-                const out: any = {};
-                for (const k of Object.keys(obj)) {
-                  const v = obj[k];
-                  if (typeof v === 'function') continue;
-                  // Skip File/Blob-like objects (avoid sending binary data to Firestore)
-                  if (typeof v === 'object' && v !== null && ((v as any).size !== undefined || (v as any).type !== undefined)) continue;
-                  const sv = sanitizeForFirestore(v);
-                  if (typeof sv !== 'undefined') out[k] = sv;
-                }
-                return out;
-              }
-              return undefined;
-            };
-
-            const sanitized = sanitizeForFirestore(trybeDataToSave);
-
-            // Log approximate payload size to help diagnose 400 Bad Request
+            // Use the same createTrybeWithMessage function as CreateTrybeModal for consistency
             try {
-              const payloadStr = JSON.stringify(sanitized);
-              console.debug('AIBotModal: sanitized payload byte length ~', payloadStr.length);
-              if (payloadStr.length > 900000) {
-                console.warn('AIBotModal: sanitized payload is large (>900KB) and may trigger Firestore 400 Bad Request');
-              }
-            } catch (e) {
-              console.debug('AIBotModal: could not stringify sanitized payload for size check', e);
-            }
+              console.debug('AIBotModal: creating trybe with standardized createTrybeWithMessage', trybeDataToSave);
+              
+              const welcomeMessage = `Welcome to ${trybeDataToSave.eventName || (trybeDataToSave as any).name || 'this trybe'}!`;
+              const newId = await createTrybeWithMessage({
+                trybeId: null,
+                trybeData: trybeDataToSave,
+                initialMessageText: welcomeMessage
+              });
 
-            // Persist to Firestore using two-step write to avoid sending large fields (photos) in the first request
-            try {
-              console.debug('AIBotModal: writing trybe to Firestore (sanitized, photos omitted):', sanitized);
-              const { addDoc, collection, serverTimestamp, updateDoc, doc: firestoreDoc, getDoc, setDoc } = await import('firebase/firestore');
-              const { db } = await import('../firebase');
-              // Prepare initial payload without photos to minimize size
-              const initialPayload: any = { ...sanitized };
-              const photosForLater = Array.isArray(initialPayload.photos) ? initialPayload.photos : [];
-              delete initialPayload.photos;
-
-              // Compute deterministic id for idempotency based on payload (so repeated confirms don't create duplicates)
-              const stableHash = async (obj: any) => {
-                try {
-                  const s = JSON.stringify(obj || {});
-                  const enc = new TextEncoder();
-                  const data = enc.encode(s);
-                  const hashBuf = await (crypto.subtle ? crypto.subtle.digest('SHA-256', data) : Promise.reject('no-subtle-crypto'));
-                  const hashArray = Array.from(new Uint8Array(hashBuf as ArrayBuffer));
-                  const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                  return hex.slice(0, 20); // shortened
-                } catch (e) {
-                  // fallback to timestamp-based id (less ideal for idempotency)
-                  return String(Date.now());
-                }
-              };
-
-              const idKey = `ai-${await stableHash(initialPayload)}`;
-              const docRefPath = firestoreDoc(db, 'trybes', idKey);
-              // If doc already exists with this deterministic id, treat it as the same trybe
-              let docExisted = false;
-              try {
-                const { getDoc } = await import('firebase/firestore');
-                const existing = await getDoc(docRefPath as any);
-                if (existing && existing.exists()) {
-                  docExisted = true;
-                  console.debug('AIBotModal: trybe already exists, id=', idKey);
-                }
-              } catch (e) {
-                console.debug('AIBotModal: getDoc check failed', e);
-              }
-
-              if (!docExisted) {
-                // Create the doc with deterministic id
-                await setDoc(docRefPath as any, { ...initialPayload, createdAt: serverTimestamp() } as any);
-                console.debug('AIBotModal: trybe initial doc written, id=', idKey);
-                try { await updateDoc(firestoreDoc(db, 'trybes', idKey), { id: idKey }); } catch (e) { console.debug('AIBotModal: failed to set id field', e); }
-              } else {
-                console.debug('AIBotModal: skipping create because doc already exists:', idKey);
-              }
-              const docRef = { id: idKey } as any;
-
-              // Attach photos even if doc already existed
-              if (photosForLater && photosForLater.length) {
-                try {
-                  console.debug('AIBotModal: attaching photos to trybe (existing or new)', docRef.id, photosForLater.length);
-                  await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { photos: photosForLater } as any);
-                } catch (photoAttachErr) {
-                  console.debug('AIBotModal: failed to attach photos to trybe doc', photoAttachErr);
-                }
-              }
-
-              // Now upload/attach photos (if any) by updating the doc; this keeps the first write small
-              if (photosForLater && photosForLater.length) {
-                try {
-                  console.debug('AIBotModal: attaching photos to trybe', docRef.id, photosForLater.length);
-                  await updateDoc(firestoreDoc(db, 'trybes', docRef.id), { photos: photosForLater } as any);
-                } catch (photoAttachErr) {
-                  console.debug('AIBotModal: failed to attach photos to trybe doc', photoAttachErr);
-                }
-              }
-
-              // No separate chat document is created in the parent-anchored model.
-              // Optionally create an initial system message under trybes/{id}/messages.
-              try {
-                const { addDoc, collection } = await import('firebase/firestore');
-                await addDoc(collection(db, 'trybes', docRef.id, 'messages'), {
-                  senderId: 'system',
-                  senderName: 'System',
-                  text: `Welcome to ${trybeDataToSave.eventName || (trybeDataToSave as any).name || 'this trybe'}!`,
-                  system: true,
-                  createdAt: serverTimestamp(),
-                } as any);
-              } catch (err) {
-                console.debug('AIBotModal: failed to write initial system message', err);
-              }
-
-              // Update user's joinedEvents
-              try {
-                if (uid) {
-                  const { updateDoc, arrayUnion, doc: firestoreDoc } = await import('firebase/firestore');
-                  const { db } = await import('../firebase');
-                  await updateDoc(firestoreDoc(db, 'users', uid), { joinedEvents: arrayUnion(docRef.id) } as any);
-                }
-              } catch (err) {
-                // Best-effort; ignore
-              }
+              console.debug('AIBotModal: trybe created successfully with ID:', newId);
 
               // Add to provider so UI updates immediately
-              try { addEvent({ ...trybeDataToSave, id: docRef.id }); } catch (e) {}
+              try { addEvent({ ...trybeDataToSave, id: newId }); } catch (e) {
+                console.debug('AIBotModal: failed to add to provider', e);
+              }
 
               setCreateStep('idle');
               setDraft(null);
-              console.debug('AIBotModal: finished persist flow for trybe', docRef.id);
+              setIsPersisting(false);
+              
               const createdMsg: AIMessage = {
                 id: `ai-${Date.now()}`,
                 content: "Your Trybe is live! 🎉 Tap to view details.",
                 isBot: true,
                 timestamp: new Date(),
-                recommendations: [docRef.id],
+                recommendations: [newId],
                 type: 'recommendations'
               };
               setMessages(prev => [...prev, createdMsg]);
@@ -811,13 +725,56 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
 
     // Weekend recommendations
     if (input.includes('weekend') || input.includes('saturday') || input.includes('sunday')) {
-      const weekendEvents = events.filter(event => 
-        event.date.includes('Sat') || event.date.includes('Sun')
-      ).slice(0, 3);
+      // Get the next Saturday and Sunday
+      const today = new Date();
+      const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
       
+      // Calculate days until next Saturday and Sunday
+      const daysUntilSaturday = currentDay === 6 ? 0 : (6 - currentDay + 7) % 7;
+      const daysUntilSunday = currentDay === 0 ? 0 : (7 - currentDay) % 7;
+      
+      const nextSaturday = new Date(today);
+      nextSaturday.setDate(today.getDate() + daysUntilSaturday);
+      nextSaturday.setHours(0, 0, 0, 0);
+      
+      const nextSunday = new Date(today);
+      nextSunday.setDate(today.getDate() + daysUntilSunday);
+      nextSunday.setHours(23, 59, 59, 999);
+
+      const weekendEvents = events
+        .filter(event => !joinedEvents.includes(event.id))
+        .filter(event => {
+          // Try to parse event date/time
+          const eventDate = event.time || event.date;
+          if (!eventDate) return false;
+          
+          try {
+            const date = new Date(eventDate);
+            if (isNaN(date.getTime())) {
+              // Fallback to string matching for non-parseable dates
+              return event.date?.includes('Sat') || event.date?.includes('Sun');
+            }
+            return date >= nextSaturday && date <= nextSunday;
+          } catch (e) {
+            // Fallback to string matching
+            return event.date?.includes('Sat') || event.date?.includes('Sun');
+          }
+        })
+        .slice(0, 5);
+      
+      if (weekendEvents.length === 0) {
+        return {
+          id: `ai-${Date.now()}`,
+          content: "I couldn't find any events scheduled for this weekend yet. Check back later or create your own weekend Trybe! 🎉",
+          isBot: true,
+          timestamp: new Date(),
+          type: 'text'
+        };
+      }
+
       return {
         id: `ai-${Date.now()}`,
-        content: "Perfect! Here are some amazing weekend activities I think you'll love! 🌟",
+        content: `Perfect! I found ${weekendEvents.length} amazing weekend activit${weekendEvents.length !== 1 ? 'ies' : 'y'} for you! 🌟`,
         isBot: true,
         timestamp: new Date(),
         recommendations: weekendEvents.map(e => e.id),
@@ -863,21 +820,60 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
 
     // Interest-based recommendations
     if (input.includes('interest') || input.includes('recommend') || input.includes('suggest')) {
+      // Check if user has interests in profile
+      if (userInterests.length === 0) {
+        return {
+          id: `ai-${Date.now()}`,
+          content: "I'd love to recommend events based on your interests! But it looks like you haven't set up your interests in your profile yet. Go to Settings → Edit Profile to add your interests, and I'll find perfect matches for you! 💫",
+          isBot: true,
+          timestamp: new Date(),
+          type: 'text'
+        };
+      }
+
+      // Filter events that match user interests
       const recommendations = events
+        .filter(event => !joinedEvents.includes(event.id)) // Exclude already joined events
         .filter(event => {
           const eventInterests = (event.interests || []).map(i => i.toLowerCase());
-          const eventCategory = event.category.toLowerCase();
+          const eventCategory = (event.category || '').toLowerCase();
           
           return userInterests.some(userInterest => 
             eventInterests.some(ei => ei.includes(userInterest) || userInterest.includes(ei)) ||
             eventCategory.includes(userInterest) || userInterest.includes(eventCategory)
           );
         })
-        .slice(0, 3);
+        .slice(0, 5);
+
+      // If no matching events found, show general popular events instead
+      if (recommendations.length === 0) {
+        const fallbackEvents = events
+          .filter(event => !joinedEvents.includes(event.id))
+          .slice(0, 5);
+
+        if (fallbackEvents.length === 0) {
+          return {
+            id: `ai-${Date.now()}`,
+            content: "I couldn't find any events matching your interests right now. Check back later for new events, or try creating your own Trybe! 🎯",
+            isBot: true,
+            timestamp: new Date(),
+            type: 'text'
+          };
+        }
+
+        return {
+          id: `ai-${Date.now()}`,
+          content: `I couldn't find events exactly matching your interests (${userInterests.slice(0, 2).join(', ')}), but here are some popular events you might enjoy! 🌟`,
+          isBot: true,
+          timestamp: new Date(),
+          recommendations: fallbackEvents.map(e => e.id),
+          type: 'recommendations'
+        };
+      }
 
       return {
         id: `ai-${Date.now()}`,
-        content: `I've analyzed your profile and found events perfect for someone with your interests! These align with your passion for ${userInterests.slice(0, 2).join(' and ')}! ✨`,
+        content: `Perfect! I've found ${recommendations.length} event${recommendations.length !== 1 ? 's' : ''} matching your interests in ${userInterests.slice(0, 3).join(', ')}! ✨`,
         isBot: true,
         timestamp: new Date(),
         recommendations: recommendations.map(e => e.id),
@@ -1021,6 +1017,32 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                   </div>
                 )}
 
+                {message.control === 'map' && (
+                  <div className="mt-3 space-y-2">
+                    <Button 
+                      size="sm" 
+                      className="rounded-full w-full" 
+                      onClick={() => setShowMapPicker(true)}
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      {draft?.location ? 'Change Location' : 'Choose Location'}
+                    </Button>
+                    {draft?.location && (
+                      <div className="text-sm text-muted-foreground p-2 bg-muted rounded-lg">
+                        📍 {draft.location}
+                      </div>
+                    )}
+                    {draft?.location && (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" className="rounded-full" onClick={() => {
+                          setIsTyping(true);
+                          handleCreateFlowInput('continue');
+                        }}>Continue</Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {message.control === 'datetime' && (
                   <div className="mt-3 flex items-center space-x-2">
                     <Input
@@ -1106,9 +1128,14 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                       }}
                     />
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => document.getElementById(`upload-${message.id}`)?.click()}>Upload Photos</Button>
-                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => { setIsTyping(true); handleCreateFlowInput('skip'); }}>Skip</Button>
-                      <Button size="sm" className="rounded-full" onClick={() => { setIsTyping(true); handleCreateFlowInput('continue'); }}>Continue</Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => document.getElementById(`upload-${message.id}`)?.click()}>
+                        Upload Photos <span className="text-destructive ml-1">*</span>
+                      </Button>
+                      {draft?.photos && draft.photos.length > 0 && (
+                        <Button size="sm" className="rounded-full" onClick={() => { setIsTyping(true); handleCreateFlowInput('continue'); }}>
+                          Continue ({draft.photos.length} photo{draft.photos.length !== 1 ? 's' : ''})
+                        </Button>
+                      )}
                     </div>
                     {draft?.photos && draft.photos.length > 0 && (
                       <div className="grid grid-cols-3 gap-2 mt-2">
@@ -1213,6 +1240,32 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           </div>
         </div>
       </div>
+
+      {/* MapPicker Modal */}
+      {showMapPicker && (
+        <div
+          className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm"
+          onClick={() => setShowMapPicker(false)}
+        >
+          <div
+            className="fixed inset-4 z-[61] bg-background border border-border rounded-lg shadow-lg flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-semibold text-lg">Choose Location</h3>
+              <Button size="sm" variant="outline" onClick={() => setShowMapPicker(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MapPicker 
+                onSelect={handleLocationSelect}
+                initial={draft?.locationCoords}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

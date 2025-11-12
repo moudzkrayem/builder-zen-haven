@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ const defaultTrendingSearches = [
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
   const { events, addEvent, joinEvent, joinedEvents, chats, toggleFavorite, isFavorite, addConnection, isConnected, createChatForEvent } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [firestoreTrybes, setFirestoreTrybes] = useState<any[]>([]);
@@ -882,18 +884,42 @@ export default function Home() {
                 onClick={() => setShowSimilar(!showSimilar)}
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
-                Show Me More Similar Events
+                Show Me Events Based on My Interests
               </Button>
             </div>
 
-            {/* Similar events section */}
+            {/* Interest-based events section */}
             {showSimilar && (
               <div className="mt-4 space-y-3 animate-bounce-in">
                 <h3 className="text-md font-semibold text-muted-foreground">
                   Based on your interests
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {displayedTrybes.slice(0, 4).map((trybe) => (
+                {(!userProfile || (
+                  !(userProfile.thingsYouDoGreat?.length > 0) && 
+                  !(userProfile.thingsYouWantToTry?.length > 0)
+                )) ? (
+                  <div className="bg-card/50 p-6 rounded-lg border border-border text-center">
+                    <div className="font-medium mb-2">Set up your interests</div>
+                    <div className="text-sm text-muted-foreground mb-4">
+                      Add your interests in your profile to get personalized event recommendations
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/settings')}
+                    >
+                      Go to Settings
+                    </Button>
+                  </div>
+                ) : personalizedMatches.length === 0 ? (
+                  <div className="bg-card/50 p-6 rounded-lg border border-border text-center">
+                    <div className="font-medium mb-2">No matching events yet</div>
+                    <div className="text-sm text-muted-foreground">
+                      We couldn't find events matching your interests right now. Check back soon!
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {personalizedMatches.slice(0, 4).map((trybe) => (
                     <button
                       key={`similar-${trybe.id}`}
                       onClick={() => handleEventClick(trybe.id)}
@@ -1003,6 +1029,7 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -1031,7 +1058,16 @@ export default function Home() {
               </div>
             </div>
 
-            {userLocation && !showAllNearby && nearbyTrybes.length === 0 ? (
+            {!userLocation ? (
+              <div className="bg-card/50 p-8 rounded-lg border border-border text-center">
+                <MapPin className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <div className="font-medium mb-2">Discover Trybes Near You</div>
+                <div className="text-sm text-muted-foreground mb-4">Enable location access to see events and activities happening around you</div>
+                <Button onClick={locateMe}>
+                  Use my location
+                </Button>
+              </div>
+            ) : userLocation && !showAllNearby && nearbyTrybes.length === 0 ? (
               <div className="bg-card/50 p-4 rounded-lg border border-border text-center">
                 <div className="font-medium mb-2">No nearby Trybes found</div>
                 <div className="text-sm text-muted-foreground mb-3">There are no Trybes within {nearbyRadiusKm} km of your location.</div>
