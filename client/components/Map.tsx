@@ -187,6 +187,11 @@ export default function Map({ onClose }: MapProps) {
         },
       ];
 
+      // Create styled map type for dark theme
+      const styledMapType = new window.google.maps.StyledMapType(darkMapStyles, {
+        name: 'Dark Theme'
+      });
+
       googleMapRef.current = new window.google.maps.Map(mapRef.current, {
         center: defaultCenter,
         zoom: 12,
@@ -201,8 +206,12 @@ export default function Map({ onClose }: MapProps) {
         gestureHandling: 'greedy',
         scrollwheel: true,
         keyboardShortcuts: true,
-        styles: darkMapStyles,
       });
+
+      // Apply dark theme as custom map type
+      googleMapRef.current.mapTypes.set('dark_theme', styledMapType);
+      googleMapRef.current.setMapTypeId('dark_theme');
+      
       console.log('Google Map initialized successfully with dark theme and mapId');
     } catch (error) {
       console.error('Error initializing Google Map:', error);
@@ -429,15 +438,24 @@ export default function Map({ onClose }: MapProps) {
   };
 
   const handleJoinEvent = async (event: any) => {
-    if (event.isPremium && !event.isJoined) {
+    // Check if already joined
+    if (isEventJoined(event.id)) {
+      console.log("Already joined event:", event.id);
+      return;
+    }
+    
+    // Check if premium and not joined
+    if (event.isPremium) {
       setPremiumEventName(event.eventName || event.name);
       setShowPremiumUpgradeModal(true);
       return;
     }
     
     try {
-      await joinEvent(event.id);
-      setSelectedEvent({ ...event, isJoined: true });
+      joinEvent(event.id);
+      console.log("Joined event from map:", event.id);
+      // Update selected event to show joined state immediately
+      setSelectedEvent((prev: any) => prev ? { ...prev, isJoined: true } : null);
     } catch (error) {
       console.error("Failed to join event:", error);
     }
@@ -478,21 +496,22 @@ export default function Map({ onClose }: MapProps) {
         </Button>
       </div>
 
-      <div className="flex-1 flex relative" style={{ overflow: 'hidden' }}>
+      <div className="flex-1 flex relative flex-col md:flex-row" style={{ overflow: 'hidden' }}>
         {/* Map */}
         <div 
           ref={mapRef} 
-          className="flex-1 bg-muted relative"
+          className="flex-1 bg-muted relative order-2 md:order-1"
           style={{ 
             overflow: 'hidden',
             msOverflowStyle: 'none',
-            scrollbarWidth: 'none'
+            scrollbarWidth: 'none',
+            minHeight: '50vh'
           }}
         />
 
         {/* Sidebar */}
-        <div className="w-80 border-l bg-card overflow-y-auto">
-          <div className="p-4 space-y-4">
+        <div className="w-full md:w-80 border-t md:border-l md:border-t-0 bg-card overflow-y-auto order-1 md:order-2 max-h-[35vh] md:max-h-none">
+          <div className="p-4 space-y-4 pb-24 md:pb-4">
             {/* Location Button */}
             <Button 
               onClick={getCurrentLocation} 
@@ -593,7 +612,7 @@ export default function Map({ onClose }: MapProps) {
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div className="absolute bottom-4 left-4 right-80 bg-card border rounded-xl shadow-lg p-4 max-w-md">
+        <div className="absolute bottom-24 left-4 right-4 md:left-4 md:right-80 md:bottom-20 bg-card border rounded-xl shadow-lg p-4 max-w-md z-10 max-h-[60vh] overflow-y-auto">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <h3 className="font-bold text-lg">{selectedEvent.eventName || selectedEvent.name}</h3>
@@ -632,7 +651,7 @@ export default function Map({ onClose }: MapProps) {
           <Button 
             onClick={() => handleJoinEvent(selectedEvent)}
             disabled={isEventJoined(selectedEvent.id)}
-            className="w-full mt-4"
+            className="w-full mt-4 mb-2"
           >
             {isEventJoined(selectedEvent.id) ? (
               <>
@@ -658,7 +677,7 @@ export default function Map({ onClose }: MapProps) {
 
       {/* Location Error */}
       {locationError && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-destructive/10 border border-destructive/20 rounded-xl p-3">
+        <div className="absolute top-20 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-auto bg-destructive/10 border border-destructive/20 rounded-xl p-3 z-10">
           <div className="text-sm text-destructive font-medium">{locationError}</div>
           <Button variant="outline" size="sm" onClick={getCurrentLocation} className="mt-2 text-xs h-7">Try Again</Button>
         </div>
