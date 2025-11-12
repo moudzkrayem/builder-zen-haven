@@ -118,6 +118,19 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
   const [draft, setDraft] = useState<TrybeDraft | null>(null);
   const [dateInputs, setDateInputs] = useState<Record<string, string>>({});
   const [ageInputs, setAgeInputs] = useState<Record<string, { min: number; max: number }>>({});
+  
+  // Helper function to safely check if event matches creative category
+  const isCreativeEvent = (event: any) => {
+    const category = (event.category || '').toLowerCase();
+    const interests = (event.interests || []).filter((i: any) => i && typeof i === 'string');
+    
+    return category.includes('creative') ||
+           category.includes('art') ||
+           interests.some((i: string) => {
+             const interest = i.toLowerCase();
+             return interest.includes('art') || interest.includes('creative') || interest.includes('design');
+           });
+  };
   const [isPersisting, setIsPersisting] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
@@ -198,15 +211,15 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     const userInterests = [
       ...(userProfile.thingsYouDoGreat || []),
       ...(userProfile.thingsYouWantToTry || [])
-    ].map(interest => interest.toLowerCase());
+    ].filter(interest => interest && typeof interest === 'string').map(interest => interest.toLowerCase());
 
     // Score events based on user interests (exclude events the user already joined)
     const recommendations = events
       .filter(event => !joinedEvents.includes(event.id))
       .map(event => {
         let score = 0;
-        const eventInterests = (event.interests || []).map(i => i.toLowerCase());
-        const eventCategory = event.category.toLowerCase();
+        const eventInterests = (event.interests || []).filter(i => i && typeof i === 'string').map(i => i.toLowerCase());
+        const eventCategory = (event.category || '').toLowerCase();
         
         // Check interest matches
         userInterests.forEach(userInterest => {
@@ -721,44 +734,36 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
     const userInterests = [
       ...(userProfile.thingsYouDoGreat || []),
       ...(userProfile.thingsYouWantToTry || [])
-    ].map(interest => interest.toLowerCase());
+    ].filter(interest => interest && typeof interest === 'string').map(interest => interest.toLowerCase());
 
     // Weekend recommendations
     if (input.includes('weekend') || input.includes('saturday') || input.includes('sunday')) {
-      // Get the next Saturday and Sunday
-      const today = new Date();
-      const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
-      
-      // Calculate days until next Saturday and Sunday
-      const daysUntilSaturday = currentDay === 6 ? 0 : (6 - currentDay + 7) % 7;
-      const daysUntilSunday = currentDay === 0 ? 0 : (7 - currentDay) % 7;
-      
-      const nextSaturday = new Date(today);
-      nextSaturday.setDate(today.getDate() + daysUntilSaturday);
-      nextSaturday.setHours(0, 0, 0, 0);
-      
-      const nextSunday = new Date(today);
-      nextSunday.setDate(today.getDate() + daysUntilSunday);
-      nextSunday.setHours(23, 59, 59, 999);
-
       const weekendEvents = events
         .filter(event => !joinedEvents.includes(event.id))
         .filter(event => {
-          // Try to parse event date/time
+          // Check both date and time fields for weekend indicators
+          const dateStr = (event.date || event.time || '').toLowerCase();
+          
+          // Check for full date format (e.g., "Sun, Nov 30, 4:54 PM")
+          if (dateStr.includes('sat') || dateStr.includes('sun')) {
+            return true;
+          }
+          
+          // Try to parse as a full date
           const eventDate = event.time || event.date;
           if (!eventDate) return false;
           
           try {
             const date = new Date(eventDate);
-            if (isNaN(date.getTime())) {
-              // Fallback to string matching for non-parseable dates
-              return event.date?.includes('Sat') || event.date?.includes('Sun');
+            if (!isNaN(date.getTime())) {
+              const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+              return dayOfWeek === 0 || dayOfWeek === 6;
             }
-            return date >= nextSaturday && date <= nextSunday;
           } catch (e) {
-            // Fallback to string matching
-            return event.date?.includes('Sat') || event.date?.includes('Sun');
+            // Ignore parse errors
           }
+          
+          return false;
         })
         .slice(0, 5);
       
@@ -782,17 +787,149 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       };
     }
 
-    // Creative activities
+    // Creative activities - with location filtering if "near me" is mentioned
     if (input.includes('creative') || input.includes('art') || input.includes('design')) {
-      const creativeEvents = events.filter(event => 
-        event.category.toLowerCase().includes('creative') ||
-        event.category.toLowerCase().includes('art') ||
-        (event.interests || []).some(i => 
-          i.toLowerCase().includes('art') || 
-          i.toLowerCase().includes('creative') ||
-          i.toLowerCase().includes('design')
-        )
-      ).slice(0, 3);
+      const isNearMeQuery = input.includes('near me') || input.includes('nearby') || input.includes('around me');
+      
+      // Helper function to calculate distance in km
+      const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const toRad = (v: number) => (v * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + 
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+      
+      // If "near me" is mentioned, request location and filter
+      if (isNearMeQuery) {
+        if (!navigator.geolocation) {
+          // Browser doesn't support geolocation
+          const creativeEvents = events.filter(isCreativeEvent).slice(0, 3);
+          
+          return {
+            id: `ai-${Date.now()}`,
+            content: "Your browser doesn't support location services. Here are some creative events you might like! 🎨",
+            isBot: true,
+            timestamp: new Date(),
+            recommendations: creativeEvents.map(e => e.id),
+            type: 'recommendations'
+          };
+        }
+
+        // Request location asynchronously
+        console.log('Requesting geolocation for creative activities...');
+        console.log('Total events available:', events.length);
+        
+        // Log all creative events with their coordinates
+        const allCreativeEvents = events.filter(isCreativeEvent);
+        console.log('Total creative events:', allCreativeEvents.length);
+        allCreativeEvents.forEach(event => {
+          const eventData = event as any;
+          console.log(`Event: ${event.eventName || event.name}`, {
+            hasCoords: !!eventData.locationCoords,
+            coords: eventData.locationCoords
+          });
+        });
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            console.log(`User location: ${userLat}, ${userLng}`);
+            
+            // First try to filter creative events within 10km
+            let creativeEvents = events.filter(event => {
+              if (!isCreativeEvent(event)) return false;
+              
+              // Check distance if event has coordinates
+              const eventData = event as any;
+              if (eventData.locationCoords && eventData.locationCoords.lat && eventData.locationCoords.lng) {
+                const distance = haversineKm(userLat, userLng, eventData.locationCoords.lat, eventData.locationCoords.lng);
+                console.log(`Event ${event.eventName || event.name}: ${distance.toFixed(2)}km away`);
+                return distance <= 10;
+              } else {
+                console.log(`Event ${event.eventName || event.name}: NO COORDINATES`);
+              }
+              
+              return false;
+            }).slice(0, 3);
+            
+            console.log(`Found ${creativeEvents.length} creative events within 10km`);
+            
+            // If no events with coordinates found, show all creative events
+            if (creativeEvents.length === 0) {
+              creativeEvents = events.filter(isCreativeEvent).slice(0, 3);
+              console.log(`Fallback: showing ${creativeEvents.length} creative events without distance filter`);
+            }
+            
+            // Add the response message after getting location
+            const locationResponse: AIMessage = creativeEvents.length === 0
+              ? {
+                  id: `ai-${Date.now()}`,
+                  content: "I couldn't find any creative activities. Try browsing all events or check out other categories! 🎨",
+                  isBot: true,
+                  timestamp: new Date(),
+                  type: 'text'
+                }
+              : {
+                  id: `ai-${Date.now()}`,
+                  content: `I found ${creativeEvents.length} creative ${creativeEvents.length === 1 ? 'activity' : 'activities'} for you! 🎨`,
+                  isBot: true,
+                  timestamp: new Date(),
+                  recommendations: creativeEvents.map(e => e.id),
+                  type: 'recommendations'
+                };
+            
+            console.log('Setting location response message:', locationResponse);
+            setMessages(prev => {
+              console.log('Previous messages:', prev.length);
+              const newMessages = [...prev, locationResponse];
+              console.log('New messages:', newMessages.length);
+              return newMessages;
+            });
+            
+            // Force scroll to bottom after a short delay
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          },
+          (error) => {
+            console.error('Geolocation error:', error.code, error.message);
+            // Fallback to all creative events if location fails
+            const creativeEvents = events.filter(isCreativeEvent).slice(0, 3);
+            
+            const fallbackResponse: AIMessage = {
+              id: `ai-${Date.now()}`,
+              content: error.code === 1 
+                ? "Location access was denied. Here are some creative events you might like! 🎨 (Allow location in your browser settings for nearby results)"
+                : "I couldn't access your location. Here are some creative events you might like! 🎨",
+              isBot: true,
+              timestamp: new Date(),
+              recommendations: creativeEvents.map(e => e.id),
+              type: 'recommendations'
+            };
+            
+            setMessages(prev => [...prev, fallbackResponse]);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+        
+        // Return immediate "requesting location" message
+        return {
+          id: `ai-${Date.now()}`,
+          content: "Let me find creative activities near you... 📍",
+          isBot: true,
+          timestamp: new Date(),
+          type: 'text'
+        };
+      }
+      
+      // Regular creative events (no location filter)
+      const creativeEvents = events.filter(isCreativeEvent).slice(0, 3);
       
       return {
         id: `ai-${Date.now()}`,
@@ -804,9 +941,50 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       };
     }
 
-    // Trending/popular
+    // Trending/popular - events that are ~70% full (almost at capacity)
     if (input.includes('trending') || input.includes('popular') || input.includes('hot')) {
-      const trendingEvents = events.filter(event => event.isPopular).slice(0, 3);
+      // First try to find events that are 60-90% full (ideal trending range)
+      let trendingEvents = events
+        .filter(event => {
+          const attendees = event.attendees || 0;
+          const maxCapacity = event.maxCapacity || 100;
+          const capacityPercentage = (attendees / maxCapacity) * 100;
+          return capacityPercentage >= 60 && capacityPercentage < 90;
+        })
+        .sort((a, b) => {
+          const aCapacity = ((a.attendees || 0) / (a.maxCapacity || 100)) * 100;
+          const bCapacity = ((b.attendees || 0) / (b.maxCapacity || 100)) * 100;
+          return bCapacity - aCapacity;
+        })
+        .slice(0, 3);
+      
+      // If no events in the ideal range, fallback to showing events with at least 40% capacity
+      if (trendingEvents.length === 0) {
+        console.log('No events in 60-90% range, showing events with 40%+ capacity');
+        trendingEvents = events
+          .filter(event => {
+            const attendees = event.attendees || 0;
+            const maxCapacity = event.maxCapacity || 100;
+            const capacityPercentage = (attendees / maxCapacity) * 100;
+            return capacityPercentage >= 40;
+          })
+          .sort((a, b) => {
+            const aCapacity = ((a.attendees || 0) / (a.maxCapacity || 100)) * 100;
+            const bCapacity = ((b.attendees || 0) / (b.maxCapacity || 100)) * 100;
+            return bCapacity - aCapacity;
+          })
+          .slice(0, 3);
+      }
+      
+      if (trendingEvents.length === 0) {
+        return {
+          id: `ai-${Date.now()}`,
+          content: "No events are at full capacity yet, but they're all trending! Be the first to join! Check out all available events or try asking about specific categories! 🎯",
+          isBot: true,
+          timestamp: new Date(),
+          type: 'text'
+        };
+      }
       
       return {
         id: `ai-${Date.now()}`,
@@ -835,7 +1013,7 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
       const recommendations = events
         .filter(event => !joinedEvents.includes(event.id)) // Exclude already joined events
         .filter(event => {
-          const eventInterests = (event.interests || []).map(i => i.toLowerCase());
+          const eventInterests = (event.interests || []).filter(i => i && typeof i === 'string').map(i => i.toLowerCase());
           const eventCategory = (event.category || '').toLowerCase();
           
           return userInterests.some(userInterest => 
@@ -985,15 +1163,15 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                                 className="w-12 h-12 rounded-lg object-cover"
                               />
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm truncate">{event.name}</h4>
-                                <div className="flex items-center space-x-2 text-xs text-muted-foreground mt-1">
+                                <h4 className="font-semibold text-sm truncate">{event.eventName || event.name}</h4>
+                                <div className="flex flex-col space-y-1 text-xs text-muted-foreground mt-1">
                                   <div className="flex items-center space-x-1">
-                                    <Clock className="w-3 h-3" />
+                                    <Clock className="w-3 h-3 flex-shrink-0" />
                                     <span>{event.date}</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="truncate">{event.location}</span>
+                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate line-clamp-1">{event.location}</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
@@ -1196,8 +1374,8 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggestions */}
-        {messages.length <= 2 && (
+        {/* Suggestions - Show after each bot response */}
+        {!isTyping && messages.length > 0 && messages[messages.length - 1]?.isBot && (
           <div className="px-4 pb-2">
             <div className="text-xs text-muted-foreground mb-2">Quick suggestions:</div>
             <div className="flex flex-wrap gap-2">
