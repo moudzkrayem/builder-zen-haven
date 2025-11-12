@@ -54,12 +54,22 @@ export default function MapPicker({ apiKey, initial = null, onSelect }: MapPicke
     }
 
     // Load the Google Maps script if missing
-    if (typeof (window as any).google === 'undefined') {
+    if (typeof (window as any).google?.maps?.Map === 'undefined') {
+      const callbackName = 'initMapPicker_' + Date.now();
+      (window as any)[callbackName] = () => {
+        if ((window as any).google?.maps?.Map) {
+          initMap();
+          delete (window as any)[callbackName];
+        }
+      };
+
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${effectiveKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${effectiveKey}&libraries=places&callback=${callbackName}`;
       script.async = true;
-      script.onload = () => initMap();
-      script.onerror = () => setStatus('failed-to-load');
+      script.onerror = () => {
+        setStatus('failed-to-load');
+        delete (window as any)[callbackName];
+      };
       document.head.appendChild(script);
     } else {
       initMap();
@@ -68,6 +78,10 @@ export default function MapPicker({ apiKey, initial = null, onSelect }: MapPicke
     function initMap() {
       try {
         const google = (window as any).google;
+        if (!google?.maps?.Map) {
+          setStatus('failed-to-load');
+          return;
+        }
         const chosenCenter = initial ?? defaultCenterFromEnv ?? (countryRestriction === 'lb' ? lebanonCenter : { lat: 37.7749, lng: -122.4194 });
         const map = new google.maps.Map(mapRef.current, {
           center: chosenCenter,
