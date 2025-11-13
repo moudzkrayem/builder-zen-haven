@@ -247,20 +247,62 @@ export default function Home() {
   // Show personalized events, but keep trybes created by the current user visible
   // even if they are already in joinedEvents (creator should see their own Trybe immediately).
   const featuredTrybes = getPersonalizedEvents().filter(e => {
+    const uid = auth.currentUser?.uid;
     const isCreator = (() => {
       try {
-        const uid = auth.currentUser?.uid;
         if (!uid) return false;
         // `host` is set by EventsContext when creating events to the creator's uid
-        return String(e.host) === String(uid) || String((e as any).createdBy) === String(uid) || String(e.hostName || '').toLowerCase() === 'you';
+        const creatorCheck = String(e.host) === String(uid) || String((e as any).createdBy) === String(uid) || String(e.hostName || '').toLowerCase() === 'you';
+        console.log('🔍 Checking isCreator for event', e.id, {
+          host: e.host,
+          createdBy: (e as any).createdBy,
+          uid,
+          hostMatch: String(e.host) === String(uid),
+          createdByMatch: String((e as any).createdBy) === String(uid),
+          hostNameMatch: String(e.hostName || '').toLowerCase() === 'you',
+          isCreator: creatorCheck
+        });
+        return creatorCheck;
       } catch (err) {
         return false;
       }
     })();
+    
+    const isJoined = joinedEvents.includes(e.id);
+    const shouldKeep = (!isJoined || isCreator) && categoryMatches(e.category);
+    
+    if (e.id === '3VD6WgCSjfyMkAEazk6X') {
+      console.log('🔍 DEBUG Event 3VD6WgCSjfyMkAEazk6X:', { 
+        isJoined, 
+        isCreator, 
+        shouldKeep,
+        host: e.host,
+        createdBy: (e as any).createdBy,
+        hostName: e.hostName,
+        currentUid: uid
+      });
+    }
 
     // Keep event if not joined OR if the current user is the creator
-    return (!joinedEvents.includes(e.id) || isCreator) && categoryMatches(e.category);
+    return shouldKeep;
   });
+  
+  console.log('🔍 Home: Total events from context:', events.length);
+  console.log('🔍 Home: All events:', events);
+  console.log('🔍 Home: Featured trybes after filtering:', featuredTrybes.length);
+  console.log('🔍 Home: Featured trybes:', featuredTrybes);
+  // Log image fields for each trybe
+  featuredTrybes.forEach((t: any, idx: number) => {
+    console.log(`🔍 Home: Trybe ${idx} (${t.id}) image fields:`, {
+      image: t.image,
+      eventImages: t.eventImages,
+      photos: t.photos,
+      _resolvedImage: t._resolvedImage
+    });
+  });
+  console.log('🔍 Home: Joined events IDs:', joinedEvents);
+  console.log('🔍 Home: Current user ID:', auth.currentUser?.uid);
+  console.log('🔍 Home: Is event in joined?', joinedEvents.includes(events[0]?.id));
 
   // Personalized matches with positive score only (used for the "Similar events" section)
   const personalizedMatches = getPersonalizedEvents()
@@ -380,11 +422,14 @@ export default function Home() {
   // Derive displayed trybes by merging Firestore results with provider events (featuredTrybes)
   // This ensures newly-created trybes added via the provider (addEvent) appear immediately
   const displayedTrybes = useMemo(() => {
+    console.log('🔍 displayedTrybes: mappedFirestoreTrybes count:', mappedFirestoreTrybes.length);
+    console.log('🔍 displayedTrybes: featuredTrybes count:', featuredTrybes.length);
     const mergedTrybes = [
       ...(mappedFirestoreTrybes || []),
       // add provider events that aren't present in Firestore results yet
       ...(featuredTrybes || []).filter((f: any) => !(mappedFirestoreTrybes || []).some((m: any) => String(m.id) === String(f.id)))
     ];
+    console.log('🔍 displayedTrybes: mergedTrybes count:', mergedTrybes.length);
 
     return (mergedTrybes || [])
       .filter((t: any) => {
@@ -489,7 +534,13 @@ export default function Home() {
   };
 
   // Remove expired trybes from Home's main listing
-  const finalDisplayedTrybes = displayedTrybes.filter((t: any) => !isExpired(t));
+  const finalDisplayedTrybes = displayedTrybes.filter((t: any) => {
+    const expired = isExpired(t);
+    if (expired) {
+      console.log(`🔴 Home: Event ${t.id} filtered as expired. time:`, t.time, 'date:', t.date);
+    }
+    return !expired;
+  });
 
   // Nearby filtering helpers (kept local for now). Use only when user grants location.
   const nearbyRadiusKm = 50; // default radius
@@ -749,14 +800,20 @@ export default function Home() {
                 >
                   <div className="flex">
                       <div className="relative w-24 h-24">
-                      <SafeImg
-                        src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
-                        alt={trybe.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                        debugContext={`Home:recommended:${String(trybe.id)}`}
-                      />
+                      {(() => {
+                        const imgSrc = (trybe as any)._resolvedImage || (trybe as any).image || '';
+                        console.log(`🔍 Home: Rendering SafeImg for ${trybe.id} with src:`, imgSrc.substring(0, 100));
+                        return (
+                          <SafeImg
+                            src={imgSrc}
+                            alt={trybe.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            debugContext={`Home:recommended:${String(trybe.id)}`}
+                          />
+                        );
+                      })()}
                       <div className="absolute top-2 left-2 flex flex-col space-y-1">
                         {trybe.isPopular && (
                           <Badge className="bg-primary text-primary-foreground text-xs h-5">

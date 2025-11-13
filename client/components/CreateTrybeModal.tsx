@@ -169,61 +169,50 @@ export default function CreateTrybeModal({
       return;
     }
 
-    // Fast-path: generate small low-quality inline thumbnails for immediate UI render
-    // and upload originals in the background after the trybe doc is created.
+    // Upload photos to Firebase Storage first and get download URLs
     const storage = getStorage(app);
     const photosToSave: string[] = [];
-    const backgroundUploads: Array<{ index: number; file: File; thumb: string }> = [];
-
-    const generateThumbnail = (file: File, maxWidth = 800, quality = 0.45): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        try {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-              try {
-                const ratio = img.width / img.height || 1;
-                const targetWidth = Math.min(maxWidth, img.width);
-                const targetHeight = Math.round(targetWidth / ratio);
-                const canvas = document.createElement('canvas');
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return resolve(String(reader.result));
-                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-                const dataUrl = canvas.toDataURL('image/jpeg', quality);
-                resolve(dataUrl);
-              } catch (err) {
-                resolve(String(reader.result));
-              }
-            };
-            img.onerror = () => resolve(String(reader.result));
-            img.src = String(reader.result);
-          };
-          reader.onerror = (e) => reject(e);
-          reader.readAsDataURL(file);
-        } catch (err) { reject(err); }
-      });
-    };
 
     for (let i = 0; i < (formData.photos || []).length; i++) {
       const p = formData.photos[i];
       try {
         if (p instanceof File) {
-          // Create a quick low-quality thumbnail for immediate UI feedback
-          const thumb = await generateThumbnail(p as File, 800, 0.45);
-          photosToSave.push(thumb);
-          backgroundUploads.push({ index: i, file: p as File, thumb });
+          // Upload file to Firebase Storage
+          const filename = `${Date.now()}-${i}-${p.name.replace(/\s+/g, "_")}`;
+          const path = `trybePhotos/${user.uid}/${filename}`;
+          const sRef = storageRef(storage, path);
+
+          // Upload the file
+          await new Promise<void>((resolve, reject) => {
+            const uploadTask = uploadBytesResumable(sRef, p);
+            uploadTask.on(
+              "state_changed",
+              () => {}, // progress callback (optional)
+              (err) => reject(err),
+              () => resolve(),
+            );
+          });
+
+          // Get the download URL
+          try {
+            const url = await getDownloadURL(sRef);
+            photosToSave.push(url);
+          } catch (err) {
+            console.error("Failed to get download URL for photo:", err);
+            // Fallback to storage path if URL fetch fails
+            photosToSave.push(path);
+          }
         } else if (typeof p === 'string') {
-          // If already a data URL or http/gs://, keep as-is (fast path)
+          // If already a URL or data URL, keep as-is
           photosToSave.push(p);
         } else {
           photosToSave.push('');
         }
       } catch (err) {
-        console.warn('Photo processing failed, falling back to empty string', err);
-        photosToSave.push('');
+        console.error('Photo upload failed:', err);
+        alert(`Failed to upload photo ${i + 1}: ${(err as any)?.message || 'Unknown error'}`);
+        setIsSubmitting(false);
+        return;
       }
     }
 
@@ -303,7 +292,9 @@ export default function CreateTrybeModal({
     };
 
     const sanitizedTrybe = sanitizeForFirestore(trybeDataToSave);
-    console.debug('Creating Trybe with sanitized data:', sanitizedTrybe);
+    console.log('🔍 Photos to save:', photosToSave);
+    console.log('🔍 Creating Trybe with sanitized data:', sanitizedTrybe);
+    console.log('🔍 Sanitized photos:', sanitizedTrybe.photos);
 
     // Save in Firestore using an atomic batch (create trybe + initial message)
     let docRef: any = { id: null };
@@ -312,6 +303,7 @@ export default function CreateTrybeModal({
       const newId = await createTrybeWithMessage({ trybeId: null, trybeData: sanitizedTrybe, initialMessageText: welcome });
       docRef.id = newId;
       console.log("✅ Trybe created with ID:", docRef.id);
+      console.log("✅ Trybe photos array:", sanitizedTrybe.photos);
     } catch (writeErr) {
       console.error('CreateTrybeModal: failed to create trybe with initial message. Sanitized payload:', sanitizedTrybe, writeErr);
       throw writeErr;
@@ -335,51 +327,6 @@ export default function CreateTrybeModal({
     } catch (err) {
       console.debug('onCreateTrybe handler threw', err);
     }
-
-    // Background: upload original files (if any) and replace thumbnails in Firestore when complete.
-    (async () => {
-      if (!backgroundUploads.length) return;
-      try {
-        for (const item of backgroundUploads) {
-          try {
-            const path = `trybePhotos/${user.uid}/${docRef.id}-${Date.now()}-${item.index}-${item.file.name}`;
-            const ref = storageRef(storage, path);
-            const uploadTask = uploadBytesResumable(ref, item.file);
-            await new Promise<void>((resolve, reject) => {
-              uploadTask.on('state_changed', () => {}, (error) => reject(error), async () => {
-                try {
-                  const url = await getDownloadURL(ref);
-                  // Replace thumbnail in Firestore trybe doc with final URL (best-effort)
-                  try {
-                    const trybeRef = firestoreDoc(db, 'trybes', docRef.id);
-                    const snap = await getDoc(trybeRef as any);
-                    const data: any = snap.exists() ? snap.data() : {};
-                    const currentPhotos: any[] = Array.isArray(data?.photos) ? data.photos : photosToSave.slice();
-                    const replaced = currentPhotos.map((ph) => ph === item.thumb ? url : ph);
-                    // If thumbnail not present (concurrent update), try to place by index
-                    if (!replaced.includes(url) && typeof item.index === 'number') {
-                      const cp = currentPhotos.slice();
-                      cp[item.index] = url;
-                      await updateDoc(trybeRef as any, { photos: cp });
-                    } else {
-                      await updateDoc(trybeRef as any, { photos: replaced });
-                    }
-                  } catch (err) {
-                    // ignore persistence errors (permission etc.)
-                    console.debug('Background upload: failed to persist final photo URL into trybe doc', err);
-                  }
-                  resolve();
-                } catch (err) { reject(err); }
-              });
-            });
-          } catch (err) {
-            console.debug('Background upload failed for file', item.file.name, err);
-          }
-        }
-      } catch (err) {
-        console.debug('Background upload loop failed', err);
-      }
-    })();
 
     // Create an initial system message under trybes/{trybeId}/messages instead of a separate chat doc.
     try {

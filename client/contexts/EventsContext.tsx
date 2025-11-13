@@ -794,9 +794,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         const q = collection(db, 'trybes');
         const snap = await getDocs(q);
         const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        console.log('🔍 Fetched trybes from Firestore:', rawDocs.length);
+        console.log('🔍 Sample trybe data:', rawDocs[0]);
         if (Array.isArray(rawDocs) && rawDocs.length > 0) {
           // Add raw docs into provider (normalized) so UI can render quickly
           const normalized = rawDocs.map((d: any) => normalizeEvent(d));
+          console.log('🔍 Normalized events:', normalized.length);
+          console.log('🔍 Sample normalized event:', normalized[0]);
           setEvents(normalized);
 
           // Attempt to resolve any storage references to download URLs and patch provider state
@@ -1328,15 +1332,30 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
             // Fetch the trybe docs for these joined ids so provider has full data (images, etc.)
             const fetchedTrybes: any[] = [];
+            const validJoinedIds: (string | number)[] = [];
             for (const id of joined) {
               try {
                 const td = await getDoc(firestoreDoc(db, 'trybes', String(id)));
                 if (td.exists()) {
                   const d = { id: td.id, ...(td.data() || {}) };
                   fetchedTrybes.push(d as any);
+                  validJoinedIds.push(id);
+                } else {
+                  console.log('🔍 Cleaning up deleted event from joinedEvents:', id);
                 }
               } catch (err) {
                 console.debug('Failed to fetch joined trybe doc', id, err);
+              }
+            }
+            
+            // Update joinedEvents to only include valid IDs
+            if (validJoinedIds.length !== joined.length) {
+              console.log('🔍 Updating joinedEvents in Firestore to remove deleted events');
+              setJoinedEvents(validJoinedIds as number[]);
+              try {
+                await updateDoc(userRef, { joinedEvents: validJoinedIds.map(String) });
+              } catch (err) {
+                console.error('Failed to update joinedEvents in Firestore:', err);
               }
             }
 

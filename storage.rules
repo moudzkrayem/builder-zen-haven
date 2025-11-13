@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // User profile photos
+    match /users/{userId}/photos/{photoFile} {
+      // Users can read any profile photo
+      allow read: if request.auth != null;
+      // Users can only write to their own photo folder
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Trybe event photos - allow public read so images can be displayed
+    match /trybePhotos/{userId}/{photoFile} {
+      // Anyone can read trybe photos (public events)
+      allow read: if true;
+      // Only the user who created the folder can write to it
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Default deny for everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

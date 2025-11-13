@@ -30,7 +30,10 @@ export default function SafeImg({ src, placeholder = '/placeholder.svg', debugCo
       loading={loading}
       decoding={decoding}
       referrerPolicy="no-referrer"
-      onError={() => { if (current !== placeholder) setCurrent(placeholder); }}
+      onError={(e) => { 
+        console.error(`🔴 SafeImg: Image failed to load for ${debugContext}:`, current);
+        if (current !== placeholder) setCurrent(placeholder); 
+      }}
       {...rest}
     />
   );
