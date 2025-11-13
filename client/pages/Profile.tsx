@@ -45,33 +45,100 @@ export default function Profile() {
 
   const [profile, setProfile] = useState<any | null>(null);
   const [profileRefreshKey, setProfileRefreshKey] = useState(0);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-  // Load profile from localStorage or Firestore
+  // Load profile from localStorage first (instant), then from Firestore
   useEffect(() => {
+    let mounted = true;
+    let loadedFromCache = false;
+
     const loadProfile = async () => {
+      setIsLoadingProfile(true);
       try {
-        // First try localStorage
+        // First, load from localStorage for instant display
         const stored = localStorage.getItem('userProfile');
-        if (stored) {
-          setProfile(JSON.parse(stored));
+        if (stored && mounted) {
+          try {
+            const cachedProfile = JSON.parse(stored);
+            setProfile(cachedProfile);
+            loadedFromCache = true;
+            setIsLoadingProfile(false);
+            console.log('✅ Profile loaded from localStorage');
+            console.log('  - Name:', cachedProfile.firstName, cachedProfile.lastName);
+            console.log('  - Photos:', cachedProfile.photos?.length || 0);
+            console.log('  - Location:', cachedProfile.location);
+          } catch (err) {
+            console.error('Failed to parse cached profile:', err);
+          }
+        }
+
+        // Wait a bit for auth to be ready if needed
+        let user = auth.currentUser;
+        if (!user) {
+          // Wait up to 2 seconds for auth to initialize
+          await new Promise(resolve => setTimeout(resolve, 100));
+          user = auth.currentUser;
+        }
+
+        if (!user) {
+          console.warn('⚠️ No auth user available after waiting');
+          setIsLoadingProfile(false);
           return;
         }
         
-        // If not in localStorage, try Firestore
-        const user = auth.currentUser;
-        if (!user) return;
+        console.log('🔄 Fetching profile from Firestore for user:', user.uid);
         const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        if (!mounted) return;
+
         if (userDoc.exists()) {
           const data = userDoc.data();
-          localStorage.setItem('userProfile', JSON.stringify(data));
+          console.log('✅ Profile loaded from Firestore');
+          console.log('  - firstName:', data.firstName);
+          console.log('  - lastName:', data.lastName);
+          console.log('  - displayName:', data.displayName);
+          console.log('  - name:', data.name);
+          console.log('  - Photos:', data.photos?.length || 0, data.photos);
+          console.log('  - Location:', data.location);
+          console.log('  - All fields:', Object.keys(data));
+          console.log('  - Full data:', data);
+          
+          // Update both state and localStorage with fresh data
           setProfile(data);
+          try {
+            localStorage.setItem('userProfile', JSON.stringify(data));
+          } catch (err) {
+            console.debug('Failed to update localStorage:', err);
+          }
+        } else {
+          console.warn('⚠️ No user document found in Firestore');
         }
       } catch (err) {
-        console.error('Error loading profile', err);
+        console.error('❌ Error loading profile:', err);
+        // If we haven't loaded from cache yet, try it as fallback
+        if (!loadedFromCache && mounted) {
+          try {
+            const stored = localStorage.getItem('userProfile');
+            if (stored) {
+              setProfile(JSON.parse(stored));
+              console.log('✅ Fallback to localStorage successful');
+            }
+          } catch (e) {
+            console.debug('Failed to load from localStorage:', e);
+          }
+        }
+      } finally {
+        if (mounted) {
+          setIsLoadingProfile(false);
+        }
       }
     };
 
     loadProfile();
+
+    return () => {
+      mounted = false;
+    };
   }, [profileRefreshKey]); // Re-run when profileRefreshKey changes
 
   // Function to refresh profile data
@@ -79,8 +146,12 @@ export default function Profile() {
     setProfileRefreshKey(prev => prev + 1);
   };
 
-  const profileName = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : "";
+  // Try multiple fields for the name (some profiles might have displayName or name instead)
+  const profileName = profile 
+    ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.displayName || profile.name || auth.currentUser?.displayName || "User"
+    : "";
   let profilePhotos: string[] = profile?.photos || [];
+  
   if (!profilePhotos.length) {
     try {
       profilePhotos = JSON.parse(sessionStorage.getItem('userProfilePhotos') || '[]');
@@ -120,6 +191,18 @@ export default function Profile() {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, []);
+
+  // Show loading state while profile is being loaded
+  if (isLoadingProfile && !profile) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={scrollContainerRef} className="h-full bg-background overflow-y-auto overscroll-contain">
@@ -180,11 +263,16 @@ export default function Profile() {
                 <div className="grid grid-cols-3 gap-2">
                   {profilePhotos && profilePhotos.length > 0 ? (
                     profilePhotos.map((src: string, i: number) => (
-                      <div key={i} className="aspect-square rounded-xl overflow-hidden">
-                        <OptimizedImage 
-                          srcCandidates={[src]} 
+                      <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted">
+                        <img 
+                          src={src} 
                           alt={`Photo ${i + 1}`} 
-                          className="w-full h-full"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            console.error('Failed to load image:', src);
+                            e.currentTarget.src = '/placeholder.svg';
+                          }}
                         />
                       </div>
                     ))

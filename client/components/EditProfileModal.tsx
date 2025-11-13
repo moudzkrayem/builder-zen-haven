@@ -288,13 +288,28 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
 
       // Upload new photos to Firebase Storage
       const storage = getStorage(app);
-      const uploadedPhotos: string[] = [...additionalPhotos];
+      
+      // Separate existing photos (URLs) from new photos (data URLs that need uploading)
+      const existingPhotos: string[] = [];
+      const photosToUpload: { index: number; file: File }[] = [];
+      
+      additionalPhotos.forEach((photo, index) => {
+        // Check if this is a data URL (needs uploading) or an existing URL
+        if (photo.startsWith('data:')) {
+          // This is a new photo - check if we have the file
+          if (photoFiles[index]) {
+            photosToUpload.push({ index, file: photoFiles[index] });
+          }
+        } else if (photo.startsWith('http') || photo.startsWith('users/')) {
+          // This is an existing photo URL or storage path
+          existingPhotos.push(photo);
+        }
+      });
 
-      // Upload files from photoFiles map
-      const entries = Object.entries(photoFiles);
-      for (const [indexStr, file] of entries) {
+      // Upload new photos
+      const newlyUploadedPhotos: string[] = [];
+      for (const { file } of photosToUpload) {
         try {
-          const index = Number(indexStr);
           const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
           const path = `users/${user.uid}/photos/${filename}`;
           const sRef = storageRef(storage, path);
@@ -313,10 +328,10 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
           // Get download URL
           try {
             const url = await getDownloadURL(sRef);
-            uploadedPhotos[index] = url;
+            newlyUploadedPhotos.push(url);
           } catch (err) {
             // Fallback to storage path if URL fetch fails
-            uploadedPhotos[index] = path;
+            newlyUploadedPhotos.push(path);
           }
         } catch (err) {
           console.error("Failed to upload photo:", err);
@@ -327,6 +342,15 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
           });
         }
       }
+
+      // Combine existing photos with newly uploaded ones
+      const uploadedPhotos = [...existingPhotos, ...newlyUploadedPhotos];
+
+      console.log('✅ EditProfileModal - Photos saved:', {
+        existing: existingPhotos,
+        newlyUploaded: newlyUploadedPhotos,
+        final: uploadedPhotos
+      });
 
       // Build payload
       const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();

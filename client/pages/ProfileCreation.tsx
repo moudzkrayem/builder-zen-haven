@@ -221,6 +221,7 @@ export default function ProfileCreation() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -283,6 +284,8 @@ const handleComplete = async () => {
     return;
   }
 
+  setIsCreatingProfile(true);
+
   try {
     const uid = auth.currentUser.uid;
     const userRef = doc(db, "users", uid);
@@ -291,10 +294,9 @@ const handleComplete = async () => {
     const safeProfile = { ...profileData } as typeof profileData;
     safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
 
-    // Upload any original Files kept in profileFilesRef.current and replace the
-    // corresponding compressed data URLs with storage paths (users/{uid}/photos/...)
+    // Upload any original Files kept in profileFilesRef.current
     const storage = getStorage(app);
-    const uploadedPhotos: string[] = [...safeProfile.photos];
+    const uploadedPhotos: string[] = [];
 
     const entries = Object.entries(profileFilesRef.current) as [string, File][];
     // Sort by numeric index so array positions match
@@ -302,7 +304,6 @@ const handleComplete = async () => {
 
     for (const [indexStr, file] of entries) {
       try {
-        const index = Number(indexStr);
         const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
         const path = `users/${uid}/photos/${filename}`;
         const sRef = storageRef(storage, path);
@@ -321,24 +322,47 @@ const handleComplete = async () => {
         // clients can render the image immediately without resolving storage refs.
         try {
           const url = await getDownloadURL(sRef);
-          uploadedPhotos[index] = url;
+          uploadedPhotos.push(url);
         } catch (err) {
           // If we can't resolve the download URL, fall back to storing the storage path
           // (UI components still resolve storage paths on demand).
-          uploadedPhotos[index] = path;
+          uploadedPhotos.push(path);
         }
       } catch (err) {
-        console.debug("profile upload failed for one file, keeping compressed thumbnail", err);
+        console.debug("profile upload failed for one file, skipping", err);
+        // Skip this photo if upload fails completely
       }
     }
 
     safeProfile.photos = uploadedPhotos.slice(0, 6);
 
+    console.log('✅ Photos uploaded:', uploadedPhotos);
+    console.log('✅ Profile data before save:', {
+      firstName: safeProfile.firstName,
+      lastName: safeProfile.lastName,
+      location: safeProfile.location,
+      photos: safeProfile.photos.length
+    });
+    console.log('✅ Full profile to save:', safeProfile);
+
     // Persist the user document (merge so we won't wipe other fields)
-    await setDoc(userRef, {
+    const profileToSave = {
       ...safeProfile,
       updatedAt: new Date().toISOString(),
-    }, { merge: true } as any);
+    };
+    
+    console.log('✅ Data being sent to Firestore:', profileToSave);
+    await setDoc(userRef, profileToSave, { merge: true } as any);
+
+    console.log('✅ Profile saved to Firestore');
+
+    // Update localStorage so Profile page shows the photos immediately
+    try {
+      localStorage.setItem('userProfile', JSON.stringify(profileToSave));
+      console.log('✅ Profile saved to localStorage:', profileToSave);
+    } catch (err) {
+      console.debug('Failed to update localStorage:', err);
+    }
 
     // Success UX: small celebration then navigate
     const confetti = document.createElement("div");
@@ -355,6 +379,7 @@ const handleComplete = async () => {
   } catch (error) {
     console.error("❌ Error saving profile:", error);
     alert("Failed to save profile. Please try again.");
+    setIsCreatingProfile(false);
   }
 };
 
@@ -1095,7 +1120,7 @@ const handleComplete = async () => {
             
             <Button
               onClick={currentStep === STEP_TITLES.length - 1 ? handleComplete : handleNext}
-              disabled={!canProceed()}
+              disabled={!canProceed() || isCreatingProfile}
               size="lg"
               className={cn(
                 "rounded-2xl px-8 font-semibold transition-all hover:scale-105",
@@ -1107,7 +1132,7 @@ const handleComplete = async () => {
               {currentStep === STEP_TITLES.length - 1 ? (
                 <>
                   <Zap className="w-5 h-5 mr-2" />
-                  Complete Profile
+                  {isCreatingProfile ? "Creating..." : "Complete Profile"}
                 </>
               ) : (
                 <>

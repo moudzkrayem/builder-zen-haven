@@ -65,7 +65,6 @@ export default function Home() {
   const [showAIBotModal, setShowAIBotModal] = useState(false);
   const [premiumEventName, setPremiumEventName] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [hasShownAIWelcome, setHasShownAIWelcome] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [showAllNearby, setShowAllNearby] = useState(false);
@@ -160,18 +159,6 @@ export default function Home() {
       setUserProfile(JSON.parse(storedProfile));
     }
   }, []);
-
-  // Auto-open AI assistant once per session after login/profile is available
-  useEffect(() => {
-    if (!hasShownAIWelcome && userProfile) {
-      const alreadyShown = sessionStorage.getItem('aiWelcomeShown');
-      if (!alreadyShown) {
-        setShowAIBotModal(true);
-        sessionStorage.setItem('aiWelcomeShown', 'true');
-        setHasShownAIWelcome(true);
-      }
-    }
-  }, [userProfile, hasShownAIWelcome]);
 
   // Open schedule modal if requested from other pages
   useEffect(() => {
