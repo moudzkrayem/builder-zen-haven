@@ -48,6 +48,8 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [creatorData, setCreatorData] = useState<{ name: string; photoURL: string } | null>(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [imageViewerIndex, setImageViewerIndex] = useState(0);
 
   // Body scroll lock while event detail modal is open (ref-counted to support nested modals)
   useEffect(() => {
@@ -276,7 +278,13 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   {/* Content */}
   <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' as any }}>
           {/* Event Images */}
-          <div className="relative h-64">
+          <div 
+            className="relative h-64 cursor-pointer"
+            onClick={() => {
+              setImageViewerIndex(currentPhotoIndex);
+              setShowImageViewer(true);
+            }}
+          >
             <img
               src={eventImages[currentPhotoIndex]}
               alt={event.eventName || event.name}
@@ -465,6 +473,107 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
           </div>
         </div>
       </div>
+
+      {/* Image Carousel Popup */}
+      {showImageViewer && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 py-20 md:py-4"
+          onClick={() => setShowImageViewer(false)}
+        >
+          {/* Carousel Card */}
+          <div 
+            className="relative bg-card rounded-3xl shadow-2xl overflow-hidden w-full max-w-4xl h-full md:h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border bg-card/95 backdrop-blur-sm">
+              <div className="flex items-center space-x-3">
+                <h3 className="font-semibold text-foreground truncate">
+                  {event.eventName || event.name}
+                </h3>
+                {eventImages.length > 1 && (
+                  <span className="flex-shrink-0 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    {imageViewerIndex + 1} / {eventImages.length}
+                  </span>
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowImageViewer(false)}
+                className="rounded-full flex-shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Image Display Area */}
+            <div className="relative flex-1 bg-muted overflow-hidden flex items-center justify-center p-4">
+              <img
+                src={eventImages[imageViewerIndex]}
+                alt={`${event.eventName || event.name} - Photo ${imageViewerIndex + 1}`}
+                className="max-w-full max-h-full object-contain rounded-lg"
+              />
+
+              {/* Navigation Arrows for multiple images */}
+              {eventImages.length > 1 && (
+                <>
+                  {/* Previous button */}
+                  {imageViewerIndex > 0 && (
+                    <button
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-all shadow-lg"
+                      onClick={() => setImageViewerIndex(prev => prev - 1)}
+                    >
+                      <svg className="w-5 h-5 md:w-6 md:h-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                  )}
+
+                  {/* Next button */}
+                  {imageViewerIndex < eventImages.length - 1 && (
+                    <button
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-all shadow-lg"
+                      onClick={() => setImageViewerIndex(prev => prev + 1)}
+                    >
+                      <svg className="w-5 h-5 md:w-6 md:h-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Strip at bottom for multiple images */}
+            {eventImages.length > 1 && (
+              <div className="flex-shrink-0 p-4 bg-card/95 backdrop-blur-sm border-t border-border">
+                <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                  {eventImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setImageViewerIndex(idx)}
+                      className={cn(
+                        "flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 transition-all",
+                        idx === imageViewerIndex 
+                          ? "border-primary ring-2 ring-primary/20 scale-105" 
+                          : "border-border opacity-60 hover:opacity-100 hover:border-primary/50"
+                      )}
+                    >
+                      <img 
+                        src={img} 
+                        alt={`Thumbnail ${idx + 1}`} 
+                        className="w-full h-full object-cover" 
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <EditEventModal
         isOpen={showEdit}
         onClose={() => setShowEdit(false)}
