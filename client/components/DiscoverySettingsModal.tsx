@@ -5,11 +5,24 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { X, Users, Heart, MapPin, Star, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { auth } from "@/auth";
+import { db } from "@/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+
+export interface DiscoveryFilters {
+  selectedInterests: string[];
+  distance: number;
+  ageRange: [number, number];
+  showMe: string;
+  hideProfile: boolean;
+  premiumOnly: boolean;
+}
 
 interface DiscoverySettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply?: (filters: any) => void;
+  onApply?: (filters: DiscoveryFilters) => void;
 }
 
 import { CATEGORIES } from '@/config/categories';
@@ -24,14 +37,47 @@ const showMeOptions = [
 ];
 
 export default function DiscoverySettingsModal({ isOpen, onClose, onApply }: DiscoverySettingsModalProps) {
+  const { toast } = useToast();
   const [distance, setDistance] = useState([25]);
-  const [ageRange, setAgeRange] = useState([18, 35]);
+  const [ageRange, setAgeRange] = useState<[number, number]>([18, 35]);
   const [showMe, setShowMe] = useState("everyone");
   const [selectedInterests, setSelectedInterests] = useState<string[]>(DEFAULT_SELECTED_INTERESTS);
   const [hideProfile, setHideProfile] = useState(false);
   const [premiumOnly, setPremiumOnly] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
 
-  if (!isOpen) return null;
+  // Load settings from Firestore when modal opens
+  useEffect(() => {
+    if (!isOpen || hasLoadedSettings) return;
+    
+    const loadSettings = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const prefs = data.discoveryPreferences as DiscoveryFilters | undefined;
+          
+          if (prefs) {
+            if (prefs.distance) setDistance([prefs.distance]);
+            if (prefs.ageRange) setAgeRange(prefs.ageRange);
+            if (prefs.showMe) setShowMe(prefs.showMe);
+            if (prefs.selectedInterests) setSelectedInterests(prefs.selectedInterests);
+            if (typeof prefs.hideProfile === 'boolean') setHideProfile(prefs.hideProfile);
+            if (typeof prefs.premiumOnly === 'boolean') setPremiumOnly(prefs.premiumOnly);
+          }
+        }
+        setHasLoadedSettings(true);
+      } catch (err) {
+        console.warn('Failed to load discovery settings:', err);
+      }
+    };
+
+    loadSettings();
+  }, [isOpen, hasLoadedSettings]);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev =>
@@ -113,22 +159,26 @@ export default function DiscoverySettingsModal({ isOpen, onClose, onApply }: Dis
     };
   }, []);
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[99999] bg-background/80 backdrop-blur-sm">
-  <div className="absolute inset-x-4 top-8 bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col" style={{ bottom: `${bottomOffsetPx}px` }}>
+    <div className="fixed inset-x-0 top-0 bottom-20 z-[99999] bg-background/80 backdrop-blur-sm">
+      <div className="absolute inset-x-2 sm:inset-x-4 top-4 sm:top-8 bottom-4 sm:bottom-8 bg-card rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <Filter className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">Discovery Settings</h2>
+            <Filter className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            <h2 className="text-xl sm:text-2xl font-bold">Discovery Settings</h2>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </Button>
         </div>
 
-  {/* Content */}
-  <div className="flex-1 overflow-y-auto p-6 space-y-8 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' as any, paddingBottom: contentPaddingBottom, ['--modal-bottom-space' as any]: contentPaddingBottom }}>
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6 sm:space-y-8"
+          style={{ WebkitOverflowScrolling: 'touch' as any }}
+        >
           {/* Distance */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -172,7 +222,7 @@ export default function DiscoverySettingsModal({ isOpen, onClose, onApply }: Dis
               </div>
               <Slider
                 value={ageRange}
-                onValueChange={setAgeRange}
+                onValueChange={(value) => setAgeRange(value as [number, number])}
                 max={65}
                 min={18}
                 step={1}
@@ -265,35 +315,61 @@ export default function DiscoverySettingsModal({ isOpen, onClose, onApply }: Dis
             </div>
           </div>
       {/* Buttons placed inline after options so they are part of the scrollable content */}
-      <div className="pt-2" />
-      <div className="p-6 border-t border-border bg-muted/20">
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={clearAll} className="flex-1">
-            Clear All
-          </Button>
-          <Button
-            onClick={() => {
-              const payload = {
-                selectedInterests,
-                distance: distance[0],
-                ageRange,
-                showMe,
-                hideProfile,
-                premiumOnly,
-              };
-              try {
-                if (typeof onApply === 'function') onApply(payload);
-              } catch (e) {
-                console.debug('DiscoverySettingsModal: onApply threw', e);
-              }
-              onClose();
-            }}
-            className="flex-1"
-          >
-            Apply Filters
-          </Button>
         </div>
-      </div>
+
+        {/* Footer - Fixed */}
+        <div className="p-4 sm:p-6 border-t border-border bg-muted/20 flex-shrink-0">
+          <div className="flex space-x-3">
+            <Button variant="outline" onClick={clearAll} className="flex-1" disabled={isLoading}>
+              Clear All
+            </Button>
+            <Button
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  const user = auth.currentUser;
+                  if (!user) {
+                    toast({ title: 'You must be signed in to save settings' });
+                    return;
+                  }
+
+                  const payload: DiscoveryFilters = {
+                    selectedInterests,
+                    distance: distance[0],
+                    ageRange,
+                    showMe,
+                    hideProfile,
+                    premiumOnly,
+                  };
+
+                  // Save to Firestore
+                  const userRef = doc(db, 'users', user.uid);
+                  await updateDoc(userRef, { discoveryPreferences: payload });
+
+                  // Call onApply callback if provided
+                  if (typeof onApply === 'function') {
+                    onApply(payload);
+                  }
+
+                  toast({ title: 'Discovery settings saved' });
+                  onClose();
+                } catch (err: any) {
+                  console.error('Failed to save discovery settings:', err);
+                  toast({ 
+                    title: 'Failed to save settings', 
+                    description: String(err?.message || err),
+                    variant: 'destructive'
+                  });
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="flex-1"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Saving...' : 'Apply Filters'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

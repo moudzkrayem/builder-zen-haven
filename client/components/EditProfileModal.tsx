@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
-import { auth, db } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { useState, useEffect, useRef } from "react";
+import { auth, db, app } from "@/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Edit3, Plus, MapPin, Briefcase, GraduationCap, User } from "lucide-react";
+import { X, Edit3, Plus, MapPin, Briefcase, GraduationCap, User, Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -48,6 +50,10 @@ const availableInterests = [
 ];
 
 export default function EditProfileModal({ isOpen, onClose, onSave, userData }: EditProfileModalProps) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const additionalPhotosInputRef = useRef<HTMLInputElement>(null);
+  
   const nameParts = userData.name.split(' ');
   const [formData, setFormData] = useState({
     firstName: nameParts[0] || '',
@@ -60,6 +66,33 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
   });
   const [selectedInterests, setSelectedInterests] = useState<string[]>(userData.interests);
   const [newInterest, setNewInterest] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<string>("");
+  const [additionalPhotos, setAdditionalPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<{ [index: number]: File }>({});
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Load existing photos from Firestore
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const loadPhotos = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setProfilePhoto(data.photoURL || data.photos?.[0] || "");
+          setAdditionalPhotos(data.photos || []);
+        }
+      } catch (err) {
+        console.warn("Failed to load photos:", err);
+      }
+    };
+    
+    loadPhotos();
+  }, [isOpen]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -97,17 +130,202 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
     }
   };
 
+  // Convert file to data URL for preview
+  const fileToDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Handle profile photo change
+  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Create preview data URL
+      const dataUrl = await fileToDataURL(file);
+      
+      // Update photos array: remove old profile photo if exists, add new one at start
+      setAdditionalPhotos(prev => {
+        const filtered = prev.filter(p => p !== profilePhoto);
+        return [dataUrl, ...filtered];
+      });
+      
+      setProfilePhoto(dataUrl);
+      
+      // Store the file object for later upload
+      setPhotoFiles(prev => ({ ...prev, 0: file }));
+      
+      toast({
+        title: "Photo selected",
+        description: "Your profile photo will be uploaded when you save"
+      });
+    } catch (err) {
+      console.error("Failed to process photo:", err);
+      toast({
+        title: "Upload failed",
+        description: "Failed to process photo. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle additional photos
+  const handleAdditionalPhotosChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Check total photos limit (max 6 including profile photo)
+    if (additionalPhotos.length + files.length > 6) {
+      toast({
+        title: "Too many photos",
+        description: "You can upload a maximum of 6 photos",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      for (const file of files) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          throw new Error('Invalid file type');
+        }
+        // Validate file size
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error('File too large');
+        }
+      }
+
+      const dataUrlPromises = files.map(file => fileToDataURL(file));
+      const dataUrls = await Promise.all(dataUrlPromises);
+      
+      const startIndex = additionalPhotos.length;
+      setAdditionalPhotos(prev => [...prev, ...dataUrls]);
+      
+      // Store file objects for later upload
+      const newFiles = { ...photoFiles };
+      dataUrls.forEach((_, idx) => {
+        newFiles[startIndex + idx] = files[idx];
+      });
+      setPhotoFiles(newFiles);
+      
+      toast({
+        title: "Photos selected",
+        description: `${files.length} photo(s) will be uploaded when you save`
+      });
+    } catch (err: any) {
+      console.error("Failed to process photos:", err);
+      toast({
+        title: "Upload failed",
+        description: err.message || "Failed to process photos. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Remove a photo
+  const handleRemovePhoto = (photoUrl: string, index: number) => {
+    setAdditionalPhotos(prev => prev.filter(p => p !== photoUrl));
+    
+    // Remove from file objects if it exists
+    setPhotoFiles(prev => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+    
+    // If removing the profile photo, set the next photo as profile
+    if (photoUrl === profilePhoto) {
+      const remaining = additionalPhotos.filter(p => p !== photoUrl);
+      setProfilePhoto(remaining[0] || "");
+    }
+    
+    toast({
+      title: "Photo removed",
+      description: "Photo has been removed from your profile"
+    });
+  };
+
   const removeInterest = (interest: string) => {
     setSelectedInterests(prev => prev.filter(i => i !== interest));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Persist edits to Firestore users/{uid} and update localStorage.userProfile
     try {
       const user = auth.currentUser;
       if (!user) {
         alert('You must be logged in to save your profile');
         return;
+      }
+
+      setIsUploadingPhoto(true);
+
+      // Upload new photos to Firebase Storage
+      const storage = getStorage(app);
+      const uploadedPhotos: string[] = [...additionalPhotos];
+
+      // Upload files from photoFiles map
+      const entries = Object.entries(photoFiles);
+      for (const [indexStr, file] of entries) {
+        try {
+          const index = Number(indexStr);
+          const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+          const path = `users/${user.uid}/photos/${filename}`;
+          const sRef = storageRef(storage, path);
+
+          // Upload file
+          await new Promise<void>((resolve, reject) => {
+            const uploadTask = uploadBytesResumable(sRef, file);
+            uploadTask.on(
+              "state_changed",
+              () => {}, // progress
+              (err) => reject(err),
+              () => resolve(),
+            );
+          });
+
+          // Get download URL
+          try {
+            const url = await getDownloadURL(sRef);
+            uploadedPhotos[index] = url;
+          } catch (err) {
+            // Fallback to storage path if URL fetch fails
+            uploadedPhotos[index] = path;
+          }
+        } catch (err) {
+          console.error("Failed to upload photo:", err);
+          toast({
+            title: "Photo upload failed",
+            description: "Some photos failed to upload. Profile will be saved without them.",
+            variant: "destructive"
+          });
+        }
       }
 
       // Build payload
@@ -122,13 +340,15 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
         location: formData.location || '',
         bio: formData.bio || '',
         thingsYouDoGreat: selectedInterests || [],
+        photoURL: uploadedPhotos[0] || '',
+        photos: uploadedPhotos.slice(0, 6),
         updatedAt: new Date().toISOString(),
       };
 
       // Merge into Firestore user doc
       const userRef = doc(db, 'users', user.uid);
       // setDoc with merge true to avoid clobbering other fields
-      void setDoc(userRef, payload, { merge: true }).then(async () => {
+      await setDoc(userRef, payload, { merge: true }).then(async () => {
         // Also update Firebase Auth displayName
         try {
           await updateProfile(user, { displayName: fullName });
@@ -153,14 +373,33 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
           onSave();
         }
         
+        // Clear photo files after successful save
+        setPhotoFiles({});
+        setIsUploadingPhoto(false);
+        
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been saved successfully"
+        });
+        
         onClose();
       }).catch((err) => {
         console.error('Failed to save profile to Firestore', err);
-        alert('Failed to save profile. Please try again.');
+        setIsUploadingPhoto(false);
+        toast({
+          title: "Save failed",
+          description: "Failed to save profile. Please try again.",
+          variant: "destructive"
+        });
       });
     } catch (err) {
       console.error('EditProfileModal: unexpected save error', err);
-      alert('Failed to save profile.');
+      setIsUploadingPhoto(false);
+      toast({
+        title: "Error",
+        description: "Failed to save profile.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -186,6 +425,122 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
+          {/* Photo Management */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <Camera className="w-5 h-5 mr-2 text-primary" />
+              Profile Photos
+            </h3>
+            
+            {/* Profile Photo */}
+            <div className="mb-6">
+              <label className="text-sm font-medium text-muted-foreground block mb-3">
+                Main Profile Photo
+              </label>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
+                  {profilePhoto ? (
+                    <img 
+                      src={profilePhoto} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground" />
+                  )}
+                  {isUploadingPhoto && (
+                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePhotoChange}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingPhoto}
+                    className="w-full sm:w-auto"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {profilePhoto ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Recommended: Square image, max 5MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Photos */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground block mb-3">
+                Additional Photos (Max 6 total)
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-3">
+                {additionalPhotos.map((photo, index) => (
+                  <div 
+                    key={index} 
+                    className="relative aspect-square rounded-xl overflow-hidden bg-muted group"
+                  >
+                    <img 
+                      src={photo} 
+                      alt={`Photo ${index + 1}`} 
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(photo, index)}
+                      className="absolute top-1 right-1 p-1.5 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </button>
+                    {index === 0 && (
+                      <div className="absolute bottom-1 left-1 right-1">
+                        <Badge variant="secondary" className="w-full text-[10px] justify-center py-0.5">
+                          Main
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {/* Add Photo Button */}
+                {additionalPhotos.length < 6 && (
+                  <div>
+                    <input
+                      ref={additionalPhotosInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleAdditionalPhotosChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => additionalPhotosInputRef.current?.click()}
+                      disabled={isUploadingPhoto}
+                      className="aspect-square w-full rounded-xl border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary"
+                    >
+                      <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+                      <span className="text-[10px] sm:text-xs font-medium">Add</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {additionalPhotos.length}/6 photos • Click to remove • First photo is your main profile photo
+              </p>
+            </div>
+          </div>
+
           {/* Basic Information */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -368,11 +723,11 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
         {/* Footer - Fixed */}
         <div className="p-4 sm:p-6 border-t border-border bg-muted/20 flex-shrink-0">
           <div className="flex space-x-3">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+            <Button variant="outline" onClick={onClose} className="flex-1" disabled={isUploadingPhoto}>
               Cancel
             </Button>
-            <Button onClick={handleSave} className="flex-1">
-              Save Changes
+            <Button onClick={handleSave} className="flex-1" disabled={isUploadingPhoto}>
+              {isUploadingPhoto ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

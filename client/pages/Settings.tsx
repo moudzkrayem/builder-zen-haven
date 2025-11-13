@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/ThemeProvider";
-import NotificationsModal from "@/components/NotificationsModal";
-import DiscoverySettingsModal from "@/components/DiscoverySettingsModal";
+import HelpSupportModal from "@/components/HelpSupportModal";
+import SocialLinksModal from "@/components/SocialLinksModal";
+import PrivacyPolicyModal from "@/components/PrivacyPolicyModal";
+import TermsOfServiceModal from "@/components/TermsOfServiceModal";
 import {
   ArrowLeft,
   Bell,
@@ -12,7 +14,6 @@ import {
   Eye,
   Globe,
   Heart,
-  CreditCard,
   HelpCircle,
   LogOut,
   Moon,
@@ -45,19 +46,6 @@ const settingsGroups = [
         value: false,
       },
       {
-        icon: Bell,
-        label: "Notifications",
-        description: "Manage your notification settings",
-        type: "navigation",
-        badge: "3 active",
-      },
-      {
-        icon: MapPin,
-        label: "Location",
-        description: "Update your location preferences",
-        type: "navigation",
-      },
-      {
         icon: Globe,
         label: "Language",
         description: "English (US)",
@@ -66,75 +54,8 @@ const settingsGroups = [
     ],
   },
   {
-    title: "Discovery",
-    items: [
-      {
-        icon: Users,
-        label: "Distance",
-        description: "Show people within 25 miles",
-        type: "navigation",
-      },
-      {
-        icon: Heart,
-        label: "Age Range",
-        description: "18 - 35 years old",
-        type: "navigation",
-      },
-      {
-        icon: Eye,
-        label: "Show Me",
-        description: "Everyone",
-        type: "navigation",
-      },
-      {
-        icon: Star,
-        label: "Interests",
-        description: "Manage your interests",
-        type: "navigation",
-      },
-    ],
-  },
-  {
-    title: "Privacy & Safety",
-    items: [
-      {
-        icon: Shield,
-        label: "Privacy Settings",
-        description: "Control who can see your profile",
-        type: "navigation",
-      },
-      {
-        icon: MessageSquare,
-        label: "Chat Settings",
-        description: "Message controls and filters",
-        type: "navigation",
-      },
-      {
-        icon: Eye,
-        label: "Profile Visibility",
-        description: "Manage profile visibility",
-        type: "toggle",
-        value: true,
-      },
-      {
-        icon: Volume2,
-        label: "Sound Effects",
-        description: "App sound feedback",
-        type: "toggle",
-        value: true,
-      },
-    ],
-  },
-  {
     title: "Account",
     items: [
-      {
-        icon: CreditCard,
-        label: "Subscription",
-        description: "Manage your Trybe Plus subscription",
-        type: "navigation",
-        badge: "Premium",
-      },
       {
         icon: Smartphone,
         label: "Linked Accounts",
@@ -161,13 +82,12 @@ const settingsGroups = [
 export default function Settings() {
   const { theme, setTheme, isDark } = useTheme();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState({
-    newTrybes: true,
-    messages: true,
-    eventReminders: true,
-    profileViews: false,
-  });
   const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [showHelpSupportModal, setShowHelpSupportModal] = useState(false);
+  const [showSocialLinksModal, setShowSocialLinksModal] = useState(false);
+  const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -179,7 +99,9 @@ export default function Settings() {
           const snap = await getDoc(doc(db, 'users', u.uid));
           if (snap.exists()) {
             const data = snap.data();
-            if (mounted) setUserProfile(data);
+            if (mounted) {
+              setUserProfile(data);
+            }
             return;
           }
         } catch (err) {
@@ -194,8 +116,6 @@ export default function Settings() {
     load();
     return () => { mounted = false; };
   }, []);
-  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
   const { toast } = useToast();
 
   const handleToggle = (settingKey: string, value: boolean) => {
@@ -238,9 +158,6 @@ export default function Settings() {
               <p className="text-muted-foreground">
                 {userProfile?.location ? `${userProfile.location} • ` : ''}{(userProfile?.joinedEvents?.length) ?? '0'} events
               </p>
-              <div className="flex items-center space-x-2 mt-2">
-                    <Badge variant="outline">Verified</Badge>
-              </div>
             </div>
           </div>
         </div>
@@ -248,7 +165,7 @@ export default function Settings() {
         {/* Settings groups */}
         <div className="space-y-6">
           {settingsGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
+            <div key={groupIndex} data-section={group.title}>
               <h3 className="text-lg font-semibold mb-4 text-foreground">
                 {group.title}
               </h3>
@@ -268,33 +185,30 @@ export default function Settings() {
                       )}
                       onClick={async () => {
                           try {
-                            if (item.label === "Notifications") {
-                              setShowNotificationsModal(true);
+                            // Help & Support
+                            if (item.label === "Help & Support") {
+                              setShowHelpSupportModal(true);
                               return;
                             }
 
-                            if (item.label === "Distance" || item.label === "Age Range" || item.label === "Show Me" || item.label === "Interests") {
-                              setShowDiscoveryModal(true);
+                            // Social Accounts / Linked Accounts
+                            if (item.label === "Linked Accounts") {
+                              setShowSocialLinksModal(true);
                               return;
                             }
 
+                            // Sign Out
                             if (item.label === "Sign Out") {
-                              // Perform logout via auth helper, clear session-local data and navigate to login
                               try {
                                 await logout();
                               } catch (err) {
                                 console.warn('Settings: logout failed', err);
                               }
                               try {
-                                // Clear some local caches and session state
                                 localStorage.removeItem('trybes_cache_v1');
                                 localStorage.removeItem('userProfile');
                                 sessionStorage.removeItem('openScheduleOnLoad');
                               } catch (e) {}
-                              // Replace the current history entry with login to reduce chance
-                              // the user can navigate back to an authenticated page from
-                              // the immediate history stack. We also force a full reload
-                              // to ensure in-memory state is cleared.
                               window.location.replace('/login');
                               return;
                             }
@@ -378,15 +292,24 @@ export default function Settings() {
         <div className="mt-8 text-center text-muted-foreground">
           <p className="text-sm mb-2">Trybe v1.0.0</p>
           <div className="flex items-center justify-center space-x-4 text-xs">
-            <button className="hover:text-primary transition-colors">
+            <button 
+              className="hover:text-primary transition-colors"
+              onClick={() => setShowPrivacyPolicyModal(true)}
+            >
               Privacy Policy
             </button>
             <span>•</span>
-            <button className="hover:text-primary transition-colors">
+            <button 
+              className="hover:text-primary transition-colors"
+              onClick={() => setShowTermsModal(true)}
+            >
               Terms of Service
             </button>
             <span>•</span>
-            <button className="hover:text-primary transition-colors">
+            <button 
+              className="hover:text-primary transition-colors"
+              onClick={() => setShowHelpSupportModal(true)}
+            >
               Support
             </button>
           </div>
@@ -394,33 +317,22 @@ export default function Settings() {
       </div>
 
       {/* Modals */}
-      <NotificationsModal
-        isOpen={showNotificationsModal}
-        onClose={() => setShowNotificationsModal(false)}
+      <HelpSupportModal
+        isOpen={showHelpSupportModal}
+        onClose={() => setShowHelpSupportModal(false)}
       />
-      <DiscoverySettingsModal
-        isOpen={showDiscoveryModal}
-        onClose={() => setShowDiscoveryModal(false)}
-        onApply={async (filters) => {
-          try {
-            const u = auth.currentUser;
-            if (!u) {
-              toast({ title: 'You must be signed in to save settings' });
-              return;
-            }
-            const ref = doc(db, 'users', u.uid);
-            // Persist discovery settings under a single field for now
-            await updateDoc(ref, { discoveryPreferences: filters });
-            toast({ title: 'Discovery settings saved' });
-          } catch (err: any) {
-            console.warn('Settings: failed to save discovery settings', err);
-            toast({ title: 'Failed to save settings', description: String(err?.message || err) });
-          } finally {
-            setShowDiscoveryModal(false);
-          }
-        }}
+      <SocialLinksModal
+        isOpen={showSocialLinksModal}
+        onClose={() => setShowSocialLinksModal(false)}
       />
-      {/* Subscription modal removed since subscription UI is hidden */}
+      <PrivacyPolicyModal
+        isOpen={showPrivacyPolicyModal}
+        onClose={() => setShowPrivacyPolicyModal(false)}
+      />
+      <TermsOfServiceModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </div>
   );
 }

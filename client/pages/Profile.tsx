@@ -1,10 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
-import ProfileVisibilityModal from "@/components/ProfileVisibilityModal";
 import EditProfileModal from "@/components/EditProfileModal";
-import SocialAccountsModal from "@/components/SocialAccountsModal";
 import StatsModal from "@/components/StatsModal";
+import OptimizedImage from "@/components/OptimizedImage";
 import {
   Settings,
   Camera,
@@ -36,9 +35,7 @@ export default function Profile() {
   const { events, joinedEvents, getUserRating, rateEvent, connections, addConnection, isConnected, canRateEvent, isEventFinished, friends, getFriendsOf, setSharePreferenceForUser } = useEvents();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "events">("profile");
-  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSocialModal, setShowSocialModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState<"events" | "connections" | "views" | null>(null);
   const navigate = useNavigate();
 
@@ -184,11 +181,15 @@ export default function Profile() {
                   {profilePhotos && profilePhotos.length > 0 ? (
                     profilePhotos.map((src: string, i: number) => (
                       <div key={i} className="aspect-square rounded-xl overflow-hidden">
-                        <img src={src} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                        <OptimizedImage 
+                          srcCandidates={[src]} 
+                          alt={`Photo ${i + 1}`} 
+                          className="w-full h-full"
+                        />
                       </div>
                     ))
                   ) : (
-                    <div className="text-sm text-muted-foreground">No photos yet. Manage photos in Settings.</div>
+                    <div className="text-sm text-muted-foreground">No photos yet. Edit your profile to add photos.</div>
                   )}
                 </div>
               </div>
@@ -298,46 +299,6 @@ export default function Profile() {
                   <Calendar className="w-5 h-5 mr-2" />
                   Schedule
                 </Button>
-              </div>
-            </div>
-
-            {/* Settings sections */}
-            <div className="mt-8 space-y-4">
-              <h3 className="text-lg font-semibold">Account</h3>
-              <div className="space-y-2">
-                {[
-                  "Privacy Settings",
-                  "Notification Preferences",
-                  "Help & Support",
-                ].map((item, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    className="w-full justify-start h-12 rounded-xl text-foreground"
-                    onClick={() => {
-                      if (item === 'Privacy Settings') navigate('/settings#privacy');
-                      else if (item === 'Notification Preferences') navigate('/settings#notifications');
-                      else if (item === 'Help & Support') navigate('/help');
-                    }}
-                  >
-                    {item}
-                  </Button>
-                ))}
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowVisibilityModal(true)}
-                  className="w-full justify-start h-12 rounded-xl text-foreground"
-                >
-                  Discovery Settings
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowSocialModal(true)}
-                  className="w-full justify-start h-12 rounded-xl text-foreground"
-                >
-                  Social Accounts
-                </Button>
-
               </div>
             </div>
 
@@ -474,10 +435,6 @@ export default function Profile() {
       </div>
 
       {/* Modals */}
-      <ProfileVisibilityModal
-        isOpen={showVisibilityModal}
-        onClose={() => setShowVisibilityModal(false)}
-      />
       <EditProfileModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -491,10 +448,6 @@ export default function Profile() {
           bio: profile?.bio || "",
           interests: profileInterests,
         }}
-      />
-      <SocialAccountsModal
-        isOpen={showSocialModal}
-        onClose={() => setShowSocialModal(false)}
       />
       <StatsModal
         isOpen={showStatsModal !== null}
