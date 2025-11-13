@@ -421,23 +421,10 @@ export default function Swipe() {
 
             {/* Event info overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-3xl font-bold mb-1">
-                    {currentEvent.eventName}
-                  </h2>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsExpanded(!isExpanded);
-                  }}
-                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm"
-                >
-                  <span className="text-sm font-bold">
-                    {isExpanded ? "−" : "+"}
-                  </span>
-                </button>
+              <div className="mb-3">
+                <h2 className="text-3xl font-bold mb-1">
+                  {currentEvent.eventName}
+                </h2>
               </div>
 
               <div className="flex items-center space-x-4 mb-3 text-sm flex-wrap">

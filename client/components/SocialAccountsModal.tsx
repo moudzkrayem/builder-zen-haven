@@ -60,7 +60,7 @@ export default function SocialAccountsModal({ isOpen, onClose }: SocialAccountsM
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-x-0 top-0 bottom-20 z-50 bg-background/80 backdrop-blur-sm">
       <div className="absolute inset-x-4 top-8 bottom-8 bg-card rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">

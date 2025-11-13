@@ -255,7 +255,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-x-0 top-0 bottom-20 z-50 bg-background/80 backdrop-blur-sm">
       <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-card">
@@ -446,30 +446,6 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
                 </>
               )}
             </Button>
-
-            {/* Secondary actions */}
-            <div className="flex space-x-3">
-              <Button
-                onClick={handleConnect}
-                disabled={isConnected(event.id as any)}
-                variant={isConnected(event.id as any) ? "outline" : "default"}
-                className="flex-1 h-10 rounded-xl"
-              >
-                {isConnected(event.id as any) ? (
-                  <><Check className="w-4 h-4 mr-2" />Connected</>
-                ) : (
-                  <><UserPlus className="w-4 h-4 mr-2" />Connect+</>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleShare}
-                className="flex-1 h-10 rounded-xl"
-              >
-                <Share className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-            </div>
           </div>
         </div>
       </div>

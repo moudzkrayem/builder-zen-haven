@@ -219,8 +219,8 @@ export default function ScheduleModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-x-0 top-0 bottom-20 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[calc(100vh-7rem)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div>

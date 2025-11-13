@@ -120,15 +120,13 @@ export default function UserProfileModal({
 
   return (
     // Anchor to bottom on small screens, but center on large (desktop/laptop).
-    // Also allow the overlay to scroll on small devices and leave extra bottom padding on large screens
-    // to avoid overlapping fixed bottom nav.
+    // Modal stops above bottom nav (bottom-20) to avoid overlap
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-end lg:items-center justify-center p-0 lg:p-4 lg:pb-16 overflow-y-auto overscroll-contain"
-      style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y', height: '100dvh' }}
+      className="fixed inset-x-0 top-0 bottom-20 z-50 bg-black/50 flex items-end lg:items-center justify-center p-0 lg:p-4 overflow-y-auto overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y' }}
     >
       <div
-        className="bg-card rounded-t-3xl lg:rounded-3xl w-full max-w-lg lg:max-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] overflow-hidden mx-4 lg:mx-0 flex flex-col relative"
-        style={{ maxHeight: 'min(85vh, 100dvh)' }}
+        className="bg-card rounded-t-3xl lg:rounded-3xl w-full max-w-lg max-h-[calc(100vh-6rem)] lg:max-h-[calc(100vh-7rem)] overflow-hidden mx-0 lg:mx-4 flex flex-col relative"
       >
         {/* Header: place the profile image in normal flow so the modal can scroll correctly */}
         <div className="relative bg-gradient-to-r from-primary/20 to-accent/20">

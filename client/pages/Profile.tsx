@@ -47,19 +47,20 @@ export default function Profile() {
   const [scheduleFilterLocal, setScheduleFilterLocal] = useState<'joined' | 'host' | null>(null);
 
   const [profile, setProfile] = useState<any | null>(null);
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('userProfile');
-      if (stored) setProfile(JSON.parse(stored));
-    } catch {}
-  }, []);
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
 
-  // If no local profile, try loading from Firestore (useful for fresh installs / cleared storage)
+  // Load profile from localStorage or Firestore
   useEffect(() => {
-    const tryLoad = async () => {
+    const loadProfile = async () => {
       try {
+        // First try localStorage
         const stored = localStorage.getItem('userProfile');
-        if (stored) return; // already loaded
+        if (stored) {
+          setProfile(JSON.parse(stored));
+          return;
+        }
+        
+        // If not in localStorage, try Firestore
         const user = auth.currentUser;
         if (!user) return;
         const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -69,12 +70,17 @@ export default function Profile() {
           setProfile(data);
         }
       } catch (err) {
-        console.error('Error loading profile from Firestore', err);
+        console.error('Error loading profile', err);
       }
     };
 
-    tryLoad();
-  }, []);
+    loadProfile();
+  }, [profileRefreshKey]); // Re-run when profileRefreshKey changes
+
+  // Function to refresh profile data
+  const refreshProfile = () => {
+    setProfileRefreshKey(prev => prev + 1);
+  };
 
   const profileName = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : "";
   let profilePhotos: string[] = profile?.photos || [];
@@ -110,8 +116,16 @@ export default function Profile() {
     return false;
   };
 
+  // Reset scroll position when Profile component mounts or becomes visible
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, []);
+
   return (
-    <div className="h-full bg-background overflow-y-auto">
+    <div ref={scrollContainerRef} className="h-full bg-background overflow-y-auto overscroll-contain">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
         <div className="flex items-center justify-between">
@@ -467,6 +481,7 @@ export default function Profile() {
       <EditProfileModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
+        onSave={refreshProfile}
         userData={{
           name: profileName || "",
           age: profile?.age || 0,

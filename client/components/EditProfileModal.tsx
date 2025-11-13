@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth, db } from "@/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void; // Callback to refresh profile data after save
   userData: {
     name: string;
     age: number;
@@ -45,9 +47,11 @@ const availableInterests = [
   "Wellness",
 ];
 
-export default function EditProfileModal({ isOpen, onClose, userData }: EditProfileModalProps) {
+export default function EditProfileModal({ isOpen, onClose, onSave, userData }: EditProfileModalProps) {
+  const nameParts = userData.name.split(' ');
   const [formData, setFormData] = useState({
-    name: userData.name,
+    firstName: nameParts[0] || '',
+    lastName: nameParts.slice(1).join(' ') || '',
     age: userData.age.toString(),
     profession: userData.profession,
     education: userData.education,
@@ -56,6 +60,21 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
   });
   const [selectedInterests, setSelectedInterests] = useState<string[]>(userData.interests);
   const [newInterest, setNewInterest] = useState("");
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store original overflow value
+      const originalOverflow = document.body.style.overflow;
+      // Lock scroll
+      document.body.style.overflow = 'hidden';
+      
+      // Cleanup: restore scroll on unmount
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -92,13 +111,11 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
       }
 
       // Build payload
-      const nameParts = (formData.name || '').toString().trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
+      const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
       const payload: any = {
-        firstName,
-        lastName,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        displayName: fullName,
         age: Number(formData.age) || 0,
         occupation: formData.profession || '',
         education: formData.education || '',
@@ -111,7 +128,13 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
       // Merge into Firestore user doc
       const userRef = doc(db, 'users', user.uid);
       // setDoc with merge true to avoid clobbering other fields
-      void setDoc(userRef, payload, { merge: true }).then(() => {
+      void setDoc(userRef, payload, { merge: true }).then(async () => {
+        // Also update Firebase Auth displayName
+        try {
+          await updateProfile(user, { displayName: fullName });
+        } catch (err) {
+          console.error('Error updating auth profile:', err);
+        }
         try {
           // Update local cache in localStorage so UI reflects changes immediately
           const stored = localStorage.getItem('userProfile');
@@ -120,9 +143,16 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
           // Keep legacy name field too
           merged.name = `${merged.firstName || ''}${merged.lastName ? ' ' + merged.lastName : ''}`.trim();
           localStorage.setItem('userProfile', JSON.stringify(merged));
+          console.log('✅ Profile saved successfully:', merged);
         } catch (err) {
-          // ignore localStorage errors
+          console.error('Error updating localStorage:', err);
         }
+        
+        // Call onSave callback to refresh parent component
+        if (onSave) {
+          onSave();
+        }
+        
         onClose();
       }).catch((err) => {
         console.error('Failed to save profile to Firestore', err);
@@ -135,21 +165,27 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="absolute inset-x-4 top-4 bottom-4 bg-card rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
+    <div 
+      className="fixed inset-x-0 top-0 bottom-20 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-2xl max-h-[calc(100vh-6rem)] sm:max-h-[calc(100vh-7rem)] bg-card rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <Edit3 className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">Edit Profile</h2>
+            <Edit3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            <h2 className="text-xl sm:text-2xl font-bold">Edit Profile</h2>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
           {/* Basic Information */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -157,15 +193,26 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
               Basic Information
             </h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground block mb-2">
                     First Name
                   </label>
                   <Input
-                    value={formData.name.split(" ")[0]}
-                    onChange={(e) => handleInputChange("name", e.target.value + " " + (formData.name.split(" ")[1] || ""))}
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange("firstName", e.target.value)}
                     placeholder="Enter your first name"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Last Name
+                  </label>
+                  <Input
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    placeholder="Enter your last name"
                     className="rounded-xl"
                   />
                 </div>
@@ -318,8 +365,8 @@ export default function EditProfileModal({ isOpen, onClose, userData }: EditProf
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t border-border bg-muted/20">
+        {/* Footer - Fixed */}
+        <div className="p-4 sm:p-6 border-t border-border bg-muted/20 flex-shrink-0">
           <div className="flex space-x-3">
             <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel

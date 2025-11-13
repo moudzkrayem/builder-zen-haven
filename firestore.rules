@@ -54,6 +54,23 @@ service cloud.firestore {
         // prevent deletion of existing keys during join
         && request.resource.data.keys().hasAll(resource.data.keys());
 
+      // leave by non-owner: allow removing self from attendeeIds
+      allow update: if isSignedIn()
+        && resource.data.createdBy != request.auth.uid
+        // must have attendeeIds before and after as lists
+        && resource.data.attendeeIds is list
+        && request.resource.data.attendeeIds is list
+        // caller must have been in the old list
+        && resource.data.attendeeIds.hasAny([request.auth.uid])
+        // caller must NOT be in the new list
+        && !request.resource.data.attendeeIds.hasAny([request.auth.uid])
+        // attendeeIds changed by exactly -1
+        && request.resource.data.attendeeIds.size() == resource.data.attendeeIds.size() - 1
+        // attendees numeric must have decreased by exactly 1
+        && request.resource.data.attendees == resource.data.attendees - 1
+        // prevent deletion of existing keys during leave
+        && request.resource.data.keys().hasAll(resource.data.keys());
+
       allow delete: if false;
 
       // -------------------
