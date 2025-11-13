@@ -4,8 +4,8 @@ service firebase.storage {
     
     // User profile photos
     match /users/{userId}/photos/{photoFile} {
-      // Users can read any profile photo
-      allow read: if request.auth != null;
+      // Anyone can read profile photos (they're public on profiles)
+      allow read: if true;
       // Users can only write to their own photo folder
       allow write: if request.auth != null && request.auth.uid == userId;
     }

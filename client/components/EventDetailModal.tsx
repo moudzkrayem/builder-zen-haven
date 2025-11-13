@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import EditEventModal from "@/components/EditEventModal";
+import { getFirestore, doc as firestoreDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
 
 interface EventDetailModalProps {
   isOpen: boolean;
@@ -45,6 +47,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
+  const [creatorData, setCreatorData] = useState<{ name: string; photoURL: string } | null>(null);
 
   // Body scroll lock while event detail modal is open (ref-counted to support nested modals)
   useEffect(() => {
@@ -61,6 +64,112 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
       }
     };
   }, [isOpen]);
+
+  // Fetch creator's profile data from Firestore
+  useEffect(() => {
+    if (!isOpen || !eventId) {
+      setCreatorData(null);
+      return;
+    }
+
+    const event = events.find(e => String(e.id) === String(eventId));
+    if (!event) {
+      console.log('EventDetailModal: Event not found', eventId);
+      return;
+    }
+
+    console.log('EventDetailModal: Event data:', event);
+
+    const createdBy = (event as any).createdBy;
+    if (!createdBy) {
+      console.log('EventDetailModal: No createdBy field for event', eventId, 'trying createdByImage/createdByName from event');
+      // Fallback to event's embedded creator data if available
+      const fallbackName = (event as any).createdByName || (event as any).hostName || event.host || 'Unknown Host';
+      const fallbackImage = (event as any).createdByImage || (event as any).hostImage || '';
+      setCreatorData({
+        name: fallbackName,
+        photoURL: fallbackImage
+      });
+      return;
+    }
+
+    // Fetch creator profile from Firestore
+    (async () => {
+      try {
+        console.log('EventDetailModal: Fetching user data for createdBy:', createdBy);
+        
+        // Check if creator is the current user - use their cached data first
+        const currentUser = (await import('@/auth')).auth.currentUser;
+        if (currentUser && currentUser.uid === createdBy) {
+          console.log('EventDetailModal: Creator is current user, using cached profile');
+          // Keep name as "You" but get the photo
+          const name = 'You';
+          let photoURL = '';
+          
+          try {
+            const userProfile = localStorage.getItem('userProfile');
+            if (userProfile) {
+              const profile = JSON.parse(userProfile);
+              photoURL = profile.photoURL || (profile.photos && profile.photos[0]) || '';
+            }
+          } catch (e) {
+            console.log('EventDetailModal: Failed to parse userProfile from localStorage');
+          }
+          
+          // Fallback to Firebase Auth photo
+          if (!photoURL && currentUser.photoURL) {
+            photoURL = currentUser.photoURL;
+          }
+          
+          setCreatorData({ name, photoURL });
+          console.log('EventDetailModal: Using current user data:', { name, photoURL });
+          return;
+        }
+        
+        const userDoc = await getDoc(firestoreDoc(db, 'users', createdBy));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          // Try multiple field names for name
+          const name = userData.displayName 
+            || userData.name 
+            || (userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : '')
+            || userData.firstName
+            || userData.lastName
+            || 'Unknown User';
+          
+          // Try multiple field names for photo
+          const photoURL = userData.photoURL 
+            || userData.profileImage 
+            || (userData.photos && userData.photos.length > 0 ? userData.photos[0] : '')
+            || '';
+          
+          setCreatorData({
+            name,
+            photoURL
+          });
+          console.log('EventDetailModal: Fetched creator data:', { name, photoURL, userData });
+        } else {
+          console.log('EventDetailModal: Creator user document not found for', createdBy);
+          // Try fallback to event's embedded creator data
+          const fallbackName = (event as any).createdByName || (event as any).hostName || event.host || 'Unknown Host';
+          const fallbackImage = (event as any).createdByImage || (event as any).hostImage || '';
+          setCreatorData({
+            name: fallbackName,
+            photoURL: fallbackImage
+          });
+        }
+      } catch (err) {
+        console.error('EventDetailModal: Failed to fetch creator data:', err);
+        // Try fallback to event's embedded creator data
+        const fallbackName = (event as any).createdByName || (event as any).hostName || event.host || 'Unknown Host';
+        const fallbackImage = (event as any).createdByImage || (event as any).hostImage || '';
+        setCreatorData({
+          name: fallbackName,
+          photoURL: fallbackImage
+        });
+      }
+    })();
+  }, [isOpen, eventId, events]);
 
   // Early returns AFTER all hooks
   if (!isOpen || eventId == null) return null;
@@ -192,19 +301,29 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
             )}
 
             {/* Host info overlay */}
-            <div className="absolute top-4 left-4 flex items-center space-x-3">
-              <img
-                src={event.hostImage || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop"}
-                alt={event.hostName || event.host}
-                className="w-12 h-12 rounded-full border-2 border-white object-cover"
-              />
-              <div className="text-white">
-                <div className="text-sm font-semibold">
-                  {event.hostName || event.host}
+            {creatorData && (
+              <div className="absolute top-4 left-4 flex items-center space-x-3">
+                {creatorData.photoURL ? (
+                  <img
+                    src={creatorData.photoURL}
+                    alt={creatorData.name}
+                    className="w-12 h-12 rounded-full border-2 border-white object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full border-2 border-white bg-primary/20 flex items-center justify-center">
+                    <span className="text-white font-semibold text-lg">
+                      {creatorData.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="text-white">
+                  <div className="text-sm font-semibold">
+                    {creatorData.name}
+                  </div>
+                  <div className="text-xs text-white/80">Host</div>
                 </div>
-                <div className="text-xs text-white/80">Host</div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Event Information */}
