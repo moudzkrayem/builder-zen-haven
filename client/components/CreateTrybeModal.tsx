@@ -815,15 +815,41 @@ export default function CreateTrybeModal({
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   if (files.length === 0) return;
-                  setFormData((prev) => ({
-                    ...prev,
-                    photos: [...prev.photos, ...files],
-                  }));
-                  console.debug('Files added:', files.map(f => ({ name: f.name, size: f.size })));
+                  
+                  // Filter out unsupported formats (HEIC, HEIF, etc.)
+                  const validFiles: File[] = [];
+                  const invalidFiles: string[] = [];
+                  
+                  files.forEach(file => {
+                    const fileName = file.name.toLowerCase();
+                    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+                    const isValid = validExtensions.some(ext => fileName.endsWith(ext)) && 
+                                   !fileName.endsWith('.heic') && 
+                                   !fileName.endsWith('.heif');
+                    
+                    if (isValid) {
+                      validFiles.push(file);
+                    } else {
+                      invalidFiles.push(file.name);
+                    }
+                  });
+                  
+                  if (invalidFiles.length > 0) {
+                    alert(`⚠️ Some files were not added because they're in an unsupported format:\n\n${invalidFiles.join('\n')}\n\nPlease convert HEIC/HEIF images to JPG or PNG. On iPhone, you can:\n1. Go to Settings > Camera > Formats\n2. Select "Most Compatible" to save as JPEG instead of HEIC`);
+                  }
+                  
+                  if (validFiles.length > 0) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      photos: [...prev.photos, ...validFiles],
+                    }));
+                    console.debug('Valid files added:', validFiles.map(f => ({ name: f.name, size: f.size })));
+                  }
+                  
                   // Reset input
                   e.target.value = "";
                 }}
