@@ -9,6 +9,7 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEvents } from "@/contexts/EventsContext";
 
 const navItems = [
   { path: "/home", icon: Home, label: "Home" },
@@ -21,6 +22,10 @@ const navItems = [
 export default function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { chats } = useEvents();
+  
+  // Calculate total unread count
+  const totalUnreadCount = chats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
@@ -54,6 +59,12 @@ export default function BottomNavigation() {
                     isActive && "scale-110",
                   )}
                 />
+                {/* Show unread badge on chats icon */}
+                {item.path === "/chats" && totalUnreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </div>
+                )}
                 {isActive && (
                   <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
                 )}

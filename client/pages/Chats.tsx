@@ -15,10 +15,11 @@ import { cn } from "@/lib/utils";
 // Mock chat data
 
 export default function Chats() {
-  const { chats } = useEvents();
+  const { chats, markChatAsRead, markAllChatsAsRead } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | number | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
 
   const filteredChats = chats.filter((chat) =>
     chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -78,7 +79,18 @@ export default function Chats() {
   const handleOpenChat = (chatId: string | number) => {
     setActiveChatId(chatId);
     setShowChatModal(true);
+    // Mark chat as read when opened
+    markChatAsRead(chatId);
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClick = () => setShowOptions(false);
+    if (showOptions) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [showOptions]);
 
   return (
     <div className="h-full bg-background">
@@ -86,9 +98,41 @@ export default function Chats() {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Chats</h1>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="w-5 h-5" />
-          </Button>
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowOptions(!showOptions)}
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </Button>
+            
+            {showOptions && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full mt-2 z-50 w-48 bg-card rounded-lg shadow-lg border border-border p-2"
+              >
+                <button
+                  onClick={() => {
+                    markAllChatsAsRead();
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm flex items-center"
+                >
+                  <span>Mark all as read</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm flex items-center"
+                >
+                  <span>Clear search</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -104,11 +148,11 @@ export default function Chats() {
       </div>
 
       {/* Active trybes carousel */}
-      <div className="px-4 py-6">
+      <div className="px-4 pt-6 pb-4">
         <h2 className="text-lg font-semibold mb-4 text-foreground">
           New Trybes
         </h2>
-        <div className="flex space-x-4 overflow-x-auto hide-scrollbar pb-2">
+        <div className="flex space-x-4 overflow-x-auto hide-scrollbar py-3 -my-3">
           {chats.slice(0, 6).map((chat) => (
             <button
               key={`trybe-${chat.id}`}
@@ -117,11 +161,8 @@ export default function Chats() {
             >
               <div className="relative">
                 <SafeImg src={chat.eventImage || (chat.participantProfiles && (chat.participantProfiles[0]?.imageResolved || chat.participantProfiles[0]?.image)) || ''} alt={chat.eventName} className="w-16 h-16 rounded-xl object-cover border-2 border-primary" debugContext={`Chats:carousel:${String(chat.id)}`} />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                  <Heart className="w-3 h-3 text-primary-foreground" />
-                </div>
                 {chat.unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                  <div className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-background">
                     {chat.unreadCount}
                   </div>
                 )}
@@ -192,7 +233,10 @@ export default function Chats() {
                 {/* Chat info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-foreground truncate">
+                    <h3 className={cn(
+                      "truncate",
+                      chat.unreadCount > 0 ? "font-bold text-foreground" : "font-semibold text-foreground"
+                    )}>
                       {chat.eventName}
                     </h3>
                     <div className="flex items-center space-x-2">

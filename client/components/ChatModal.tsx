@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface ChatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  chatId: number | null;
+  chatId: string | number | null;
 }
 
 export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
@@ -175,7 +175,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           </div>
         </div>
 
-        <div className="relative flex items-center space-x-2">
+        <div className="flex items-center space-x-2">
           <Button
             variant="ghost"
             size="icon"
@@ -185,37 +185,39 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             <Users className="w-5 h-5" />
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowOptions(!showOptions);
-            }}
-            className="relative"
-          >
-            <MoreVertical className="w-5 h-5" />
-          </Button>
-
-          {showOptions && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-12 z-50 w-44 bg-card rounded-lg shadow-lg border border-border p-2"
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions(!showOptions);
+              }}
             >
-              <button
-                onClick={() => {
-                  if (event) {
-                    leaveEvent(event.id);
-                  }
-                  setShowOptions(false);
-                  onClose();
-                }}
-                className="w-full text-left px-3 py-2 rounded-md hover:bg-destructive/10 text-sm text-red-600"
+              <MoreVertical className="w-5 h-5" />
+            </Button>
+
+            {showOptions && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full mt-2 z-50 w-44 bg-card rounded-lg shadow-lg border border-border p-2"
               >
-                Leave group (cancel spot)
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => {
+                    if (event) {
+                      leaveEvent(event.id);
+                    }
+                    setShowOptions(false);
+                    onClose();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-destructive/10 text-sm text-red-600 flex items-center"
+                >
+                  <XIcon className="w-4 h-4 mr-2" />
+                  Leave group (cancel spot)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

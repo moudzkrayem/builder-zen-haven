@@ -130,6 +130,8 @@ interface EventsContextType {
   getFriendRequestStatus: (toUserId: string, eventId: number) => 'none' | 'pending' | 'accepted' | 'declined';
   canSendMessage: (toUserId: string, eventId: string | number) => boolean;
   markRead: (trybeId: string | number, uid?: string) => void;
+  markChatAsRead: (chatId: string | number) => void;
+  markAllChatsAsRead: () => void;
   // Friends
   friends: any[];
   addFriendRelation: (a: { id: string; name?: string; image?: string }, b: { id: string; name?: string; image?: string }) => void;
@@ -1752,11 +1754,30 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         })();
 
         // Upsert chat into local state, merging optimistic local messages that haven't been replaced by server messages
-        setChats(prev => {
-          const existing = prev.find(c => c.eventId === eventId);
-          const metaFromChat = chatMeta || {};
-          const eventFromEvents = events.find(e => String(e.id) === String(eventId));
-          const participants = eventFromEvents?.attendees || (existing ? existing.participants : 1);
+        (async () => {
+          // Fetch lastReadAt timestamp to properly calculate unread count
+          let lastReadAt: Date | null = null;
+          try {
+            const currentUserId = auth.currentUser?.uid;
+            if (currentUserId) {
+              const readRef = firestoreDoc(db, 'trybes', idKey, 'reads', currentUserId);
+              const readSnap = await getDoc(readRef);
+              if (readSnap.exists()) {
+                const readData = readSnap.data();
+                if (readData?.lastReadAt) {
+                  lastReadAt = readData.lastReadAt.toDate ? readData.lastReadAt.toDate() : new Date(readData.lastReadAt);
+                }
+              }
+            }
+          } catch (err) {
+            console.debug('Failed to fetch lastReadAt:', err);
+          }
+
+          setChats(prev => {
+            const existing = prev.find(c => c.eventId === eventId);
+            const metaFromChat = chatMeta || {};
+            const eventFromEvents = events.find(e => String(e.id) === String(eventId));
+            const participants = eventFromEvents?.attendees || (existing ? existing.participants : 1);
 
           // Build set of clientIds present in server messages
           const serverClientIds = new Set(serverMsgs.map(m => m.clientId).filter(Boolean) as string[]);
@@ -1821,23 +1842,46 @@ export function EventsProvider({ children }: { children: ReactNode }) {
             return deduped;
           })();
 
-          const chatObj: Chat = {
-            id: `trybe-${idKey}` as any,
-            eventId,
-            eventName: metaFromChat.eventName || eventFromEvents?.eventName || eventFromEvents?.name || (existing ? existing.eventName : '') || '',
-            eventImage: metaFromChat.eventImage || eventFromEvents?.image || (existing ? existing.eventImage : '') || '',
-            participants,
-            lastMessage: mergedMessages.length ? mergedMessages[mergedMessages.length - 1].content : existing?.lastMessage || '',
-            time: 'now',
-            unreadCount: 0,
-            messages: mergedMessages,
-          };
+            // Calculate unread count: count messages from other users that came after lastReadAt
+            const currentUser = auth.currentUser;
+            const currentUserId = currentUser?.uid;
+            
+            // Count messages that are:
+            // 1. Not from the current user
+            // 2. Sent after lastReadAt timestamp (if it exists)
+            let totalUnreadCount = 0;
+            if (lastReadAt) {
+              // Count messages newer than lastReadAt
+              totalUnreadCount = mergedMessages.filter(m => {
+                if (m.senderId === currentUserId || m.isCurrentUser) return false;
+                const messageDate = new Date(m.timestamp);
+                return messageDate > lastReadAt;
+              }).length;
+            } else {
+              // If no lastReadAt, count all messages from other users as unread
+              totalUnreadCount = mergedMessages.filter(m => 
+                m.senderId !== currentUserId && !m.isCurrentUser
+              ).length;
+            }
 
-          if (existing) {
-            return prev.map(p => p.eventId === eventId ? { ...p, ...chatObj } : p);
-          }
-          return [chatObj, ...prev];
-        });
+            const chatObj: Chat = {
+              id: `trybe-${idKey}` as any,
+              eventId,
+              eventName: metaFromChat.eventName || eventFromEvents?.eventName || eventFromEvents?.name || (existing ? existing.eventName : '') || '',
+              eventImage: metaFromChat.eventImage || eventFromEvents?.image || (existing ? existing.eventImage : '') || '',
+              participants,
+              lastMessage: mergedMessages.length ? mergedMessages[mergedMessages.length - 1].content : existing?.lastMessage || '',
+              time: 'now',
+              unreadCount: totalUnreadCount,
+              messages: mergedMessages,
+            };
+
+            if (existing) {
+              return prev.map(p => p.eventId === eventId ? { ...p, ...chatObj } : p);
+            }
+            return [chatObj, ...prev];
+          });
+        })();
       }, (err) => {
         // Handle permission or other snapshot errors gracefully so they don't bubble to the global handler
         console.error('subscribeToChat:onSnapshot error for', `trybe-${idKey}`, { uid: auth.currentUser?.uid, err });
@@ -1994,6 +2038,32 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.debug('markRead: failed', err);
     }
+  };
+
+  // Mark a specific chat as read (reset unread count to 0)
+  const markChatAsRead = (chatId: string | number) => {
+    // Find the chat to get its eventId
+    const chat = chats.find(c => String(c.id) === String(chatId));
+    if (!chat) return;
+    
+    setChats(prev => 
+      prev.map(chat => 
+        String(chat.id) === String(chatId) 
+          ? { ...chat, unreadCount: 0 }
+          : chat
+      )
+    );
+    // Also mark in Firestore using the eventId
+    markRead(chat.eventId);
+  };
+
+  // Mark all chats as read
+  const markAllChatsAsRead = () => {
+    setChats(prev => 
+      prev.map(chat => ({ ...chat, unreadCount: 0 }))
+    );
+    // Mark all in Firestore using eventId
+    chats.forEach(chat => markRead(chat.eventId));
   };
 
   const isEventFinished = (eventId: string | number): boolean => {
@@ -2221,6 +2291,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       getFriendsOf,
       setSharePreferenceForUser,
       markRead,
+      markChatAsRead,
+      markAllChatsAsRead,
     }}>
       {children}
     </EventsContext.Provider>
