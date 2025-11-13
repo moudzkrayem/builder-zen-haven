@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useEvents } from "@/contexts/EventsContext";
 import UserProfileModal from "./UserProfileModal";
 import PrivateChatModal from "./PrivateChatModal";
+import CachedImage from "./CachedImage";
 import {
   Send,
   ArrowLeft,
@@ -290,7 +291,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           <Button variant="ghost" size="icon" onClick={onClose}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <img
+          <CachedImage
             src={chat.eventImage}
             alt={chat.eventName}
             className="w-10 h-10 rounded-xl object-cover"
@@ -383,7 +384,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="relative flex-shrink-0">
-                    <img
+                    <CachedImage
                       src={member.image}
                       alt={member.name}
                       className="w-10 h-10 rounded-full object-cover"

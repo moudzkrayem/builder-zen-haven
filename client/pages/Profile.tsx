@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import StatsModal from "@/components/StatsModal";
-import OptimizedImage from "@/components/OptimizedImage";
+import CachedImage from "@/components/CachedImage";
+import { imageCache } from "@/lib/imageCache";
 import {
   Settings,
   Camera,
@@ -102,6 +103,14 @@ export default function Profile() {
           console.log('  - Location:', data.location);
           console.log('  - All fields:', Object.keys(data));
           console.log('  - Full data:', data);
+          
+          // Preload images into cache
+          if (data.photos && data.photos.length > 0) {
+            console.log('[Profile] Preloading', data.photos.length, 'photos into cache...');
+            imageCache.preloadBatch(data.photos).catch(err => 
+              console.warn('[Profile] Failed to preload some images:', err)
+            );
+          }
           
           // Update both state and localStorage with fresh data
           setProfile(data);
@@ -264,15 +273,11 @@ export default function Profile() {
                   {profilePhotos && profilePhotos.length > 0 ? (
                     profilePhotos.map((src: string, i: number) => (
                       <div key={i} className="aspect-square rounded-xl overflow-hidden bg-muted">
-                        <img 
+                        <CachedImage 
                           src={src} 
                           alt={`Photo ${i + 1}`} 
                           className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            console.error('Failed to load image:', src);
-                            e.currentTarget.src = '/placeholder.svg';
-                          }}
+                          onError={() => console.error('Failed to load image:', src)}
                         />
                       </div>
                     ))

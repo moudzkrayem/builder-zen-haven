@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import ChatModal from "@/components/ChatModal";
 import { useEvents } from "@/contexts/EventsContext";
 import { Search, MoreHorizontal, Heart, Star } from "lucide-react";
-import SafeImg from '@/components/SafeImg';
+import CachedImage from '@/components/CachedImage';
+import { imageCache } from '@/lib/imageCache';
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { normalizeStorageRefPath } from '@/lib/imageUtils';
 import { app } from '@/firebase';
@@ -50,6 +51,18 @@ export default function Chats() {
         participants: c.participants,
         eventId: c.eventId
       })));
+      
+      // Preload chat event images into cache
+      const imagesToPreload = chats
+        .map(c => c.eventImage)
+        .filter(img => img && typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')));
+      
+      if (imagesToPreload.length > 0) {
+        console.log(`[Chats] Preloading ${imagesToPreload.length} event images into cache...`);
+        imageCache.preloadBatch(imagesToPreload).catch(err =>
+          console.warn('[Chats] Failed to preload some images:', err)
+        );
+      }
     }
   }, [chats]);
 
@@ -200,7 +213,11 @@ export default function Chats() {
               className="flex-shrink-0 hover:opacity-80 transition-opacity"
             >
               <div className="relative">
-                <SafeImg src={chat.eventImage || (chat.participantProfiles && (chat.participantProfiles[0]?.imageResolved || chat.participantProfiles[0]?.image)) || ''} alt={chat.eventName} className="w-16 h-16 rounded-xl object-cover border-2 border-primary" debugContext={`Chats:carousel:${String(chat.id)}`} />
+                <CachedImage 
+                  src={chat.eventImage || (chat.participantProfiles && (chat.participantProfiles[0]?.imageResolved || chat.participantProfiles[0]?.image)) || ''} 
+                  alt={chat.eventName} 
+                  className="w-16 h-16 rounded-xl object-cover border-2 border-primary" 
+                />
                 {chat.unreadCount > 0 && (
                   <div className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-background">
                     {chat.unreadCount}
@@ -248,11 +265,10 @@ export default function Chats() {
                 {/* Avatar - Always show event image for consistency */}
                 <div className="relative flex items-center">
                   <div className="relative">
-                    <SafeImg 
+                    <CachedImage 
                       src={chat.eventImage || ''} 
                       alt={chat.eventName} 
                       className="w-14 h-14 rounded-xl object-cover" 
-                      debugContext={`Chats:list:${String(chat.id)}:event`} 
                     />
                     <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
                   </div>

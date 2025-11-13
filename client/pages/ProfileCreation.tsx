@@ -65,6 +65,7 @@ import {
 import { cn } from "@/lib/utils";
 
 // Compress an image file to a small data URL (max dimension 320px)
+// Compress image for preview (data URL)
 const readAndCompressFile = (file: File, maxDim = 320, quality = 0.7): Promise<string> => {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -94,6 +95,53 @@ const readAndCompressFile = (file: File, maxDim = 320, quality = 0.7): Promise<s
         resolve(dataUrl);
       };
       img.onerror = () => resolve(fr.result as string);
+      img.src = fr.result as string;
+    };
+    fr.readAsDataURL(file);
+  });
+};
+
+// Compress image for upload (returns smaller Blob - much faster uploads!)
+const compressImageForUpload = (file: File, maxDim = 800, quality = 0.75): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("Failed to read file"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img as HTMLImageElement;
+        
+        // Resize to max dimension
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error("Failed to get canvas context"));
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob (much smaller than original!)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to create blob"));
+          }
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
       img.src = fr.result as string;
     };
     fr.readAsDataURL(file);
@@ -294,7 +342,7 @@ const handleComplete = async () => {
     const safeProfile = { ...profileData } as typeof profileData;
     safeProfile.photos = (safeProfile.photos || []).slice(0, 6);
 
-    // Upload any original Files kept in profileFilesRef.current
+    // Upload COMPRESSED photos (much faster!)
     const storage = getStorage(app);
     const uploadedPhotos: string[] = [];
 
@@ -302,14 +350,23 @@ const handleComplete = async () => {
     // Sort by numeric index so array positions match
     entries.sort((a, b) => Number(a[0]) - Number(b[0]));
 
+    console.log(`[ProfileCreation] Uploading ${entries.length} photos...`);
+
     for (const [indexStr, file] of entries) {
       try {
+        const index = parseInt(indexStr, 10);
+        console.log(`[ProfileCreation] Photo ${index + 1}/${entries.length}: Original size ${(file.size / 1024).toFixed(1)}KB`);
+        
+        // COMPRESS IMAGE BEFORE UPLOAD - reduces file size by ~90%!
+        const compressedBlob = await compressImageForUpload(file, 800, 0.75);
+        console.log(`[ProfileCreation] Compressed to ${(compressedBlob.size / 1024).toFixed(1)}KB (${((1 - compressedBlob.size / file.size) * 100).toFixed(1)}% smaller)`);
+        
         const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
         const path = `users/${uid}/photos/${filename}`;
         const sRef = storageRef(storage, path);
 
         await new Promise<void>((resolve, reject) => {
-          const uploadTask = uploadBytesResumable(sRef, file);
+          const uploadTask = uploadBytesResumable(sRef, compressedBlob);
           uploadTask.on(
             "state_changed",
             () => {},
@@ -323,6 +380,7 @@ const handleComplete = async () => {
         try {
           const url = await getDownloadURL(sRef);
           uploadedPhotos.push(url);
+          console.log(`[ProfileCreation] Photo ${index + 1} uploaded successfully`);
         } catch (err) {
           // If we can't resolve the download URL, fall back to storing the storage path
           // (UI components still resolve storage paths on demand).

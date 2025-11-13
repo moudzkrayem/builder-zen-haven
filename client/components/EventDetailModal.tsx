@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEvents } from "@/contexts/EventsContext";
+import CachedImage from "./CachedImage";
 import {
   X,
   MapPin,
@@ -285,7 +286,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
               setShowImageViewer(true);
             }}
           >
-            <img
+            <CachedImage
               src={eventImages[currentPhotoIndex]}
               alt={event.eventName || event.name}
               className="w-full h-full object-cover"
@@ -312,7 +313,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
             {creatorData && (
               <div className="absolute top-4 left-4 flex items-center space-x-3">
                 {creatorData.photoURL ? (
-                  <img
+                  <CachedImage
                     src={creatorData.photoURL}
                     alt={creatorData.name}
                     className="w-12 h-12 rounded-full border-2 border-white object-cover"
@@ -485,7 +486,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
 
             {/* Image Display Area */}
             <div className="relative flex-1 bg-muted overflow-hidden flex items-center justify-center p-4">
-              <img
+              <CachedImage
                 src={eventImages[imageViewerIndex]}
                 alt={`${event.eventName || event.name} - Photo ${imageViewerIndex + 1}`}
                 className="max-w-full max-h-full object-contain rounded-lg"
@@ -536,7 +537,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
                           : "border-border opacity-60 hover:opacity-100 hover:border-primary/50"
                       )}
                     >
-                      <img 
+                      <CachedImage 
                         src={img} 
                         alt={`Thumbnail ${idx + 1}`} 
                         className="w-full h-full object-cover" 

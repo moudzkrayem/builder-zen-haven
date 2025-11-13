@@ -27,6 +27,53 @@ import { CATEGORIES } from '@/config/categories';
 import { PREMIUM_ENABLED } from '@/lib/featureFlags';
 import MapPicker from './MapPicker';
 
+// Compress image for upload (returns smaller Blob - much faster uploads!)
+const compressImageForUpload = (file: File, maxDim = 800, quality = 0.75): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("Failed to read file"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img as HTMLImageElement;
+        
+        // Resize to max dimension
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error("Failed to get canvas context"));
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob (much smaller than original!)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to create blob"));
+          }
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = fr.result as string;
+    };
+    fr.readAsDataURL(file);
+  });
+};
+
 interface CreateTrybeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -169,22 +216,30 @@ export default function CreateTrybeModal({
       return;
     }
 
-    // Upload photos to Firebase Storage first and get download URLs
+    // Upload photos to Firebase Storage first and get download URLs (COMPRESSED!)
     const storage = getStorage(app);
     const photosToSave: string[] = [];
+    
+    console.log(`[CreateTrybeModal] Uploading ${formData.photos?.length || 0} photos...`);
 
     for (let i = 0; i < (formData.photos || []).length; i++) {
       const p = formData.photos[i];
       try {
         if (p instanceof File) {
+          console.log(`[CreateTrybeModal] Photo ${i + 1}: Original size ${(p.size / 1024).toFixed(1)}KB`);
+          
+          // COMPRESS IMAGE BEFORE UPLOAD - reduces file size by ~90%!
+          const compressedBlob = await compressImageForUpload(p, 800, 0.75);
+          console.log(`[CreateTrybeModal] Compressed to ${(compressedBlob.size / 1024).toFixed(1)}KB (${((1 - compressedBlob.size / p.size) * 100).toFixed(1)}% smaller)`);
+          
           // Upload file to Firebase Storage
           const filename = `${Date.now()}-${i}-${p.name.replace(/\s+/g, "_")}`;
           const path = `trybePhotos/${user.uid}/${filename}`;
           const sRef = storageRef(storage, path);
 
-          // Upload the file
+          // Upload the compressed file
           await new Promise<void>((resolve, reject) => {
-            const uploadTask = uploadBytesResumable(sRef, p);
+            const uploadTask = uploadBytesResumable(sRef, compressedBlob);
             uploadTask.on(
               "state_changed",
               () => {}, // progress callback (optional)
@@ -197,6 +252,7 @@ export default function CreateTrybeModal({
           try {
             const url = await getDownloadURL(sRef);
             photosToSave.push(url);
+            console.log(`[CreateTrybeModal] Photo ${i + 1} uploaded successfully`);
           } catch (err) {
             console.error("Failed to get download URL for photo:", err);
             // Fallback to storage path if URL fetch fails

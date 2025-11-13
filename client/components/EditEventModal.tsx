@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { app } from "@/firebase";
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { auth } from "@/auth";
+import { imageCache } from "@/lib/imageCache";
 
 export interface EditEventModalProps {
   isOpen: boolean;
@@ -151,6 +152,13 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     if (JSON.stringify(photosToSave) !== JSON.stringify(event.eventImages || [])) updates.eventImages = photosToSave;
 
     console.log('EditEventModal: Saving event updates...', updates);
+    
+    // Invalidate Trybe photo cache if photos were updated
+    if (updates.eventImages && auth.currentUser) {
+      console.log('[EditEventModal] Invalidating cached Trybe photos...');
+      imageCache.invalidateTrybePhotos(auth.currentUser.uid);
+    }
+    
     onSave(updates);
     setIsSaving(false);
     onClose();

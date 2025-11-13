@@ -17,6 +17,8 @@ import { collection, getDocs } from "firebase/firestore";
 import { db, app } from "../firebase";
 import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
 import { isHttpDataOrRelative, normalizeStorageRefPath } from '@/lib/imageUtils';
+import { imageCache } from "@/lib/imageCache";
+import CachedImage from "@/components/CachedImage";
 import {
   Search,
   Filter,
@@ -597,13 +599,17 @@ export default function Home() {
         // Background resolution of storage paths (non-blocking)
         (async () => {
           const storage = getStorage(app);
+          const imagesToPreload: string[] = [];
 
           for (const doc of rawDocs) {
             const data: any = doc;
             const candidate = Array.isArray(data.photos) && data.photos.length > 0 ? data.photos[0] : data.image;
 
             if (!candidate || isHttpDataOrRelative(candidate)) {
-              // nothing to resolve
+              // If it's already an HTTP URL, cache it
+              if (candidate && (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+                imagesToPreload.push(candidate);
+              }
               continue;
             }
 
@@ -616,9 +622,18 @@ export default function Home() {
               // Patch the specific trybe in state with the resolved URL
               setFirestoreTrybes(prev => (prev || []).map((p: any) => p.id === doc.id ? { ...p, _resolvedImage: url } : p));
               console.debug('Resolved storage image for', doc.id, url);
+              imagesToPreload.push(url);
             } catch (err) {
               console.warn('Failed to resolve storage image url for', candidate, err);
             }
+          }
+
+          // Preload all images into cache for instant display on tab changes
+          if (imagesToPreload.length > 0) {
+            console.log(`[Home] Preloading ${imagesToPreload.length} Trybe images into cache...`);
+            imageCache.preloadBatch(imagesToPreload).catch(err =>
+              console.warn('[Home] Failed to preload some images:', err)
+            );
           }
         })();
       } catch (err) {
@@ -789,15 +804,12 @@ export default function Home() {
                       <div className="relative w-24 h-24">
                       {(() => {
                         const imgSrc = (trybe as any)._resolvedImage || (trybe as any).image || '';
-                        console.log(`🔍 Home: Rendering SafeImg for ${trybe.id} with src:`, imgSrc.substring(0, 100));
+                        console.log(`🔍 Home: Rendering CachedImage for ${trybe.id} with src:`, imgSrc.substring(0, 100));
                         return (
-                          <SafeImg
+                          <CachedImage
                             src={imgSrc}
                             alt={trybe.name}
                             className="w-full h-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                            debugContext={`Home:recommended:${String(trybe.id)}`}
                           />
                         );
                       })()}
@@ -975,11 +987,10 @@ export default function Home() {
                       )}
                     >
                       <div className="relative aspect-[4/3]">
-                        <SafeImg
+                        <CachedImage
                           src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
                           alt={trybe.name}
                           className="w-full h-full object-cover"
-                          debugContext={`Home:similar:${String(trybe.id)}`}
                         />
                         <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
                           <div className="flex items-center space-x-1">
@@ -1133,11 +1144,10 @@ export default function Home() {
                   )}
                 >
                   <div className="relative aspect-[4/3]">
-                    <SafeImg
+                    <CachedImage
                       src={(trybe as any)._resolvedImage || (trybe as any).image || ''}
                       alt={trybe.name}
                       className="w-full h-full object-cover"
-                      debugContext={`Home:nearby:${String(trybe.id)}`}
                     />
                     <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
                       <div className="flex items-center space-x-1">

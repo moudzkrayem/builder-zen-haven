@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Edit3, Plus, MapPin, Briefcase, GraduationCap, User, Camera, Trash2 } from "lucide-react";
+import { imageCache } from "@/lib/imageCache";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,6 +49,53 @@ const availableInterests = [
   "Nature",
   "Wellness",
 ];
+
+// Compress image for upload (returns smaller Blob - much faster uploads!)
+const compressImageForUpload = (file: File, maxDim = 800, quality = 0.75): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("Failed to read file"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img as HTMLImageElement;
+        
+        // Resize to max dimension
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error("Failed to get canvas context"));
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob (much smaller than original!)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to create blob"));
+          }
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = fr.result as string;
+    };
+    fr.readAsDataURL(file);
+  });
+};
 
 export default function EditProfileModal({ isOpen, onClose, onSave, userData }: EditProfileModalProps) {
   const { toast } = useToast();
@@ -306,17 +354,25 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
         }
       });
 
-      // Upload new photos
+      // Upload new photos (COMPRESSED!)
       const newlyUploadedPhotos: string[] = [];
-      for (const { file } of photosToUpload) {
+      console.log(`[EditProfileModal] Uploading ${photosToUpload.length} new photos...`);
+      
+      for (const { file, index } of photosToUpload) {
         try {
+          console.log(`[EditProfileModal] Photo ${index + 1}: Original size ${(file.size / 1024).toFixed(1)}KB`);
+          
+          // COMPRESS IMAGE BEFORE UPLOAD - reduces file size by ~90%!
+          const compressedBlob = await compressImageForUpload(file, 800, 0.75);
+          console.log(`[EditProfileModal] Compressed to ${(compressedBlob.size / 1024).toFixed(1)}KB (${((1 - compressedBlob.size / file.size) * 100).toFixed(1)}% smaller)`);
+          
           const filename = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
           const path = `users/${user.uid}/photos/${filename}`;
           const sRef = storageRef(storage, path);
 
-          // Upload file
+          // Upload compressed blob
           await new Promise<void>((resolve, reject) => {
-            const uploadTask = uploadBytesResumable(sRef, file);
+            const uploadTask = uploadBytesResumable(sRef, compressedBlob);
             uploadTask.on(
               "state_changed",
               () => {}, // progress
@@ -329,6 +385,7 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
           try {
             const url = await getDownloadURL(sRef);
             newlyUploadedPhotos.push(url);
+            console.log(`[EditProfileModal] Photo ${index + 1} uploaded successfully`);
           } catch (err) {
             // Fallback to storage path if URL fetch fails
             newlyUploadedPhotos.push(path);
@@ -351,6 +408,13 @@ export default function EditProfileModal({ isOpen, onClose, onSave, userData }: 
         newlyUploaded: newlyUploadedPhotos,
         final: uploadedPhotos
       });
+
+      // Invalidate cache for user photos when new ones are added
+      // This ensures the new photos are displayed immediately without stale cache
+      if (newlyUploadedPhotos.length > 0) {
+        console.log('[EditProfileModal] Invalidating cached user photos...');
+        imageCache.invalidateUserPhotos(user.uid);
+      }
 
       // Build payload
       const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
