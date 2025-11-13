@@ -516,6 +516,22 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [trybesLoaded, setTrybesLoaded] = useState<boolean>(false);
   const [joinedEvents, setJoinedEvents] = useState<Array<string | number>>([]);
   const [chats, setChats] = useState<Chat[]>([]);
+  
+  // Ensure all existing chats are subscribed to Firestore for real-time updates
+  useEffect(() => {
+    if (chats.length > 0) {
+      chats.forEach((chat) => {
+        try {
+          if (typeof subscribeToChat === 'function') {
+            subscribeToChat(chat.eventId);
+          }
+        } catch (e) {
+          console.debug('Failed to subscribe to chat:', chat.eventId, e);
+        }
+      });
+    }
+  }, [chats.length]); // Only run when number of chats changes
+  
   const [userRatings, setUserRatings] = useState<UserRating[]>([]);
   const [hostRatings, setHostRatings] = useState<HostRating[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -946,9 +962,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   const joinEvent = (eventId: string | number) => {
     const idKey = String(eventId);
-    console.debug('joinEvent: invoked', { eventId: idKey, joinedEventsBefore: joinedEvents.map(String) });
+    console.log('🎯 joinEvent: START for eventId:', idKey);
+    console.log('🎯 joinEvent: current joinedEvents:', joinedEvents.map(String));
+    console.log('🎯 joinEvent: checking if already joined...');
     if (!joinedEvents.map(String).includes(idKey)) {
-      setJoinedEvents((prev) => [...prev, eventId as any]);
+      console.log('✅ joinEvent: NOT joined yet, adding to joinedEvents');
+      setJoinedEvents((prev) => {
+        const updated = [...prev, eventId as any];
+        console.log('✅ joinEvent: updated joinedEvents:', updated.map(String));
+        return updated;
+      });
 
       // Update attendee count
       setEvents((prevEvents) =>
@@ -1004,18 +1027,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       }
 
       // Create or update group chat for the event
-      // Ensure persistent chat exists. Create the local chat immediately so UI shows it,
-      // but defer attaching the real-time listener until we've persisted the join to Firestore
-      // to avoid permission races (join -> ensure chat participant -> subscribe).
+      console.log('💬 joinEvent: calling createChatForEvent');
       createChatForEvent(eventId as any);
       // Use the consolidated join flow: ensure trybe then ensure chat participant, then subscribe.
       void (async () => {
         try {
             // joinTrybeAndSubscribe will perform the transactional trybe update and ensure chat participant
             if (typeof joinTrybeAndSubscribe === 'function') {
-              console.debug('joinEvent: calling joinTrybeAndSubscribe', { eventId: String(eventId) });
+              console.log('🔄 joinEvent: calling joinTrybeAndSubscribe for', String(eventId));
               await joinTrybeAndSubscribe(String(eventId));
-              console.debug('joinEvent: joinTrybeAndSubscribe completed', { eventId: String(eventId) });
+              console.log('✅ joinEvent: joinTrybeAndSubscribe COMPLETED for', String(eventId));
             } else {
               // Fallback to existing flow
               console.debug('joinEvent: calling persistJoin fallback', { eventId: String(eventId) });
@@ -1465,67 +1486,123 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
     const chatDocId = `trybe-${String(eventId)}`;
 
-    const newChat: Chat = {
-      id: chatDocId as any,
-      eventId: eventId,
-      eventName: event.eventName || event.name,
-      eventImage: event.image,
-      participants: event.attendees,
-      lastMessage: `Welcome to the ${event.eventName || event.name} group chat! Say hello to everyone.`,
-      time: "now",
-      unreadCount: 0,
-      // Messages will be populated by the server-side messages subcollection via subscribeToChat.
-      // Avoid seeding a local initial system message here to prevent duplication with server-published messages.
-      messages: [],
-    };
+    // Fetch fresh trybe data from Firestore to get accurate attendee count
+    (async () => {
+      try {
+        const trybeDoc = await getDoc(firestoreDoc(db, 'trybes', String(eventId)));
+        const trybeData = trybeDoc.exists() ? trybeDoc.data() : {};
+        const actualAttendees = typeof trybeData.attendees === 'number' ? trybeData.attendees : event.attendees;
+        
+        const newChat: Chat = {
+          id: chatDocId as any,
+          eventId: eventId,
+          eventName: event.eventName || event.name,
+          eventImage: event.image,
+          participants: actualAttendees,
+          lastMessage: `Welcome to the ${event.eventName || event.name} group chat! Say hello to everyone.`,
+          time: "now",
+          unreadCount: 0,
+          messages: [],
+        };
 
-    setChats((prev) => [newChat, ...prev]);
-    // Ensure we subscribe to the chat on creation so realtime messages flow in
-    try {
-      if (typeof subscribeToChat === 'function') subscribeToChat(eventId as any);
-    } catch (e) {}
+        setChats((prev) => [newChat, ...prev]);
+        // Ensure we subscribe to the chat on creation so realtime messages flow in
+        try {
+          if (typeof subscribeToChat === 'function') subscribeToChat(eventId as any);
+        } catch (e) {}
+      } catch (error) {
+        console.error('Error fetching trybe data for chat creation:', error);
+        // Fallback to event.attendees if fetch fails
+        const newChat: Chat = {
+          id: chatDocId as any,
+          eventId: eventId,
+          eventName: event.eventName || event.name,
+          eventImage: event.image,
+          participants: event.attendees,
+          lastMessage: `Welcome to the ${event.eventName || event.name} group chat! Say hello to everyone.`,
+          time: "now",
+          unreadCount: 0,
+          messages: [],
+        };
+        setChats((prev) => [newChat, ...prev]);
+        try {
+          if (typeof subscribeToChat === 'function') subscribeToChat(eventId as any);
+        } catch (e) {}
+      }
+    })();
   };
 
   // Subscribe to a Firestore-backed chat for the given event so messages sync in real-time
   // Consolidated join helper: ensure trybe attendee state and chat participant, then subscribe.
   const joinTrybeAndSubscribe = async (trybeId: string) => {
+    console.log('🔄 joinTrybeAndSubscribe: START for trybeId:', trybeId);
     try {
       // wait for auth if needed
       if (!auth.currentUser) {
+        console.log('⏳ joinTrybeAndSubscribe: waiting for auth...');
         await new Promise<void>((resolve) => {
           const unsub = onUserChanged((u) => { try { unsub(); } catch (e) {} ; resolve(); });
           setTimeout(() => resolve(), 2000);
         });
       }
       const user = auth.currentUser;
-      if (!user) throw new Error('Not signed in');
+      if (!user) {
+        console.error('❌ joinTrybeAndSubscribe: Not signed in');
+        throw new Error('Not signed in');
+      }
       const uid = user.uid;
+      console.log('✅ joinTrybeAndSubscribe: user authenticated, uid:', uid);
 
 
   const trybeRef = firestoreDoc(db, 'trybes', trybeId);
+      console.log('📝 joinTrybeAndSubscribe: trybeRef created');
 
       // 1) Transactionally ensure trybe has attendeeIds + attendees
+      console.log('🔒 joinTrybeAndSubscribe: starting transaction...');
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(trybeRef);
+        console.log('📖 joinTrybeAndSubscribe: trybe document exists?', snap.exists());
         if (!snap.exists()) {
+          console.log('➕ joinTrybeAndSubscribe: creating new trybe document');
           tx.set(trybeRef, { createdBy: uid, attendees: 1, attendeeIds: [uid] });
         } else {
           const data = snap.data() || {};
+          console.log('📊 joinTrybeAndSubscribe: current attendeeIds:', data.attendeeIds);
+          console.log('📊 joinTrybeAndSubscribe: current attendees count:', data.attendees);
           if (!Array.isArray(data.attendeeIds) || !data.attendeeIds.includes(uid)) {
+            console.log('➕ joinTrybeAndSubscribe: adding user to attendeeIds');
             tx.update(trybeRef, {
               attendeeIds: arrayUnion(uid),
               attendees: increment(1),
             } as any);
+          } else {
+            console.log('⏭️ joinTrybeAndSubscribe: user already in attendeeIds');
           }
         }
       });
+      console.log('✅ joinTrybeAndSubscribe: transaction COMPLETED');
 
-      // 2) (no separate chat document in new model) Attach the local onSnapshot listener so UI updates
+      // 2) Update user's joinedEvents array so it persists after refresh
+      console.log('📝 joinTrybeAndSubscribe: updating user joinedEvents...');
+      try {
+        const userRef = firestoreDoc(db, 'users', uid);
+        await updateDoc(userRef, {
+          joinedEvents: arrayUnion(trybeId)
+        });
+        console.log('✅ joinTrybeAndSubscribe: user joinedEvents updated');
+      } catch (err) {
+        console.error('❌ joinTrybeAndSubscribe: failed to update user joinedEvents', err);
+        // Don't throw - this is not critical, the user is still in the trybe's attendeeIds
+      }
+
+      // 3) Attach the local onSnapshot listener so UI updates
       if (typeof subscribeToChat === 'function') {
+        console.log('🔔 joinTrybeAndSubscribe: calling subscribeToChat');
         subscribeToChat(trybeId);
+        console.log('✅ joinTrybeAndSubscribe: subscribeToChat called');
       }
     } catch (err) {
-      console.debug('joinTrybeAndSubscribe: failed', err);
+      console.error('❌ joinTrybeAndSubscribe: FAILED', err);
       throw err;
     }
   };
@@ -1533,12 +1610,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const subscribeToChat = async (eventId: string | number) => {
     try {
       const idKey = String(eventId);
-      console.debug('subscribeToChat: start for', idKey, 'auth.uid=', auth.currentUser?.uid);
+      console.log('🔔 subscribeToChat: START for eventId:', idKey, 'auth.uid=', auth.currentUser?.uid);
       if (!idKey || idKey === 'NaN' || idKey === 'undefined') {
-        console.debug('subscribeToChat: invalid eventId', eventId);
+        console.error('❌ subscribeToChat: invalid eventId', eventId);
         return;
       }
   const trybeRef = firestoreDoc(db, 'trybes', idKey);
+  console.log('🔔 subscribeToChat: trybeRef created for', idKey);
   // Wait for auth to resolve if necessary. This avoids races where auth.currentUser is undefined
       // and causes permission-denied when attempting to create/update chat documents.
       let currentUid = auth.currentUser?.uid;
@@ -1639,8 +1717,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         }
 
   // If a listener is already registered, skip
-  if (chatListenersRef.current[`trybe-${idKey}`]) return;
+  if (chatListenersRef.current[`trybe-${idKey}`]) {
+    console.log('⏭️ subscribeToChat: listener already exists for', idKey);
+    return;
+  }
 
+  console.log('✅ subscribeToChat: creating new listener for', idKey);
   // Listen for messages subcollection in order (parent-anchored under trybes)
   const msgsQuery = query(collection(db, 'trybes', idKey, 'messages'), orderBy('createdAt'));
 
@@ -1654,14 +1736,21 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   setEvents((prev) => prev.map((e) => String(e.id) === String(idKey) ? { ...e, attendees: typeof td.attendees === 'number' ? td.attendees : e.attendees, attendeeIds: Array.isArray(td.attendeeIds) ? td.attendeeIds : (e as any).attendeeIds } : e));
 
       // Update local chat participant count and lastMessage where applicable
-      setChats((prev) => prev.map((c) => {
-        if (String(c.eventId) !== String(eventId)) return c;
-        return {
-          ...c,
-          participants: typeof td.attendees === 'number' ? td.attendees : c.participants,
-          lastMessage: td.lastMessage || c.lastMessage,
-        };
-      }));
+      console.log('📊 metaUnsub: Updating chats with td.attendees=', td.attendees, 'for eventId:', eventId);
+      setChats((prev) => {
+        const updated = prev.map((c) => {
+          if (String(c.eventId) !== String(eventId)) return c;
+          const updatedParticipants = typeof td.attendees === 'number' ? td.attendees : c.participants;
+          console.log(`📊 Updating chat ${c.eventId} participants from ${c.participants} to ${updatedParticipants}`);
+          return {
+            ...c,
+            participants: updatedParticipants,
+            lastMessage: td.lastMessage || c.lastMessage,
+          };
+        });
+        console.log('📊 Updated chats:', updated.map(c => ({ id: c.id, participants: c.participants })));
+        return updated;
+      });
 
       // Fetch attendee profiles (best-effort, limit to first 20 to avoid heavy reads)
       try {

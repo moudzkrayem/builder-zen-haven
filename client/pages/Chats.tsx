@@ -15,15 +15,55 @@ import { cn } from "@/lib/utils";
 // Mock chat data
 
 export default function Chats() {
-  const { chats, markChatAsRead, markAllChatsAsRead } = useEvents();
+  const { chats, markChatAsRead, markAllChatsAsRead, events } = useEvents();
   const [searchQuery, setSearchQuery] = useState("");
   const [showChatModal, setShowChatModal] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | number | null>(null);
   const [showOptions, setShowOptions] = useState(false);
 
+  // Helper function to get actual member count from event data
+  const getMemberCount = (chat: any) => {
+    const event = events.find(e => String(e.id) === String(chat.eventId));
+    if (event) {
+      // Prefer attendeeIds.length if available, otherwise use attendees count
+      if (Array.isArray((event as any).attendeeIds)) {
+        return (event as any).attendeeIds.length;
+      }
+      if (typeof event.attendees === 'number') {
+        return event.attendees;
+      }
+    }
+    // Fallback to chat.participants if event not found or no attendee data
+    return chat.participants || 0;
+  };
+
   const filteredChats = chats.filter((chat) =>
     chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // Debug logging for participant count
+  useEffect(() => {
+    if (chats.length > 0) {
+      console.log('Chats data:', chats.map(c => ({
+        id: c.id,
+        eventName: c.eventName,
+        participants: c.participants,
+        eventId: c.eventId
+      })));
+    }
+  }, [chats]);
+
+  // Debug logging for events
+  useEffect(() => {
+    if (events.length > 0) {
+      console.log('Events loaded:', events.map(e => ({
+        id: e.id,
+        name: e.eventName || e.name,
+        attendees: e.attendees,
+        attendeeIds: (e as any).attendeeIds
+      })));
+    }
+  }, [events]);
 
   const [resolvedProfileImages, setResolvedProfileImages] = useState<Record<string, string>>({});
 
@@ -205,29 +245,17 @@ export default function Chats() {
                 onClick={() => handleOpenChat(chat.id)}
                 className="w-full flex items-center space-x-3 px-4 py-4 hover:bg-accent/50 transition-colors text-left"
               >
-                {/* Avatar or stacked participant images */}
+                {/* Avatar - Always show event image for consistency */}
                 <div className="relative flex items-center">
-                      {chat.participantProfiles && chat.participantProfiles.length > 0 ? (
-                    <div className="flex -space-x-2">
-                      {chat.participantProfiles.slice(0, 3).map((p, i) => (
-                        <SafeImg
-                          key={p.id}
-                          src={
-                            (resolvedProfileImages[String(p.id)] || resolvedProfileImages[p.id] || (p as any).imageResolved || (p as any).image) as string | undefined
-                            || ''
-                          }
-                          alt={p.name}
-                          className={`w-10 h-10 rounded-full object-cover border-2 border-background`}
-                          debugContext={`Chats:list:${String(chat.id)}:${p.id}`}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <SafeImg src={chat.eventImage || ''} alt={chat.eventName} className="w-14 h-14 rounded-xl object-cover" debugContext={`Chats:list:${String(chat.id)}:event`} />
-                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
-                    </div>
-                  )}
+                  <div className="relative">
+                    <SafeImg 
+                      src={chat.eventImage || ''} 
+                      alt={chat.eventName} 
+                      className="w-14 h-14 rounded-xl object-cover" 
+                      debugContext={`Chats:list:${String(chat.id)}:event`} 
+                    />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
+                  </div>
                 </div>
 
                 {/* Chat info */}
@@ -262,7 +290,7 @@ export default function Chats() {
                       {chat.lastMessage}
                     </p>
                       <span className="text-xs text-muted-foreground ml-2">
-                        {chat.participantProfiles && chat.participantProfiles.length ? chat.participantProfiles.length : chat.participants} members
+                        {getMemberCount(chat)} members
                       </span>
                   </div>
                 </div>

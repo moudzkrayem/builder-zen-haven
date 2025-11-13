@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { db } from "@/firebase";
+import { doc as firestoreDoc, getDoc } from "firebase/firestore";
+import { auth } from "@/auth";
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -51,53 +54,152 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
   const chat = chats.find((c) => c.id === chatId);
   const event = chat ? events.find(e => e.id === chat.eventId) : null;
 
-  // Generate group members based on the event's actual attendees and joined users
-  const groupMembers = React.useMemo(() => {
-    if (!event) return [];
+  // State for fetched member profiles from Firestore
+  const [groupMembers, setGroupMembers] = useState<Array<{
+    id: string;
+    name: string;
+    image: string;
+    status: string;
+    isHost: boolean;
+    isCurrentUser: boolean;
+  }>>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
-    const members = [
-      // Event host
-      {
-        id: `host-${event.id}`,
-        name: event.hostName || event.host || "Event Host",
-        image: event.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-        status: "online",
-        isHost: true,
-        isCurrentUser: false,
-      },
-      // Current user (if joined)
-      ...(joinedEvents.includes(event.id) ? [{
-        id: "current-user",
-        name: "You",
-        image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-        status: "online",
-        isHost: false,
-        isCurrentUser: true,
-      }] : []),
-      // Other mock attendees based on event capacity
-      ...Array.from({ length: Math.min(event.attendees - (joinedEvents.includes(event.id) ? 2 : 1), 6) }, (_, index) => {
-        const mockUsers = [
-          { name: "Sarah Chen", image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop" },
-          { name: "Mike Johnson", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" },
-          { name: "Alex Rivera", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop" },
-          { name: "Emma Davis", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop" },
-          { name: "James Wilson", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-          { name: "Lisa Garcia", image: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop" },
-        ];
-        const user = mockUsers[index % mockUsers.length];
-        return {
-          id: `attendee-${index}`,
-          name: user.name,
-          image: user.image,
-          status: Math.random() > 0.3 ? "online" : "offline",
-          isHost: false,
-          isCurrentUser: false,
-        };
-      }),
-    ];
+  // Fetch real member data from Firestore based on event's attendeeIds
+  useEffect(() => {
+    if (!event || !isOpen) {
+      setGroupMembers([]);
+      return;
+    }
 
-    return members;
-  }, [event, joinedEvents, chat?.participantProfiles]);
+    const fetchMembers = async () => {
+      setLoadingMembers(true);
+      
+      try {
+        const attendeeIds = (event as any).attendeeIds || [];
+        const currentUser = auth.currentUser;
+        const hostId = (event as any).createdBy || (event as any).host;
+        
+        const fetchedMembers: Array<{
+          id: string;
+          name: string;
+          image: string;
+          status: string;
+          isHost: boolean;
+          isCurrentUser: boolean;
+        }> = [];
+        
+        // Fetch each attendee's profile
+        for (const userId of attendeeIds) {
+          try {
+            const isCurrentUser = currentUser && currentUser.uid === userId;
+            const isHost = userId === hostId;
+            
+            if (isCurrentUser) {
+              // Fetch current user's profile from Firestore to get actual photo
+              let photoURL = '';
+              let userName = 'You';
+              
+              try {
+                const userDoc = await getDoc(firestoreDoc(db, 'users', userId));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  photoURL = userData.photoURL 
+                    || userData.profileImage 
+                    || (userData.photos && userData.photos.length > 0 ? userData.photos[0] : '')
+                    || '';
+                }
+              } catch (e) {
+                console.log('ChatModal: Failed to fetch current user from Firestore', e);
+              }
+              
+              // Fallback to localStorage if Firestore didn't have it
+              if (!photoURL) {
+                try {
+                  const userProfile = localStorage.getItem('userProfile');
+                  if (userProfile) {
+                    const profile = JSON.parse(userProfile);
+                    photoURL = profile.photoURL || (profile.photos && profile.photos[0]) || '';
+                  }
+                } catch (e) {
+                  console.log('ChatModal: Failed to parse userProfile from localStorage');
+                }
+              }
+              
+              // Final fallback to Firebase Auth
+              if (!photoURL && currentUser.photoURL) {
+                photoURL = currentUser.photoURL;
+              }
+              
+              fetchedMembers.push({
+                id: userId,
+                name: userName,
+                image: photoURL || 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
+                status: 'online',
+                isHost,
+                isCurrentUser: true,
+              });
+            } else {
+              // Fetch from Firestore
+              const userDoc = await getDoc(firestoreDoc(db, 'users', userId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const name = userData.displayName 
+                  || userData.name 
+                  || (userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : '')
+                  || userData.firstName
+                  || userData.lastName
+                  || 'Unknown User';
+                
+                const photoURL = userData.photoURL 
+                  || userData.profileImage 
+                  || (userData.photos && userData.photos.length > 0 ? userData.photos[0] : '')
+                  || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop';
+                
+                fetchedMembers.push({
+                  id: userId,
+                  name,
+                  image: photoURL,
+                  status: 'offline',
+                  isHost,
+                  isCurrentUser: false,
+                });
+              } else {
+                // User document not found - add placeholder
+                fetchedMembers.push({
+                  id: userId,
+                  name: 'Unknown User',
+                  image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+                  status: 'offline',
+                  isHost,
+                  isCurrentUser: false,
+                });
+              }
+            }
+          } catch (err) {
+            console.error('ChatModal: Error fetching user', userId, err);
+          }
+        }
+        
+        // Sort: host first, then current user, then others
+        fetchedMembers.sort((a, b) => {
+          if (a.isHost && !b.isHost) return -1;
+          if (!a.isHost && b.isHost) return 1;
+          if (a.isCurrentUser && !b.isCurrentUser) return -1;
+          if (!a.isCurrentUser && b.isCurrentUser) return 1;
+          return 0;
+        });
+        
+        setGroupMembers(fetchedMembers);
+      } catch (err) {
+        console.error('ChatModal: Error fetching members:', err);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchMembers();
+  }, [event?.id, isOpen]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -120,9 +222,35 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
     }
   };
 
-  const handleViewProfile = (member: any) => {
-    setSelectedMember(member);
-    setShowProfileModal(true);
+  const handleViewProfile = async (member: any) => {
+    try {
+      // Fetch full user profile from Firestore
+      const userDoc = await getDoc(firestoreDoc(db, 'users', member.id));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log('Fetched user profile data:', userData);
+        console.log('Interests from Firestore:', userData.interests);
+        // Merge basic member info with full Firestore profile data
+        const mergedProfile = {
+          ...member,
+          ...userData,
+          id: member.id, // Ensure ID is preserved
+          name: member.name, // Preserve the display name we already have
+        };
+        console.log('Merged profile for modal:', mergedProfile);
+        setSelectedMember(mergedProfile);
+      } else {
+        console.log('User document does not exist for:', member.id);
+        // Fallback to basic member info if user document doesn't exist
+        setSelectedMember(member);
+      }
+      setShowProfileModal(true);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      // Fallback to basic member info on error
+      setSelectedMember(member);
+      setShowProfileModal(true);
+    }
   };
 
   const handleSendMessage = () => {
@@ -227,7 +355,7 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold flex items-center">
               <Users className="w-4 h-4 mr-2" />
-              Group Members ({groupMembers.length})
+              Group Members ({loadingMembers ? '...' : groupMembers.length})
             </h4>
             <Button
               variant="ghost"
@@ -239,7 +367,16 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
             </Button>
           </div>
           <div className="max-h-64 overflow-y-auto space-y-2">
-            {groupMembers.map((member) => (
+            {loadingMembers ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Loading members...
+              </div>
+            ) : groupMembers.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground">
+                No members found
+              </div>
+            ) : (
+              groupMembers.map((member) => (
               <div
                 key={member.id}
                 className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:bg-accent/50 transition-colors"
@@ -281,18 +418,8 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                       const canChat = canSendMessage(member.id, event?.id || 0);
 
                       if (member.isHost) {
-                        // Host can always be messaged
-                        return (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleStartPrivateChat(member)}
-                            className="h-8 w-8 p-0"
-                            title="Message Host"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </Button>
-                        );
+                        // Host - no chat icon needed
+                        return null;
                       }
 
                       if (canChat) {
@@ -380,7 +507,8 @@ export default function ChatModal({ isOpen, onClose, chatId }: ChatModalProps) {
                   </Badge>
                 )}
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}

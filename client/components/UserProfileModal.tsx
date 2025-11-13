@@ -22,35 +22,43 @@ export default function UserProfileModal({
 
   if (!isOpen || !user) return null;
 
-  // Build a profile object that prefers real user fields (from Firestore) and falls back
-  // to lightweight defaults only when a field is missing. This avoids overwriting
-  // authoritative user data with static mock values.
+  // Build a profile object from real user data fetched from Firestore
+  console.log('UserProfileModal received user prop:', user);
+  
+  // Combine interests from thingsYouDoGreat and thingsYouWantToTry (same as Profile page)
+  const combinedInterests: string[] = [
+    ...(user?.thingsYouDoGreat || []),
+    ...(user?.thingsYouWantToTry || []),
+  ];
+  
   const userProfile = {
     ...user,
-    age: user?.age ?? 28,
-  // Only set profession when user provided it; do not use a static placeholder.
-  profession: user?.profession ?? user?.jobTitle ?? undefined,
-    education: user?.education ?? user?.school ?? "UC Berkeley",
-    location: user?.location ?? user?.city ?? "San Francisco, CA",
-    bio:
-      user?.bio ??
-      "Love exploring new places and meeting creative minds. Always up for a good conversation about design, travel, or life! ✨",
-    interests: Array.isArray(user?.interests) && user.interests.length > 0
+    name: user?.displayName || user?.name || user?.firstName || 'User',
+    age: user?.age || user?.birthDate ? new Date().getFullYear() - new Date(user.birthDate).getFullYear() : undefined,
+    profession: user?.profession || user?.jobTitle || user?.work,
+    education: user?.education || user?.school || user?.university,
+    location: user?.location || user?.city || (user?.address ? `${user.address.city}, ${user.address.state}` : undefined),
+    bio: user?.bio || user?.about || user?.description,
+    interests: combinedInterests.length > 0
+      ? combinedInterests
+      : Array.isArray(user?.interests) && user.interests.length > 0
       ? user.interests
-      : ["Design", "Coffee", "Travel", "Photography", "Hiking", "Art"],
-    photos:
-      Array.isArray(user?.photos) && user.photos.length > 0
-        ? user.photos
-        : [user?.image].filter(Boolean).concat([
-            "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop",
-            "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop",
-          ]),
+      : Array.isArray(user?.hobbies) && user.hobbies.length > 0
+      ? user.hobbies
+      : [],
+    photos: Array.isArray(user?.photos) && user.photos.length > 0
+      ? user.photos
+      : [user?.image, user?.photoURL, user?.profileImage].filter(Boolean),
     stats: {
-      eventsAttended: user?.stats?.eventsAttended ?? user?.eventsAttended ?? 23,
-      connections: user?.stats?.connections ?? user?.connections ?? 89,
-      rating: user?.stats?.rating ?? user?.rating ?? 4.8,
+      eventsAttended: user?.stats?.eventsAttended ?? user?.eventsAttended ?? 0,
+      connections: user?.stats?.connections ?? user?.connections ?? 0,
+      rating: user?.stats?.rating ?? user?.rating ?? 0,
     },
+    isHost: user?.isHost,
   };
+  
+  console.log('UserProfileModal computed userProfile:', userProfile);
+  console.log('UserProfileModal interests:', userProfile.interests);
 
   // Adaptive bottom padding: measure the app's fixed bottom nav (if present)
   // and add a small gap so the modal content always clears it on small screens.
@@ -165,10 +173,12 @@ export default function UserProfileModal({
                       <span className="text-sm">{userProfile.profession}</span>
                     </div>
                   )}
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">{userProfile.location}</span>
-                  </div>
+                  {userProfile.location && (
+                    <div className="flex items-center space-x-1">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm">{userProfile.location}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               {userProfile.isHost && (
@@ -178,54 +188,62 @@ export default function UserProfileModal({
               )}
             </div>
 
-            <div className="flex items-center space-x-1 mb-3">
-              <GraduationCap className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {userProfile.education}
-              </span>
-            </div>
+            {userProfile.education && (
+              <div className="flex items-center space-x-1 mb-3">
+                <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {userProfile.education}
+                </span>
+              </div>
+            )}
 
-            <p className="text-foreground leading-relaxed text-sm">
-              {userProfile.bio}
-            </p>
+            {userProfile.bio && (
+              <p className="text-foreground leading-relaxed text-sm">
+                {userProfile.bio}
+              </p>
+            )}
           </div>
 
           {/* Stats removed per design: events, connections, rating are hidden for chat participant profiles */}
 
           {/* Photos */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-3">Photos</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {userProfile.photos.map((photo, index) => (
-                <div
-                  key={index}
-                  className="aspect-square rounded-xl overflow-hidden"
-                >
-                  <img
-                    src={photo}
-                    alt={`Photo ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+          {userProfile.photos && userProfile.photos.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold mb-3">Photos</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {userProfile.photos.map((photo, index) => (
+                  <div
+                    key={index}
+                    className="aspect-square rounded-xl overflow-hidden"
+                  >
+                    <img
+                      src={photo}
+                      alt={`Photo ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Interests */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-3">Interests</h3>
-            <div className="flex flex-wrap gap-2">
-              {userProfile.interests.map((interest, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="px-3 py-1 rounded-full text-sm"
-                >
-                  {interest}
-                </Badge>
-              ))}
+          {userProfile.interests && userProfile.interests.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold mb-3">Interests</h3>
+              <div className="flex flex-wrap gap-2">
+                {userProfile.interests.map((interest, index) => (
+                  <Badge
+                    key={index}
+                    variant="secondary"
+                    className="px-3 py-1 rounded-full text-sm"
+                  >
+                    {interest}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer spacer removed: actions (Connect / Message) intentionally omitted for chat participant profiles.
