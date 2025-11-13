@@ -577,7 +577,7 @@ export default function CreateTrybeModal({
             <Label htmlFor="time">Time *</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
+              <Input
                 id="time"
                 type="datetime-local"
                 value={formData.time}
@@ -585,8 +585,8 @@ export default function CreateTrybeModal({
                   setFormData({ ...formData, time: e.target.value })
                 }
                 required
-                  className="pl-10 rounded-xl h-10 bg-transparent placeholder:text-muted-foreground appearance-none text-sm create-trybe-datetime"
-                  style={{ WebkitAppearance: 'none', MozAppearance: 'textfield', WebkitTextFillColor: 'inherit', backgroundColor: 'transparent' }}
+                className="pl-10 rounded-xl h-10 bg-transparent placeholder:text-muted-foreground appearance-none text-sm create-trybe-datetime"
+                style={{ WebkitAppearance: 'none', MozAppearance: 'textfield', WebkitTextFillColor: 'inherit', backgroundColor: 'transparent' }}
               />
             </div>
           </div>

@@ -6,6 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { X, MapPin, Calendar, Users, DollarSign, Crown, Upload, Camera, Clock } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { app } from "@/firebase";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { auth } from "@/auth";
 
 export interface EditEventModalProps {
   isOpen: boolean;
@@ -29,7 +32,19 @@ export interface EditEventModalProps {
 }
 
 export default function EditEventModal({ isOpen, onClose, event, onSave }: EditEventModalProps) {
-  const [form, setForm] = useState(() => ({
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<{
+    eventName: string;
+    location: string;
+    time: string;
+    duration: string;
+    maxCapacity: number;
+    fee: string;
+    description: string;
+    isPremium: boolean;
+    photos: (string | File)[];
+    ageRange: [number, number];
+  }>(() => ({
     eventName: event?.eventName || event?.name || "",
     location: event?.location || "",
     time: event?.time || "",
@@ -62,8 +77,65 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
   // Early return AFTER all hooks
   if (!isOpen || !event) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('EditEventModal: Form submitted');
+    setIsSaving(true);
+    
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to edit an event");
+      setIsSaving(false);
+      return;
+    }
+
+    console.log('EditEventModal: Starting photo upload process...');
+    // Upload new photos to Firebase Storage
+    const storage = getStorage(app);
+    const photosToSave: string[] = [];
+
+    for (let i = 0; i < form.photos.length; i++) {
+      const p = form.photos[i];
+      try {
+        // If it's a File object (newly uploaded), upload to Firebase Storage
+        if (p instanceof File) {
+          console.log(`EditEventModal: Uploading photo ${i + 1}/${form.photos.length}...`);
+          const filename = `${Date.now()}-${i}-${p.name.replace(/\s+/g, "_")}`;
+          const path = `trybePhotos/${user.uid}/${filename}`;
+          const sRef = storageRef(storage, path);
+
+          // Upload the file
+          await new Promise<void>((resolve, reject) => {
+            const uploadTask = uploadBytesResumable(sRef, p);
+            uploadTask.on(
+              "state_changed",
+              (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                console.log(`Upload ${i + 1} progress: ${progress.toFixed(0)}%`);
+              },
+              (err) => reject(err),
+              () => resolve()
+            );
+          });
+
+          // Get the download URL
+          const url = await getDownloadURL(sRef);
+          console.log(`EditEventModal: Photo ${i + 1} uploaded successfully`);
+          photosToSave.push(url);
+        } else if (typeof p === 'string') {
+          // If it's already a URL (existing photo), keep it
+          photosToSave.push(p);
+        }
+      } catch (err) {
+        console.error('Photo upload failed:', err);
+        alert(`Failed to upload photo ${i + 1}: ${(err as any)?.message || 'Unknown error'}`);
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    console.log('EditEventModal: All photos processed. Building updates...');
     const updates: any = {};
     if (form.eventName && form.eventName !== (event.eventName || event.name)) updates.eventName = form.eventName;
     if (form.location && form.location !== event.location) updates.location = form.location;
@@ -75,34 +147,31 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
     if (Boolean(form.isPremium) !== Boolean(event.isPremium)) updates.isPremium = form.isPremium;
   // repeatOption removed — no-op
     if (form.ageRange && JSON.stringify(form.ageRange) !== JSON.stringify(event.ageRange || [18,65])) updates.ageRange = form.ageRange;
-    if (form.photos && JSON.stringify(form.photos) !== JSON.stringify(event.eventImages || [])) updates.eventImages = form.photos;
+    // Use the uploaded photo URLs
+    if (JSON.stringify(photosToSave) !== JSON.stringify(event.eventImages || [])) updates.eventImages = photosToSave;
 
+    console.log('EditEventModal: Saving event updates...', updates);
     onSave(updates);
+    setIsSaving(false);
     onClose();
   };
 
   const setPhotoFiles = (files: File[]) => {
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const url = ev.target?.result as string;
-        setForm((f: any) => ({ ...f, photos: [...(f.photos || []), url] }));
-      };
-      reader.readAsDataURL(file);
-    });
+    // Store File objects directly instead of base64 data URLs
+    setForm((f) => ({ ...f, photos: [...f.photos, ...files] }));
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-2xl font-bold">Edit Trybe</h2>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 py-20 md:py-4">
+      <div className="bg-card rounded-3xl w-full max-w-lg h-full md:max-h-[85vh] overflow-y-auto flex flex-col">
+        <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-border">
+          <h2 className="text-xl md:text-2xl font-bold">Edit Trybe</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -242,18 +311,23 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
             <Label>Event Photos</Label>
             {form.photos.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mb-3">
-                {form.photos.map((photo: string, index: number) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
-                    <img src={photo} alt={`Event photo ${index + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setForm((f: any) => ({ ...f, photos: f.photos.filter((_: any, i: number) => i !== index) }))}
-                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+                {form.photos.map((photo: string | File, index: number) => {
+                  // Create preview URL for File objects
+                  const photoUrl = photo instanceof File ? URL.createObjectURL(photo) : photo;
+                  
+                  return (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
+                      <img src={photoUrl} alt={`Event photo ${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== index) }))}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
             <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-6 text-center">
@@ -278,31 +352,12 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/20">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Crown className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Trybe Premium</h3>
-                <p className="text-xs text-muted-foreground">Exclusive event for verified members</p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.isPremium}
-                onChange={(e) => setForm((f) => ({ ...f, isPremium: e.target.checked }))}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-
-          <div className="flex space-x-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1 rounded-xl">Cancel</Button>
-            <Button type="submit" className={cn("flex-1 rounded-xl", form.isPremium && "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90")}>
-              Save Changes
+          <div className="flex-shrink-0 flex space-x-3 pt-2 pb-2 sticky bottom-0 bg-card border-t border-border -mx-4 md:-mx-6 px-4 md:px-6 py-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 rounded-xl">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving} className="flex-1 rounded-xl">
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>

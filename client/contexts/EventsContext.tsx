@@ -829,6 +829,29 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateEvent = (eventId: string | number, updates: Partial<Event>, notify: boolean) => {
+    // Save to Firestore first
+    (async () => {
+      try {
+        const trybeRef = firestoreDoc(db, 'trybes', String(eventId));
+        const firestoreUpdates: any = { ...updates };
+        
+        // Map client field names to Firestore field names
+        if (updates.eventName) {
+          firestoreUpdates.name = updates.eventName;
+        }
+        if (updates.eventImages && updates.eventImages.length > 0) {
+          firestoreUpdates.photos = updates.eventImages;
+          firestoreUpdates.image = updates.eventImages[0];
+        }
+        
+        await updateDoc(trybeRef, firestoreUpdates);
+        console.log('✅ Event updated in Firestore:', eventId, firestoreUpdates);
+      } catch (err) {
+        console.error('❌ Failed to update event in Firestore:', err);
+        alert('Failed to save changes. Please try again.');
+      }
+    })();
+
     setEvents(prev => {
       const prevEvent = prev.find(e => e.id === eventId);
       if (!prevEvent) return prev;
