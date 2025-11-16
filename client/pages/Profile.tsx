@@ -64,10 +64,6 @@ export default function Profile() {
             setProfile(cachedProfile);
             loadedFromCache = true;
             setIsLoadingProfile(false);
-            console.log('✅ Profile loaded from localStorage');
-            console.log('  - Name:', cachedProfile.firstName, cachedProfile.lastName);
-            console.log('  - Photos:', cachedProfile.photos?.length || 0);
-            console.log('  - Location:', cachedProfile.location);
           } catch (err) {
             console.error('Failed to parse cached profile:', err);
           }
@@ -87,26 +83,16 @@ export default function Profile() {
           return;
         }
         
-        console.log('🔄 Fetching profile from Firestore for user:', user.uid);
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         
         if (!mounted) return;
 
         if (userDoc.exists()) {
           const data = userDoc.data();
-          console.log('✅ Profile loaded from Firestore');
-          console.log('  - firstName:', data.firstName);
-          console.log('  - lastName:', data.lastName);
-          console.log('  - displayName:', data.displayName);
-          console.log('  - name:', data.name);
-          console.log('  - Photos:', data.photos?.length || 0, data.photos);
-          console.log('  - Location:', data.location);
-          console.log('  - All fields:', Object.keys(data));
-          console.log('  - Full data:', data);
           
-          // Preload images into cache
+          // Preload images into cache (only if they're not already cached)
           if (data.photos && data.photos.length > 0) {
-            console.log('[Profile] Preloading', data.photos.length, 'photos into cache...');
+            // This will automatically skip already-cached images
             imageCache.preloadBatch(data.photos).catch(err => 
               console.warn('[Profile] Failed to preload some images:', err)
             );
@@ -159,17 +145,23 @@ export default function Profile() {
   const profileName = profile 
     ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.displayName || profile.name || auth.currentUser?.displayName || "User"
     : "";
-  let profilePhotos: string[] = profile?.photos || [];
   
-  if (!profilePhotos.length) {
+  // Memoize profilePhotos to prevent unnecessary re-renders
+  const profilePhotos: string[] = React.useMemo(() => {
+    if (profile?.photos && profile.photos.length > 0) {
+      return profile.photos;
+    }
     try {
-      profilePhotos = JSON.parse(sessionStorage.getItem('userProfilePhotos') || '[]');
-    } catch { profilePhotos = []; }
-  }
-  const profileInterests: string[] = [
+      return JSON.parse(sessionStorage.getItem('userProfilePhotos') || '[]');
+    } catch {
+      return [];
+    }
+  }, [profile?.photos]);
+  
+  const profileInterests: string[] = React.useMemo(() => [
     ...(profile?.thingsYouDoGreat || []),
     ...(profile?.thingsYouWantToTry || []),
-  ];
+  ], [profile?.thingsYouDoGreat, profile?.thingsYouWantToTry]);
 
   // Helper to determine whether an event is expired (based on time/date fields)
   const isExpired = (event: any) => {

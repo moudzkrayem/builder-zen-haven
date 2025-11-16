@@ -81,11 +81,8 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
       return;
     }
 
-    console.log('EventDetailModal: Event data:', event);
-
     const createdBy = (event as any).createdBy;
     if (!createdBy) {
-      console.log('EventDetailModal: No createdBy field for event', eventId, 'trying createdByImage/createdByName from event');
       // Fallback to event's embedded creator data if available
       const fallbackName = (event as any).createdByName || (event as any).hostName || event.host || 'Unknown Host';
       const fallbackImage = (event as any).createdByImage || (event as any).hostImage || '';
@@ -99,12 +96,9 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
     // Fetch creator profile from Firestore
     (async () => {
       try {
-        console.log('EventDetailModal: Fetching user data for createdBy:', createdBy);
-        
         // Check if creator is the current user - use their cached data first
         const currentUser = (await import('@/auth')).auth.currentUser;
         if (currentUser && currentUser.uid === createdBy) {
-          console.log('EventDetailModal: Creator is current user, using cached profile');
           // Keep name as "You" but get the photo
           const name = 'You';
           let photoURL = '';
@@ -116,7 +110,7 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
               photoURL = profile.photoURL || (profile.photos && profile.photos[0]) || '';
             }
           } catch (e) {
-            console.log('EventDetailModal: Failed to parse userProfile from localStorage');
+            // Failed to parse localStorage
           }
           
           // Fallback to Firebase Auth photo
@@ -125,7 +119,6 @@ export default function EventDetailModal({ isOpen, onClose, eventId }: EventDeta
           }
           
           setCreatorData({ name, photoURL });
-          console.log('EventDetailModal: Using current user data:', { name, photoURL });
           return;
         }
         

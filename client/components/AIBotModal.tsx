@@ -611,8 +611,6 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
               attendeeIds: uid ? [uid] : [],
               createdBy: uid || null,
               createdAt: new Date().toISOString(),
-              createdByName: undefined,
-              createdByImage: undefined,
             };
 
             // Try to read current user's profile for name/image
@@ -623,8 +621,12 @@ export default function AIBotModal({ isOpen, onClose, onEventClick }: AIBotModal
                 const ud = await getDoc(firestoreDoc(db, 'users', uid));
                 if (ud.exists()) {
                   const udata: any = ud.data();
-                  trybeDataToSave.createdByName = udata.displayName || udata.firstName || udata.name || undefined;
-                  trybeDataToSave.createdByImage = udata.photoURL || udata.avatar || undefined;
+                  const createdByName = udata.displayName || udata.firstName || udata.name;
+                  const createdByImage = udata.photoURL || udata.avatar || (Array.isArray(udata.photos) && udata.photos.length > 0 ? udata.photos[0] : null);
+                  
+                  // Only set these fields if they have actual values (not undefined)
+                  if (createdByName) trybeDataToSave.createdByName = createdByName;
+                  if (createdByImage) trybeDataToSave.createdByImage = createdByImage;
                 }
               }
             } catch (err) { /* ignore */ }

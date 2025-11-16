@@ -60,25 +60,20 @@ export default function ScheduleModal({
         const promises = toResolve.map(async (item) => {
           if (!item.src) return { id: item.id, url: undefined };
           try {
-            // Log the candidate so user can paste visible console output
-            console.log('ScheduleModal: candidate', item.id, item.src);
             if (isHttpDataOrRelative(item.src as any)) {
-              console.log('ScheduleModal: treating as http/data/relative, skipping storage resolve for', item.id);
               return { id: item.id, url: item.src };
             }
 
             const path = normalizeStorageRefPath(String(item.src));
             try {
-              console.log('ScheduleModal: attempting getDownloadURL for', item.id, path);
               const url = await getDownloadURL(storageRef(storage, path));
-              console.log('ScheduleModal: getDownloadURL success for', item.id, url);
               return { id: item.id, url };
             } catch (err) {
-              console.log('ScheduleModal: failed to resolve image for', item.id, err);
+              console.warn('ScheduleModal: failed to resolve image for', item.id, err);
               return { id: item.id, url: undefined };
             }
           } catch (err) {
-            console.log('ScheduleModal: internal error resolving candidate for', item.id, err);
+            console.warn('ScheduleModal: internal error resolving candidate for', item.id, err);
             return { id: item.id, url: undefined };
           }
         });
@@ -94,13 +89,10 @@ export default function ScheduleModal({
         }
         // Merge into state once to reduce re-renders
         if (Object.keys(next).length > 0) {
-          console.log('ScheduleModal: resolved images', next);
           setResolvedImages(prev => ({ ...prev, ...next }));
-        } else {
-          console.log('ScheduleModal: no resolved images found for joined events', toResolve.map(t => t.id));
         }
       } catch (err) {
-        console.log('ScheduleModal: unexpected error resolving images', err);
+        console.warn('ScheduleModal: unexpected error resolving images', err);
       }
     })();
     return () => { mounted = false; };
@@ -321,56 +313,30 @@ export default function ScheduleModal({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                  <div className="flex items-center justify-end mt-4 pt-4 border-t border-border">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Pass id through as-is (string or number). Consumer will normalize.
-                        console.log('ScheduleModal: Chat clicked for', String(event.id));
-                        onOpenChat?.(event.id as any, event.hostName || event.host || "Host");
+                        console.log('ScheduleModal: Cancel clicked for', String(event.id));
+                        handleCancelEvent(event.id as any);
                       }}
-                      className="flex items-center space-x-2"
+                      disabled={cancellingEvent === event.id}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Chat with Host</span>
+                      {cancellingEvent === event.id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1" />
+                          Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Cancel
+                        </>
+                      )}
                     </Button>
-
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                        aria-label="Keep spot"
-                      >
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('ScheduleModal: Cancel clicked for', String(event.id));
-                          handleCancelEvent(event.id as any);
-                        }}
-                        disabled={cancellingEvent === event.id}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        {cancellingEvent === event.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-1" />
-                            Cancelling...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Cancel
-                          </>
-                        )}
-                      </Button>
-                    </div>
                   </div>
                 </div>
               ))}

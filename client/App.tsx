@@ -113,7 +113,6 @@ function mountApp() {
 onUserChanged((user) => {
   // expose for quick debugging in development
   try { (window as any)._currentUser = user || null; } catch (e) {}
-  console.log('[auth] state changed ->', user ? user.uid : 'not-signed-in');
   mountApp();
 });
 

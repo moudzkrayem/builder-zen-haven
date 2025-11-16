@@ -42,41 +42,20 @@ export default function Chats() {
     chat.eventName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Debug logging for participant count
+  // Preload chat event images into cache
   useEffect(() => {
     if (chats.length > 0) {
-      console.log('Chats data:', chats.map(c => ({
-        id: c.id,
-        eventName: c.eventName,
-        participants: c.participants,
-        eventId: c.eventId
-      })));
-      
-      // Preload chat event images into cache
       const imagesToPreload = chats
         .map(c => c.eventImage)
         .filter(img => img && typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')));
       
       if (imagesToPreload.length > 0) {
-        console.log(`[Chats] Preloading ${imagesToPreload.length} event images into cache...`);
         imageCache.preloadBatch(imagesToPreload).catch(err =>
           console.warn('[Chats] Failed to preload some images:', err)
         );
       }
     }
   }, [chats]);
-
-  // Debug logging for events
-  useEffect(() => {
-    if (events.length > 0) {
-      console.log('Events loaded:', events.map(e => ({
-        id: e.id,
-        name: e.eventName || e.name,
-        attendees: e.attendees,
-        attendeeIds: (e as any).attendeeIds
-      })));
-    }
-  }, [events]);
 
   const [resolvedProfileImages, setResolvedProfileImages] = useState<Record<string, string>>({});
 
@@ -155,33 +134,27 @@ export default function Chats() {
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => setShowOptions(!showOptions)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions(!showOptions);
+              }}
             >
               <MoreHorizontal className="w-5 h-5" />
             </Button>
             
             {showOptions && (
               <div
-                onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 top-full mt-2 z-50 w-48 bg-card rounded-lg shadow-lg border border-border p-2"
               >
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     markAllChatsAsRead();
                     setShowOptions(false);
                   }}
                   className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm flex items-center"
                 >
                   <span>Mark all as read</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm flex items-center"
-                >
-                  <span>Clear search</span>
                 </button>
               </div>
             )}

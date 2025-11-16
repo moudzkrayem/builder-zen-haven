@@ -29,12 +29,10 @@ class ImageCache {
     // Check memory cache first
     const cached = this.memoryCache.get(url);
     if (cached && this.isValid(cached)) {
-      console.log('[ImageCache] Hit (memory):', url.substring(0, 50) + '...');
       return cached.objectUrl || url;
     }
 
-    // Not cached or expired
-    console.log('[ImageCache] Miss:', url.substring(0, 50) + '...');
+    // Not cached or expired - cache it now
     this.cache(url);
     return url;
   }
@@ -69,6 +67,7 @@ class ImageCache {
    */
   async preload(url: string): Promise<void> {
     if (!url || this.memoryCache.has(url)) {
+      // Already cached, skip
       return;
     }
 
@@ -76,7 +75,6 @@ class ImageCache {
       const img = new Image();
       img.onload = () => {
         this.cache(url);
-        console.log('[ImageCache] Preloaded:', url.substring(0, 50) + '...');
         resolve();
       };
       img.onerror = () => {
@@ -92,8 +90,6 @@ class ImageCache {
    */
   async preloadBatch(urls: string[]): Promise<void> {
     const validUrls = urls.filter(url => url && !url.startsWith('data:') && !url.startsWith('blob:'));
-    console.log(`[ImageCache] Preloading ${validUrls.length} images...`);
-    
     await Promise.allSettled(validUrls.map(url => this.preload(url)));
   }
 
@@ -117,7 +113,6 @@ class ImageCache {
             this.memoryCache.set(url, cached);
           }
         });
-        console.log(`[ImageCache] Loaded ${this.memoryCache.size} images from localStorage`);
       }
     } catch (err) {
       console.warn('[ImageCache] Failed to load from localStorage:', err);

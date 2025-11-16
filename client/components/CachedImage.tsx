@@ -1,4 +1,4 @@
-import { useState, useEffect, ImgHTMLAttributes } from 'react';
+import React, { useState, useEffect, useRef, ImgHTMLAttributes } from 'react';
 import { imageCache } from '@/lib/imageCache';
 
 interface CachedImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
@@ -10,9 +10,10 @@ interface CachedImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'sr
 
 /**
  * Optimized image component with built-in caching
- * Images are cached in memory and localStorage to prevent re-downloading
+ * Uses browser cache + our custom cache to prevent re-downloading
+ * Memoized to prevent unnecessary re-renders
  */
-export default function CachedImage({ 
+const CachedImage = React.memo(function CachedImage({ 
   src, 
   fallback = '/placeholder.svg',
   onLoad,
@@ -21,43 +22,36 @@ export default function CachedImage({
   alt = '',
   ...props 
 }: CachedImageProps) {
-  const [imageSrc, setImageSrc] = useState<string>(src);
+  const [imageSrc, setImageSrc] = useState<string>(src || fallback);
   const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const previousSrc = useRef<string>(src);
 
   useEffect(() => {
-    if (!src) {
-      setImageSrc(fallback);
-      setIsLoading(false);
+    // Only update if src actually changed
+    if (!src || src === previousSrc.current) {
       return;
     }
 
-    // Get cached or original URL
-    const cachedUrl = imageCache.get(src);
-    setImageSrc(cachedUrl);
+    previousSrc.current = src;
     setHasError(false);
-    setIsLoading(true);
 
-    // Preload the image
-    const img = new Image();
-    img.onload = () => {
+    // Get from cache (returns cached or original)
+    const cachedSrc = imageCache.get(src);
+    setImageSrc(cachedSrc);
+
+  }, [src]);
+
+  const handleLoad = () => {
+    if (src) {
       imageCache.cache(src);
-      setIsLoading(false);
-      onLoad?.();
-    };
-    img.onerror = () => {
-      console.error('[CachedImage] Failed to load:', src);
-      setImageSrc(fallback);
-      setHasError(true);
-      setIsLoading(false);
-      onError?.();
-    };
-    img.src = cachedUrl;
-  }, [src, fallback, onLoad, onError]);
+    }
+    onLoad?.();
+  };
 
   const handleError = () => {
     if (!hasError) {
-      console.error('[CachedImage] Image load error:', imageSrc);
+      console.error('[CachedImage] Image load error:', src);
       setImageSrc(fallback);
       setHasError(true);
       onError?.();
@@ -66,12 +60,17 @@ export default function CachedImage({
 
   return (
     <img
+      ref={imgRef}
       src={imageSrc}
       alt={alt}
       className={className}
+      onLoad={handleLoad}
       onError={handleError}
       loading="lazy"
+      decoding="async"
       {...props}
     />
   );
-}
+});
+
+export default CachedImage;

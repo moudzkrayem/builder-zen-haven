@@ -171,7 +171,8 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 py-20 md:py-4">
-      <div className="bg-card rounded-3xl w-full max-w-lg h-full md:max-h-[85vh] overflow-y-auto flex flex-col">
+      <div className="bg-card rounded-3xl w-full max-w-lg h-full md:max-h-[85vh] flex flex-col">
+        {/* Fixed Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-border">
           <h2 className="text-xl md:text-2xl font-bold">Edit Trybe</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -179,7 +180,9 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
+        {/* Scrollable Form Content */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -187,20 +190,20 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
               value={form.eventName}
               onChange={(e) => setForm((f) => ({ ...f, eventName: e.target.value }))}
               required
-              className="rounded-xl"
+              className="rounded-xl h-10 text-sm"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="location"
                 value={form.location}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 required
-                className="pl-10 rounded-xl"
+                className="pl-10 rounded-xl h-10 text-sm"
               />
             </div>
           </div>
@@ -208,13 +211,13 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
           <div className="space-y-2">
             <Label htmlFor="time">Date & Time</Label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="time"
                 type="datetime-local"
                 value={form.time}
                 onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                className="pl-10 rounded-xl"
+                className="pl-10 rounded-xl h-10 text-sm"
               />
             </div>
             {!event.time && (
@@ -224,10 +227,8 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
 
           <div className="space-y-2">
             <Label htmlFor="duration">Event Duration</Label>
-            <div className="flex items-center">
-              <div className="pl-3 pr-3">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-              </div>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
               <select
                 id="duration"
                 value={form.duration}
@@ -236,7 +237,7 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
                   console.debug('[EditEventModal] duration selected', v);
                   setForm((f) => ({ ...f, duration: v }));
                 }}
-                className="flex-1 pl-4 pr-4 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2 h-10 leading-none rounded-xl border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none"
               >
                 <option value="" disabled>Select duration</option>
                 <option value="0.5">30 minutes</option>
@@ -250,36 +251,48 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
                 <option value="12">12 hours</option>
                 <option value="24">All day</option>
               </select>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="capacity">Capacity</Label>
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="capacity"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={form.maxCapacity}
-                  onChange={(e) => setForm((f) => ({ ...f, maxCapacity: parseInt(e.target.value || '1', 10) }))}
-                  className="pl-10 rounded-xl"
-                />
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="capacity">Capacity</Label>
+            <div className="relative">
+              <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="capacity"
+                type="number"
+                min={1}
+                max={100}
+                value={form.maxCapacity}
+                onChange={(e) => setForm((f) => ({ ...f, maxCapacity: parseInt(e.target.value || '1', 10) }))}
+                className="pl-10 rounded-xl h-10 text-sm"
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="fee">Fee</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="fee"
-                  value={form.fee}
-                  onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))}
-                  className="pl-10 rounded-xl"
-                />
-              </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fee">Fee</Label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="fee"
+                value={form.fee}
+                onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))}
+                placeholder="Free, $10, $25, etc."
+                className="pl-10 rounded-xl h-10 text-sm"
+              />
             </div>
           </div>
 
@@ -289,10 +302,13 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
               id="description"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="rounded-xl min-h-[100px] resize-none"
+              placeholder="Tell people what to expect at your event..."
+              className="rounded-xl min-h-[100px] resize-none text-sm"
               maxLength={500}
             />
-            <div className="text-xs text-muted-foreground text-right">{form.description.length}/500</div>
+            <div className="text-xs text-muted-foreground text-right">
+              {form.description.length}/500 characters
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -300,7 +316,7 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Who can join this event</span>
-                <span className="font-semibold">{form.ageRange[0]} - {form.ageRange[1]} years</span>
+                <span className="font-semibold text-sm">{form.ageRange[0]} - {form.ageRange[1]} years</span>
               </div>
               <Slider
                 value={form.ageRange as [number, number]}
@@ -359,8 +375,10 @@ export default function EditEventModal({ isOpen, onClose, event, onSave }: EditE
               </Button>
             </div>
           </div>
+          </div>
 
-          <div className="flex-shrink-0 flex space-x-3 pt-2 pb-2 sticky bottom-0 bg-card border-t border-border -mx-4 md:-mx-6 px-4 md:px-6 py-4">
+          {/* Fixed Footer Buttons */}
+          <div className="flex-shrink-0 flex space-x-3 p-4 md:p-6 border-t border-border bg-card">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 rounded-xl">
               Cancel
             </Button>

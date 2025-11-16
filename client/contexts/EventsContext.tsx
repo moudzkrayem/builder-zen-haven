@@ -810,13 +810,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         const q = collection(db, 'trybes');
         const snap = await getDocs(q);
         const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        console.log('🔍 Fetched trybes from Firestore:', rawDocs.length);
-        console.log('🔍 Sample trybe data:', rawDocs[0]);
         if (Array.isArray(rawDocs) && rawDocs.length > 0) {
           // Add raw docs into provider (normalized) so UI can render quickly
           const normalized = rawDocs.map((d: any) => normalizeEvent(d));
-          console.log('🔍 Normalized events:', normalized.length);
-          console.log('🔍 Sample normalized event:', normalized[0]);
           setEvents(normalized);
 
           // Attempt to resolve any storage references to download URLs and patch provider state
@@ -1610,13 +1606,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const subscribeToChat = async (eventId: string | number) => {
     try {
       const idKey = String(eventId);
-      console.log('🔔 subscribeToChat: START for eventId:', idKey, 'auth.uid=', auth.currentUser?.uid);
       if (!idKey || idKey === 'NaN' || idKey === 'undefined') {
         console.error('❌ subscribeToChat: invalid eventId', eventId);
         return;
       }
   const trybeRef = firestoreDoc(db, 'trybes', idKey);
-  console.log('🔔 subscribeToChat: trybeRef created for', idKey);
   // Wait for auth to resolve if necessary. This avoids races where auth.currentUser is undefined
       // and causes permission-denied when attempting to create/update chat documents.
       let currentUid = auth.currentUser?.uid;
@@ -1669,21 +1663,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Diagnostic: log auth state and token fingerprint immediately before attempting read
-      try {
-        const diagUser = auth.currentUser;
-        console.log('[DIAG] before chat read - currentUser:', diagUser ? diagUser.uid : null);
-        if (diagUser) {
-          diagUser.getIdToken(/* forceRefresh= */ true).then((token: string) => {
-            console.log('[DIAG] idToken length:', token ? token.length : 0);
-            try { console.log('[DIAG] idToken head:', token.substring(0, 40)); } catch (e) {}
-          }).catch((e: any) => console.error('[DIAG] getIdToken failed', e));
-        } else {
-          console.warn('[DIAG] user is null; read will 403');
-        }
-      } catch (e) {
-        console.debug('subscribeToChat: diag getIdToken unexpected error', e);
-      }
+
 
       // read parent trybe doc for metadata; no separate chat doc exists in the new model
       let chatMeta: any = {};
@@ -1718,11 +1698,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   // If a listener is already registered, skip
   if (chatListenersRef.current[`trybe-${idKey}`]) {
-    console.log('⏭️ subscribeToChat: listener already exists for', idKey);
     return;
   }
-
-  console.log('✅ subscribeToChat: creating new listener for', idKey);
   // Listen for messages subcollection in order (parent-anchored under trybes)
   const msgsQuery = query(collection(db, 'trybes', idKey, 'messages'), orderBy('createdAt'));
 
@@ -1736,19 +1713,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   setEvents((prev) => prev.map((e) => String(e.id) === String(idKey) ? { ...e, attendees: typeof td.attendees === 'number' ? td.attendees : e.attendees, attendeeIds: Array.isArray(td.attendeeIds) ? td.attendeeIds : (e as any).attendeeIds } : e));
 
       // Update local chat participant count and lastMessage where applicable
-      console.log('📊 metaUnsub: Updating chats with td.attendees=', td.attendees, 'for eventId:', eventId);
       setChats((prev) => {
         const updated = prev.map((c) => {
           if (String(c.eventId) !== String(eventId)) return c;
           const updatedParticipants = typeof td.attendees === 'number' ? td.attendees : c.participants;
-          console.log(`📊 Updating chat ${c.eventId} participants from ${c.participants} to ${updatedParticipants}`);
           return {
             ...c,
             participants: updatedParticipants,
             lastMessage: td.lastMessage || c.lastMessage,
           };
         });
-        console.log('📊 Updated chats:', updated.map(c => ({ id: c.id, participants: c.participants })));
         return updated;
       });
 
